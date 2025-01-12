@@ -1,0 +1,243 @@
+.getInsertsPos <- function(atacFrag, motifData, stranded, shiftLeft){
+
+  if(stranded){
+    specColsMotif <- c("motif_center", "start",
+                       "end", "motif_id", "motif_match_id", "strand")}
+  else{
+    specColsMotif <- c("motif_center", "start",
+                       "end", "motif_id", "motif_match_id")}
+
+  if(stranded) specColsFrag <- c("sample", "strand") else specColsFrag <- c("sample")
+
+  # convert to granges for faster overlapping
+  motifMarginRanges <- .dtToGr(motifData, startCol="start_margin",
+                              endCol="end_margin", seqCol="chr",
+                              stranded=stranded)
+  atacStartRanges <- .dtToGr(atacFrag, startCol="start", endCol="start",
+                            seqCol="chr", stranded=stranded)
+  atacEndRanges <- .dtToGr(atacFrag, startCol="end", endCol="end",
+                          seqCol="chr", stranded=stranded)
+
+  startHits <- findOverlaps(atacStartRanges, motifMarginRanges,
+                            type="within", ignore.strand=TRUE) # check if type within faster or slower
+  endHits <- findOverlaps(atacEndRanges, motifMarginRanges,
+                          type="within", ignore.strand=TRUE)
+
+  # get overlapping insertion sites
+  atacStartInserts <- atacFrag[queryHits(startHits),
+                               c(specColsFrag, "start"), with=FALSE]
+  atacEndInserts <- atacFrag[queryHits(endHits),
+                             c(specColsFrag, "end"), with=FALSE]
+  setnames(atacStartInserts, "start", "insert")
+  if(stranded) setnames(atacStartInserts, "strand", "strand_insert")
+  setnames(atacEndInserts, "end", "insert")
+  if(stranded) setnames(atacEndInserts, "strand", "strand_insert")
+
+  ai <- cbind(rbindlist(list(atacStartInserts, atacEndInserts)),
+              motifData[c(subjectHits(startHits),
+                          subjectHits(endHits)), specColsMotif, with=FALSE])
+
+  # count insertions around motif
+  ai[,rel_pos:=insert-motif_center]
+  ai[,type:=fifelse(insert>=start & insert<=end, 1,0)]
+  ai[,ml:=end-start+1, by=motif_id] # motif length
+
+  if(stranded){
+    # take strandedness of fragment into account
+    if(nrow(ai)>0){
+      if(data.table::first(ai$ml) %% 2!=0){
+        ai[,rel_pos:=fifelse(strand_insert=="-", -1*rel_pos, rel_pos)]
+      }
+      else{
+        aiMotif <- subset(ai, type==1)
+        if(shiftLeft){
+          ai[,rel_pos:=fifelse(strand_insert=="-", -1*rel_pos-1, rel_pos)]
+          ai[,rel_pos:=fifelse(strand=="-", -1*rel_pos-1, rel_pos)]
+        }
+        else{
+          ai[,rel_pos:=fifelse(strand_insert=="-", -1*rel_pos+1, rel_pos)]
+          ai[,rel_pos:=fifelse(strand=="-", -1*rel_pos+1, rel_pos)]
+        }
+      }}
+  }
+
+  return(ai)
+}
+
+#'@import data.table
+#'@export
+getInsertionProfiles <- function(atacData,
+                                 motifRanges,
+                                 margin=200,
+                                 shift=FALSE,
+                                 calcProfile=TRUE,
+                                 profiles=NULL,
+                                 symmetric=FALSE,
+                                 stranded=FALSE){
+
+  # prep motif data
+  motifData <- as.data.table(motifRanges)
+  if(!("motif_id" %in% colnames(motifData))){
+    message("Assuming all ranges are of the same type")
+    motifData[,motif_id:=1L]
+  }
+
+  if(margin>0){
+    motifMarginRanges <- as.data.table(resize(motifRanges,
+                                              width=2*margin,
+                                              fix="center"))
+  }
+  else{
+    motifMarginRanges <- as.data.table(motifRanges)
+  }
+  setnames(motifMarginRanges, c("start", "end"), c("start_margin", "end_margin"))
+  motifData <- cbind(motifData, motifMarginRanges[,c("start_margin", "end_margin"), with=FALSE])
+
+  # prep ATAC fragment data
+  if(is.data.table(atacData)) atacData <- list(atacData)
+  atacFrag <- lapply(atacData, .processData, shift=shift)
+  atacFrag <- rbindlist(atacFrag, idcol="sample")
+
+  if(!("sample" %in% colnames(atacFrag))){
+    message("Assuming all ATAC fragments originate from the same sample")
+    atacFrag[,sample:=1L]
+  }
+
+  setnames(motifData, "seqnames", "chr")
+  commonChr <- intersect(unique(motifData$chr),unique(atacFrag$chr))
+  chrLevels <- commonChr
+
+  atacFrag <- subset(atacFrag, chr %in% chrLevels)
+  motifData <- subset(motifData, chr %in% chrLevels)
+
+  motifLevels <- unique(motifData$motif_id)
+
+  # convert to factors (memory usage)
+  motifData[,chr:=as.integer(factor(chr, levels=chrLevels, ordered=TRUE))]
+  motifData[,motif_id:=factor(motif_id, levels=motifLevels, ordered=TRUE)]
+
+  # determine motif center
+  motifData[,motif_center:=floor((end-start)/2)+start]
+
+  motifData[,end_margin:=fifelse(end_margin-motif_center<margin,end_margin+1,end_margin)]
+  motifData[,start_margin:=fifelse(start_margin-motif_center>-margin,start_margin-1,start_margin)]
+
+  distEnd <- motifData$end[1] - motifData$motif_center[1]
+  distStart <- motifData$motif_center[1] - motifData$start[1]
+  if(distStart>distEnd){
+    shiftLeft <- TRUE}
+  else{
+    shiftLeft <- FALSE
+  }
+
+  atacFrag[,chr:=as.integer(factor(chr, levels=chrLevels, ordered=TRUE))]
+  medZero <- function(x, len){ median(c(rep(0,max(0,len-length(x))),x)) }
+  nSamples <- length(unique(atacFrag$sample))
+
+  setorder(motifData, chr)
+  setorder(atacFrag, chr)
+  motifData[,motif_match_id:=1:nrow(motifData)]
+
+  motifData <- split(motifData, by="chr")
+  atacFrag <- split(atacFrag, by="chr")
+
+  if(calcProfile){
+    atacProfiles <- mapply(function(md, af, stranded, shiftLeft){
+      atacInserts <- .getInsertsPos(af, md, stranded, shiftLeft)
+      atacProfile <- atacInserts[,.(pos_count_global=.N),
+                                 by=.(ml, rel_pos, sample, motif_id, type)]
+      return(atacProfile)
+    }, motifData, atacFrag, MoreArgs=list(stranded=stranded,
+                                          shiftLeft=shiftLeft), SIMPLIFY=FALSE)
+    atacProfiles <- rbindlist(atacProfiles, idcol="seqnames")
+
+    atacProfiles <- atacProfiles[,.(pos_count_global=sum(pos_count_global)),
+                                 by=.(rel_pos, motif_id, type, ml)]
+    # get inserts within motif
+    atacProfilesMotif <- subset(atacProfiles, type==1)
+    atacProfilesMotif[,med_pos_count_global:=medZero(pos_count_global,
+                                                     data.table::first(ml)),
+                      by=.(motif_id)]
+    atacProfilesMotif <- atacProfilesMotif[,
+   .(pos_count_global=(pos_count_global+data.table::first(med_pos_count_global))/2),
+                                           by=.(rel_pos, motif_id, type)]
+
+    atacProfilesMargin <- subset(atacProfiles, type==0)
+
+    # fill non covered positions
+    atacProfiles <- rbind(atacProfilesMargin, atacProfilesMotif, fill=TRUE)
+    allPos <- data.table(expand.grid(motifLevels, seq(-margin,margin)))
+    #allPos <- merge(allPos, motifLengths, by="motif_id")
+
+    colnames(allPos) <- c("motif_id", "rel_pos")
+    allPos$motif_id <- factor(allPos$motif_id, levels=motifLevels, ordered=TRUE)
+    allPos$pos_count_global <- 0
+
+    colsProfile <- c("rel_pos", "motif_id", "pos_count_global") #type
+    atacProfiles[,rel_pos:=as.integer(rel_pos)]
+
+    atacProfiles <- rbind(atacProfiles[, colsProfile, with=FALSE],
+                          allPos[!atacProfiles, on=c("rel_pos", "motif_id")])
+
+    # calculate weights
+    setorder(atacProfiles, motif_id, rel_pos)
+    atacProfiles[,w:=smooth(pos_count_global, twiceit=TRUE), by=motif_id]
+    if(symmetric) atacProfiles[,w:=rev(w)+w, by=motif_id]
+    atacProfiles[,w:=length(w)*w/sum(w), by=motif_id]
+  }
+  else{
+    atacProfiles <- profiles
+  }
+  # get match scores
+  motifScores <- mapply(function(md,af,
+                                 stranded,
+                                 profiles,
+                                 shiftLeft){
+
+    atacInserts <- .getInsertsPos(af, md, stranded, shiftLeft)
+
+    if(!is.null(profiles)){
+      atacInserts <- atacInserts[,.(pos_count=.N),
+                                 by=.(motif_match_id, motif_id, sample, rel_pos, type)]
+      atacInserts <- merge(atacInserts,
+                           atacProfiles[, c("rel_pos", "motif_id", "w"),with=FALSE],
+                           by.x=c("motif_id","rel_pos"),
+                           by.y=c("motif_id","rel_pos"), all.x=TRUE, all.y=FALSE)
+      atacInserts[,score:=w*pos_count]
+      atacInsertSum <- atacInserts[,.(score=sum(score),
+                                      tot_count=sum(pos_count)),
+                                   by=.(motif_match_id, motif_id, sample, type)]
+    }
+    else{
+      atacInsertSum <- atacInserts[,.(tot_count=.N),
+                                   by=.(motif_match_id, motif_id, sample, type)]
+    }
+    return(atacInsertSum)
+  }, motifData, atacFrag,
+  MoreArgs=list(stranded=stranded,
+                profiles=atacProfiles,
+                shiftLeft=shiftLeft),
+  SIMPLIFY=FALSE)
+
+  motifScores <- rbindlist(motifScores)
+
+  #if(libNorm)
+  #{
+  #  motifScores[,tot_lib_count:=sum(tot_count), by=.(sample)]
+  #  motifScores[,score:=as.numeric(score)/tot_lib_count]
+  #  motifScores[,norm_count:=tot_count/tot_lib_count]
+  #}
+
+  motifData <- rbindlist(motifData)
+  motifData[,chr:=chrLevels[chr]]
+  motifScores <- cbind(motifScores,
+                       motifData[motifScores$motif_match_id,
+                                 c("start", "end", "chr"), with=FALSE])
+
+  if("tot_count" %in% colnames(motifScores)){
+  setnames(motifScores, c("tot_count"), c("insert_counts"))}
+  if("score" %in% colnames(motifScores)){
+    setnames(motifScores, c("score"), c("weighted_insert_counts"))}
+
+  return(list(motifScores=motifScores, profile=atacProfiles))
+}
