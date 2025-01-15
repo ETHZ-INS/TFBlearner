@@ -21,7 +21,7 @@ siteFeatures(
 \item{aggregationFun}{Aggregation function for aggregating genomic scores overlapping the rowRanges of the provided MultiAssayExperiment object.}
 
 \item{annoData}{Further data to be aggregated across the rowRanges of the provided MultiAssayExperiment object.
-List of paths pointing to .bed / .bam files or data.frames / \link[data.table:data.table]{data.table::data.table} or \link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges} containing chr, start and end columns and score columns.}
+Named list of paths pointing to .bed / .bam files or data.frames / \link[data.table:data.table]{data.table::data.table} or \link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges} containing chr, start and end columns and score columns.}
 
 \item{scoreCols}{Column names of the scores of annoData to be aggregated. Needs to be same length as annoData.
 If of length one, it is assumed that score columns of all list elements have the same name.}

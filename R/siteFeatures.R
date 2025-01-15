@@ -28,11 +28,11 @@
 #' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC- and ChIP-seq data.
 #' @param aggregationFun Aggregation function for aggregating genomic scores overlapping the rowRanges of the provided MultiAssayExperiment object.
 #' @param annoData Further data to be aggregated across the rowRanges of the provided MultiAssayExperiment object.
-#'  List of paths pointing to .bed / .bam files or data.frames / [data.table::data.table] or [GenomicRanges::GRanges-class] containing chr, start and end columns and score columns.
+#'  Named list of paths pointing to .bed / .bam files or data.frames / [data.table::data.table] or [GenomicRanges::GRanges-class] containing chr, start and end columns and score columns.
 #' @param scoreCols Column names of the scores of annoData to be aggregated. Needs to be same length as annoData.
 #' If of length one, it is assumed that score columns of all list elements have the same name.
 #' @param features Names of features to be added. Can be all or some of "Sequence", "Width", "Annot".
-#' Features are stored in the assays of the added experiment.
+#' Features are stored in the assays of the added experiment. See [TFBlearner::listFeatures] for an overview of the features.
 #' @param phast phastCons conservation scores to be used.
 #' @param genome [BSgenome::BSgenome-class] to be used.
 #' @param ... Arguments to be passed to [TFBlearner::genomicRangesMapping] for aggregation of annoData.

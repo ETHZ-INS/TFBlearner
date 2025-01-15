@@ -12,6 +12,7 @@
 #' @param whichCol Should features be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
 #' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
 #' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "Cofactor_Inserts".
+#' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param annoCol Name of column indicating cellular contexts in colData.
 #' @param insertionProfile Pre-computed insertion footprint profile for the specified transcription factor.
 #' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
