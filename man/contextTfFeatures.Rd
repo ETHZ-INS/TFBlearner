@@ -32,7 +32,10 @@ site-specific features as obtained by \code{\link[=siteFeatures]{siteFeatures()}
 \item{whichCol}{Should features be calculated for all cellular contexts (\code{"All"}), only the training data (\code{"OnlyTrain"})
 or only for some specific cellular contexts (\code{"Col"}) specified in \code{colSel}.}
 
-\item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "Cofactor_Inserts".}
+\item{colSel}{If \code{whichCol="colSel"}, name of the cellular context to compute the features for.}
+
+\item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "Cofactor_Inserts".
+See \link{listFeatures} for an overview of the features.}
 
 \item{annoCol}{Name of column indicating cellular contexts in colData.}
 

@@ -14,7 +14,7 @@
 #' Not done yet
 #'
 #' @name predictTfBindingBagged
-#' @param models List of tree-based gradient boosting [ligthgbm] models as obtained by [TFBlearner::trainBagged]
+#' @param models List of tree-based gradient boosting [lightgbm::lightgbm] models as obtained by [TFBlearner::trainBagged]
 #' @param featMat Feature matrix as obtained by [TFBlearner::getFeatureMatrix] for prediction.
 #' @param isLabelled Does the feature matrix contain a label column
 #' @param chunk If predictions should be performed on chunks of the data to lower the memory footprint (chunk-size: 1e5)

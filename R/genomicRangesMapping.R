@@ -32,9 +32,6 @@ genomicRangesMapping <- function(refRanges,
                                  assayTable,
                                  byCols=c("tf_name",
                                           "cellular_context"),
-                                 seqNamesCol="chr",
-                                 startCol="start",
-                                 endCol="end",
                                  scoreCol=NULL,
                                  aggregationFun=NULL,
                                  minoverlap=1,
@@ -44,6 +41,10 @@ genomicRangesMapping <- function(refRanges,
   # TODO: - add warning for integer overflows - data.table size
   assayTable <- .processData(copy(assayTable), readAll=TRUE, shift=shift,
                              seqLevelStyle=seqlevelsStyle(refRanges))
+
+  seqNamesCol <- "chr"
+  startCol <- "start"
+  endCol <- "end"
 
   if(sum(!(byCols %in% colnames(assayTable)))>0 | is.null(byCols)){
     stop("byCols needed to be provided and column names of assayTable.")

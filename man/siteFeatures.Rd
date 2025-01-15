@@ -27,7 +27,7 @@ Named list of paths pointing to .bed / .bam files or data.frames / \link[data.ta
 If of length one, it is assumed that score columns of all list elements have the same name.}
 
 \item{features}{Names of features to be added. Can be all or some of "Sequence", "Width", "Annot".
-Features are stored in the assays of the added experiment.}
+Features are stored in the assays of the added experiment. See \link{listFeatures} for an overview of the features.}
 
 \item{phast}{phastCons conservation scores to be used.}
 

@@ -357,6 +357,8 @@
 #' @importFrom TFBSTools PFMatrixList PWMatrixList
 #' @importFrom MotifDb MotifDb
 #' @importFrom RcppML nmf
+#' @importFrom preprocessCore normalize.quantiles
+#' @importFrom Hmisc cut2
 #' @export
 tfFeatures <- function(mae,
                        tfName,

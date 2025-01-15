@@ -11,6 +11,7 @@
 #' @param addLabels Should ChIP-seq peak labels be added to the features
 #' @param whichCol Should features be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
 #' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
+#' @param colSel If `whichCol="colSel"`, name of the cellular context to compute the features for.
 #' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "Cofactor_Inserts".
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param annoCol Name of column indicating cellular contexts in colData.

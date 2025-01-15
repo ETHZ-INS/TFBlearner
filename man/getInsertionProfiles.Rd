@@ -26,12 +26,14 @@ If it contains a column named "sample" insertion counts and profiles will be com
 
 \item{shift}{If Tn5 insertion bias should be considered (only if strand column is provided).}
 
-\item{calcProfile}{If Insertion footprint profiles should be computed.}
+\item{calcProfile}{If insertion footprint profiles should be computed.}
 
 \item{profiles}{Pre-computed insertion footprint profile to compute weighted insertion counts in case \code{calcProfile=FALSE}.
 Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").}
 
 \item{symmetric}{If transcription factor footprint profiles should be symmetric around the motif matches. Only used if \code{calcProfile=TRUE}.}
+
+\item{stranded}{If insertion footprint profiles should be computed strand-specific.}
 }
 \value{
 \link[data.table:data.table]{data.table::data.table} containing insertion counts within and in margins around motif matches and weighted insertion counts in case

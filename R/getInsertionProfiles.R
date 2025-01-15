@@ -76,10 +76,11 @@
 #' @param motifRanges [GenomicRanges::GRanges-class] object containing coordinates of motif-matches.
 #' @param margin Margin around motif-matches to consider for computing Tn5 insertion events
 #' @param shift If Tn5 insertion bias should be considered (only if strand column is provided).
-#' @param calcProfile If Insertion footprint profiles should be computed.
+#' @param calcProfile If insertion footprint profiles should be computed.
 #' @param profiles Pre-computed insertion footprint profile to compute weighted insertion counts in case `calcProfile=FALSE`.
 #' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
 #' @param symmetric If transcription factor footprint profiles should be symmetric around the motif matches. Only used if `calcProfile=TRUE`.
+#' @param stranded If insertion footprint profiles should be computed strand-specific.
 #' @return [data.table::data.table] containing insertion counts within and in margins around motif matches and weighted insertion counts in case
 #' an insertion profile is provided or if `calcProfile=TRUE`.
 # If `calcProfile=TRUE` also a footprint profile around the motif matches is returned.

@@ -27,7 +27,7 @@ logloss as implemented by \link[mlr3measures:logloss]{mlr3measures::logloss}.}
 
 \item{evalRounds}{Number of evaluation rounds for the hyperparameter selection rounds.}
 
-\item{earlyStoppingRounds}{Number of early stopping rounds for the hyperparameter selection and training of the \link{ligthGBM} model.}
+\item{earlyStoppingRounds}{Number of early stopping rounds for the hyperparameter selection and training of the \link[lightgbm:lightgbm]{lightgbm::lightgbm} model.}
 
 \item{posFrac}{Fraction of positives to use for the training of the model.
 Negatives will be supsampled to achieve the specified fraction.}
@@ -44,6 +44,6 @@ are specified as parallel back-ends, \code{floor(numThreads/nWorker)} threads ar
 A list of four \link[lightgbm:lightgbm]{lightgbm::lightgbm} models trained on different strata of the data.
 }
 \description{
-Trains a bag of four tree-based gradient boosting models of the \link{lightgbm} library.
+Trains a bag of four tree-based gradient boosting models of the \link[lightgbm:lightgbm]{lightgbm::lightgbm} library.
 Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the \link{mlr3tuning} library.
 }

@@ -445,7 +445,7 @@
 
  #' Training transcription factor-specific tree-based gradient boosting Models
  #'
- #' Trains a bag of four tree-based gradient boosting models of the [lightgbm] library.
+ #' Trains a bag of four tree-based gradient boosting models of the [lightgbm::lightgbm] library.
  #' Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the [mlr3tuning] library.
  #'
  #' @name trainBagged
@@ -455,7 +455,7 @@
  #' Either area under the precision-recall curve computed using [PRROC::pr.curve] ("classif.aucpr") or
  #' logloss as implemented by [mlr3measures::logloss].
  #' @param evalRounds Number of evaluation rounds for the hyperparameter selection rounds.
- #' @param earlyStoppingRounds Number of early stopping rounds for the hyperparameter selection and training of the [ligthGBM] model.
+ #' @param earlyStoppingRounds Number of early stopping rounds for the hyperparameter selection and training of the [lightgbm::lightgbm] model.
  #' @param posFrac Fraction of positives to use for the training of the model.
  #' Negatives will be supsampled to achieve the specified fraction.
  #' @param loContext Should cellular-contexts be used for leave-one-context-out rounds during hyperparameter selection.
