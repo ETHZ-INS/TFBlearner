@@ -20,8 +20,10 @@ jobs:
         with:
           r-version: '4.3.2'
 
-      - name: Install packages
+      - name: General R setup
         uses: r-lib/actions/setup-r-dependencies@v2
+
+      - name: Install dependencies
         run: Rscript -e "install.packages('devtools'); devtools::install_deps(dependencies=TRUE)"
 
       - name: Run tests
