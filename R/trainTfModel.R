@@ -26,7 +26,6 @@
                               # call loss function
                               aupcr(prediction)
                             }))
- mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)
 
 .getTunersBagged <- function(set,
                              isWeighted,
@@ -68,13 +67,13 @@
    print("Size of training table")
    print(dim(trainTable))
 
-   task <- mlr3::TaskClassif$new(id="tfbs_tree_param",
+   task <- mlr3::TaskClassif$new(id="tfb_tree_param",
                                  backend=trainTable,
                                  target="label",
                                  positive="1")
 
    task$set_col_roles("weights", add_to="weight", remove_from="feature")
-   task$set_col_roles("coordFeat_width", remove_from="feature")
+   task$set_col_roles("siteFeat_width", remove_from="feature")
 
    if(loContext){
      task$set_col_roles("context", add_to="group", remove_from="feature")
@@ -111,11 +110,11 @@
                           mlr3tuning::trm("evals", n_evals=evalRounds)), any=FALSE)
 
    lgbmInst <- mlr3tuning::ti(task=task,
-                  learner=learner,
-                  resampling=rs,
-                  measure=measure,
-                  search_space=paramSet,
-                  terminator=terminator)
+                              learner=learner,
+                              resampling=rs,
+                              measure=measure,
+                              search_space=paramSet,
+                              terminator=terminator)
 
    # Define the tuner using mlr3mbo
    # lgr::get_logger("mlr3")$set_threshold("warn")
@@ -444,7 +443,40 @@
    return(idSets)
  }
 
-
+ #' Training transcription factor-specific tree-based gradient boosting Models
+ #'
+ #' Trains a bag of four tree-based gradient boosting models of the [lightgbm] library.
+ #' Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the [mlr3tuning] library.
+ #'
+ #' @name trainBagged
+ #' @param tfName Name of transcription factor to train model for.
+ #' @param featMat Feature matrix as constructed by [TFBlearner::getFeatureMatrix].
+ #' @param measureName Measure used for hyperparameter selection.
+ #' Either area under the precision-recall curve computed using [PRROC::pr.curve] ("classif.aucpr") or
+ #' logloss as implemented by [mlr3measures::logloss].
+ #' @param evalRounds Number of evaluation rounds for the hyperparameter selection rounds.
+ #' @param earlyStoppingRounds Number of early stopping rounds for the hyperparameter selection and training of the [ligthGBM] model.
+ #' @param posFrac Fraction of positives to use for the training of the model.
+ #' Negatives will be supsampled to achieve the specified fraction.
+ #' @param loContext Should cellular-contexts be used for leave-one-context-out rounds during hyperparameter selection.
+ #' Only works if more than one cellular-context is contained within the feature matrix.
+ #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
+ #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
+ #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
+ #' @return A list of four [lightgbm::lightgbm] models trained on different strata of the data.
+ #' @import mlr3
+ #' @import mlr3learners
+ #' @import mlr3extralearners
+ #' @import mlr3tuning
+ #' @import mlr3mbo
+ #' @import mlr3measures
+ #' @import paradox
+ #' @import data.table
+ #' @import Matrix
+ #' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam
+ #' @importFrom lightgbm lgb.Dataset lightgbm
+ #' @importFrom PRROC pr.curve
+ #' @export
 trainBagged <- function(tfName,
                         featMat,
                         measureName=c("classif.aucpr",
@@ -453,12 +485,17 @@ trainBagged <- function(tfName,
                         earlyStoppingRounds=100,
                         posFrac=0.25,
                         loContext=FALSE,
-                        labelCol="label",
-                        cellTypeCol="context",
-                        countCol="norm_counts",
-                        modelName="model_tf",
                         numThreads=10,
                         BPPARAM=SnowParam(workers=4)){
+
+  measureName <- match.arg(measureName, choices=c("classif.aucpr",
+                                                  "classif.logloss"))
+  if(measureName=="classif.aucpr"){
+    mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)}
+
+  labelCol <- "contextFeat_label"
+  cellTypeCol <- "context"
+  countCol <- "total_overlaps"
 
   # check inputs ---------------------------------------------------------------
   measureName <- match.arg(measureName,
@@ -588,8 +625,8 @@ trainBagged <- function(tfName,
                  BPPARAM=BPPARAM)
   message(paste("Time elapsed for training the model:", round((proc.time()-ptm)[2],1), "\n"))
 
-  fits <- lapply(fits, function(mod){ mod$params$tf <- tfName
-                                      mod})
+  fits <- lapply(fits, function(mod){mod$params$tf <- tfName
+                                     mod})
 
   names(fits) <- c("top_weighted_pos",
                    "med_weighted_pos",

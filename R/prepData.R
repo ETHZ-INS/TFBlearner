@@ -3,10 +3,10 @@
 
 # write a validator! to check if objects are of the correct shape !!
 .checkObject <- function(mae,
-                         checkFor=c("None", "Coord", "TF", "Context")){
+                         checkFor=c("None", "Site", "TF", "Context")){
 
   if("None" %in% checkFor) checkFor <- "None"
-  checkFor <- match.arg(checkFor, choices=c("None", "Coord", "TF", "Context"),
+  checkFor <- match.arg(checkFor, choices=c("None", "Site", "TF", "Context"),
                         several.ok=TRUE)
 
   if(!(is(mae, "MultiAssayExperiment"))){
@@ -32,9 +32,9 @@
           For obtaining a object in the correct form use prepData()")
   }
 
-  if("Coord" %in% checkFor){
-    if(sum(grepl("coordFeat", experimentNames, ignore.case=TRUE))==0){
-      stop("Coordinate-features as obtained by using coordFeatures() on the object
+  if("Site" %in% checkFor){
+    if(sum(grepl("siteFeat", experimentNames, ignore.case=TRUE))==0){
+      stop("Site-specific features as obtained by using siteFeatures() on the object
             are required for further use.")
     }
   }
@@ -273,23 +273,48 @@ getContexts <- function(mae, tfName){
   return(contexts)
 }
 
-# mark data for training (matched), data for prediction and maybe for testing
-# see notes
-# have a generic for data already provided as SE ? => makes it way easier to map
-# Costum MultiassayExperiment object creations
+#' Custom MultiAssayExperiment construction.
+#'
+#' Creates [MultiAssayExperiment::MultiAssayExperiment-class ] object for downstream feature construction.
+#'
+#' @name prepData
+#' @param refCoords Coordinates across which to aggregate ATAC-, ChIP-seq and motif data.
+#' Constitutes the rowRanges of the RangedSummarizedExperiment object.
+#' @param motifData  Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
+#' or paths to .bam/.bed files containing motif-matching scores, names being the motif names.
+#' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
+#' @param atacData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
+#' or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
+#' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
+#' @param chIPData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
+#' or paths to .bam/.bed files containing ChIP-seq peaks, names being the combination of cellular context and TF labels (e.g. K562_YY1).
+#' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column) and optionally a column with observational weights (weightCol)
+#' and/or a uncertainty label (isUncertainCol).
+#' @param testSet Vector of cellular context labels used for testing.
+#' @param promoterCoords Optionally coordinates of promoters of transcription factor genes.
+#' @param aggregationFun Function to aggregate
+#' @param scoreCol Optional, column name of motif-matching data containing matching scores.
+#' @param weightCol Optional, column name of ChIP-seq data containing observational weights for peaks.
+#' @param isUncertainCol Optional, column name of ChIP-seq data labelling uncertain peaks (TRUE/FALSE).
+#' @param annoCol Name of column indicating cellular contexts in colData.
+#' @param shift Only for ATAC-seq data, if Tn5 insertion bias should be considered (only if a strand column is provided).
+#' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
+#' @return [MultiAssayExperiment::MultiAssayExperiment-class] with Motif, ATAC- & ChIP-seq experiments.
+#' @import MultiAssayExperiment
+#' @export
 prepData <- function(refCoords,
                      motifData,
                      atacData,
                      chIPData,
-                     testSets=NULL,
+                     testSet=NULL,
                      promoterCoords=NULL,
                      aggregationFun=max,
                      scoreCol="score",
                      weightCol=NULL,
                      isUncertainCol=NULL,
                      annoCol="context",
-                     BPPARAM=SerialParam(),
-                     ...) {
+                     shift=FALSE,
+                     BPPARAM=SerialParam()) {
 
   #TODO: Add flag for training (matched and not in test list),
   # prediction (not matched and not in test), test ones in vector
@@ -303,15 +328,15 @@ prepData <- function(refCoords,
 
   # Preparing ATAC-seq data ----------------------------------------------------
   message("Processing ATAC-seq data")
-  atacSe <- mapSeqData(atacData, refCoords, type="ATAC", annoCol=annoCol,
-                       BPPARAM=BPPARAM, ...)
+  atacSe <- .mapSeqData(atacData, refCoords, type="ATAC", annoCol=annoCol,
+                       shift=shift, BPPARAM=BPPARAM)
   atacMap <- data.frame(primary=colData(atacSe)[[annoCol]],
                         colname=colData(atacSe)[[annoCol]],
                         stringsAsFactors=FALSE)
 
   # Preparing ChIP-seq data -----------------------------------------------------
   message("Processing ChIP-seq data")
-  chIPSe <- mapSeqData(chIPData, refCoords, type="ChIP",
+  chIPSe <- .mapSeqData(chIPData, refCoords, type="ChIP",
                        weightCol=weightCol,
                        aggregationFun=aggregationFun,
                        isUncertainCol=isUncertainCol,
@@ -325,7 +350,7 @@ prepData <- function(refCoords,
 
   # Preparing motif data --------------------------------------------------------
   message("Processing Motif matching scores")
-  motifSe <- mapSeqData(motifData, refCoords, type="Motif",
+  motifSe <- .mapSeqData(motifData, refCoords, type="Motif",
                         aggregationFun=aggregationFun,
                         scoreCol=scoreCol, BPPARAM=BPPARAM)
 
@@ -337,7 +362,7 @@ prepData <- function(refCoords,
   # Preparing ATAC-seq promoter data --------------------------------------------
   if(!is.null(promoterCoords)){
   message("Processing ATAC-seq promoter data")
-    atacPromSe <- mapSeqData(atacData, promoterCoords, type="ATAC",
+    atacPromSe <- .mapSeqData(atacData, promoterCoords, type="ATAC",
                              annoCol=annoCol, BPPARAM=BPPARAM)
     atacPromMap <- data.frame(primary=colData(atacPromSe)[[annoCol]],
                               colname=colData(atacPromSe)[[annoCol]],
@@ -371,13 +396,13 @@ prepData <- function(refCoords,
 
   # actually this is not strictly required in the sampleMap
   annoDt <- as.data.table(sampleMap(mae))
-  annoDt[,is_testing:=fifelse(primary %in% testSets, TRUE, FALSE)]
-  annoDt[,is_training:=fifelse(!(primary %in% testSets) &
+  annoDt[,is_testing:=fifelse(primary %in% testSet, TRUE, FALSE)]
+  annoDt[,is_training:=fifelse(!(primary %in% testSet) &
                                  primary %in% matchedContexts, TRUE, FALSE)]
 
   primary <- colData(mae)[[annoCol]]
-  colData(mae)$is_testing <- fifelse(primary %in% testSets, TRUE, FALSE)
-  colData(mae)$is_training <- fifelse(!(primary %in% testSets) &
+  colData(mae)$is_testing <- fifelse(primary %in% testSet, TRUE, FALSE)
+  colData(mae)$is_training <- fifelse(!(primary %in% testSet) &
                                       primary %in% matchedContexts, TRUE, FALSE)
 
   sampleMap(mae) <- annoDt

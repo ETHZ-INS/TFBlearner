@@ -9,13 +9,28 @@
   return(predDt)
 }
 
-
-#' @name predict
+#' Predicts transcription-factor binding
+#'
+#' Not done yet
+#'
+#' @name predictTfBindingBagged
+#' @param models List of tree-based gradient boosting [ligthgbm] models as obtained by [TFBlearner::trainBagged]
+#' @param featMat Feature matrix as obtained by [TFBlearner::getFeatureMatrix] for prediction.
+#' @param isLabelled Does the feature matrix contain a label column
+#' @param chunk If predictions should be performed on chunks of the data to lower the memory footprint (chunk-size: 1e5)
+#' @param sparsify Should predictions be sparsified. Very small binding probabilities will be rounded to zero.
+#' @param stackingStrat Stacking strategy to use, either "none", the last model trained (e.g. the one seeing the most data points),
+#' the last models using weights ("wLast"), weighted mean of the models based on performance on hold-out data ("wMean"),
+# training on ligthGBM data on the predictions of the single trees and hold-out data.
+#' @param dataStack Hold-out data to be used for training stacked models (e.g. if `stackingStrat` is either "wMean" or "boostTree").
+#' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
+#' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
+#' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
+#' @import Matrix
+#' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
 #' @export
 predictTfBindingBagged <- function(models,
-                                   data,
-                                   labelCol="chIP_label",
-                                   contextCol="context",
+                                   featMat,
                                    isLabelled=FALSE,
                                    chunk=FALSE,
                                    sparsify=TRUE,
@@ -25,6 +40,10 @@ predictTfBindingBagged <- function(models,
                                    dataStack=NULL,
                                    numThreads=40,
                                    BPPARAM=SerialParam()){
+  data <- featMat
+  labelCol <- "contextFeat_label"
+  contextCol <- "context"
+
 
   stackingStrat <- match.arg(stackingStrat,
                              choices=c("none", "last", "wlast",
@@ -182,7 +201,6 @@ predictTfBindingBagged <- function(models,
 
   return(pred)
 }
-
 
 .trainStackedBoostedTree <- function(tfName,
                                      predsPred,

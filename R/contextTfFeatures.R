@@ -1,3 +1,29 @@
+#' Cellular context and transcription factor-specific features
+#'
+#' Adds an experiment with features specific for the specified transcription factor and the cellular-contexts it is covered for,
+#' such as Tn5 insertion around motif matches and footprint profiles.
+#'
+#' @name contextTfFeatures
+#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq,
+#' site-specific features as obtained by [TFBlearner::siteFeatures()] and transcription factor-specific features as obtained by [TFBlearner::tfFeatures()].
+#' @param tfName Name of transcription factor to compute features for.
+#' @param tfCofactors Names of cofactors (other transcription factors) of the specified transcription factor.
+#' @param addLabels Should ChIP-seq peak labels be added to the features
+#' @param whichCol Should features be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
+#' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
+#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "Cofactor_Inserts".
+#' @param annoCol Name of column indicating cellular contexts in colData.
+#' @param insertionProfile Pre-computed insertion footprint profile for the specified transcription factor.
+#' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
+#' @param aggregationFun function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
+#' provided [MultiAssayExperiment::MultiAssayExperiment-class] object.
+#' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()] & [BiocParallel::bplapply()].
+#' @param ... Arguments passed to [TFBlearner::getInsertionProfiles].
+#' @return [MultiAssayExperiment::MultiAssayExperiment-class] object with an experiment containing transcription factor- and cellular context-specific features added to [MultiAssayExperiment::experiments].
+#' If already an experiment of this feature group exists, columns are added to it.
+#' @import MultiAssayExperiment
+#' @importFrom BiocParallel bpmapply bplapply SerialParam MulticoreParam SnowParam
+#' @export
 contextTfFeatures <- function(mae,
                               tfName,
                               tfCofactors=NULL,
@@ -12,7 +38,7 @@ contextTfFeatures <- function(mae,
                               BPPARAM=SerialParam(),
                               ...){
 
-  .checkObject(mae, checkFor=c("Coord", "TF"))
+  .checkObject(mae, checkFor=c("Site", "TF"))
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   if(whichCol=="OnlyTrain"){
@@ -25,6 +51,12 @@ contextTfFeatures <- function(mae,
   }
   else{
     maeSub <- mae
+  }
+
+  if(!is.null(insertionProfile)){
+    insertionProfile <- .processData(insertionProfile, readAll=TRUE,
+                                     shift=FALSE,
+                                     seqLevelStyle=seqlevelsStyle(rowRanges(experiments(maeSub)$Motifs)))
   }
 
   features <- match.arg(features, choices=c("Inserts", "Weighted_Inserts",

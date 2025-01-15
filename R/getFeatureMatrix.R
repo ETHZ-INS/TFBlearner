@@ -7,19 +7,43 @@
   return(mat)
 }
 
-getfeatureMatrix <- function(mae,
+#' Feature matrix construction
+#'
+#' Compiles feature matrix based on pre-computed features stored in experiments of the provided [MultiAssayExperiment::MultiAssayExperiment-class] object.
+#'
+#' @name getFeatureMatrix
+#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq,
+#' site-specific features as obtained by [TFBlearner::siteFeatures()], transcription factor-specific features as obtained by [TFBlearner::tfFeatures()]
+#' and transcription-factor and cellular-context specific features as obtained by [TFBlearner::contextTfFeatures()].
+#' @param tfName Name of transcription factor to compute features for.
+#' @param addLabels Should ChIP-seq peak labels be added to the feature matrix.
+#' @param whichCol Should feature matrix be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
+#' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
+#' @param colNorm If cellular-context specific features should be column-normalized.
+#' @param convertInteger If feature matrix should be converted to integer (to lower memory footprint).
+#' @param saveHdf5 If feature matrix should be saved as HDF5 file.
+#' @param outDir Directory to save HDF5 file to.
+#' @param prefix Prefix added to filename of feature matrix in case saved as HDF5 file.
+#' @param annoCol Name of column indicating cellular contexts in colData.
+#' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
+#' @return Feature Matrix either as [Matrix::Matrix-class] or as [HDF5Array::HDF5Array-class] (if `saveHdf5=TRUE`).
+#' @import Matrix
+#' @import HDF5Array
+#' @import rhdf5
+#' @export
+getFeatureMatrix <- function(mae,
                              tfName,
                              addLabels=TRUE,
                              whichCol=c("All", "OnlyTrain", "Col"),
                              colNorm=TRUE,
-                             saveHdf5=TRUE,
                              convertInteger=FALSE,
+                             saveHdf5=TRUE,
                              outDir=NULL,
                              prefix=NULL,
                              annoCol="context",
                              BPPARAM=SerialParam()){
 
-  .checkObject(mae, checkFor=c("Coord", "TF", "Context"))
+  .checkObject(mae, checkFor=c("Site", "TF", "Context"))
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   if(whichCol=="OnlyTrain"){
@@ -37,9 +61,9 @@ getfeatureMatrix <- function(mae,
   sampleMapDt <- as.data.table(sampleMap(mae))
 
   message("Attaching Coordinate Features")
-  coordFeatMat <- Reduce("cbind", assays(experiments(mae)$coordFeat)[-1],
-                         assays(experiments(mae)$coordFeat)[[1]])
-  colnames(coordFeatMat) <- names(assays(experiments(mae)$coordFeat))
+  siteFeatMat <- Reduce("cbind", assays(experiments(mae)$siteFeat)[-1],
+                         assays(experiments(mae)$siteFeat)[[1]])
+  colnames(siteFeatMat) <- names(assays(experiments(mae)$siteFeat))
 
   message("Attaching TF Features")
   seTf <- experiments(mae)$tfFeat
@@ -54,7 +78,7 @@ getfeatureMatrix <- function(mae,
   motifMat <- assays(experiments(mae)$Motifs)$match_scores[,selMotifs, drop=FALSE]
   colnames(motifMat) <- paste("motif", colnames(motifMat), sep="_")
 
-  nonContextFeat <- list(coordFeatMat, tfFeatMat, motifMat)
+  nonContextFeat <- list(siteFeatMat, tfFeatMat, motifMat)
   nonContextFeat <- Reduce("cbind", nonContextFeat[-1], nonContextFeat[[1]])
 
   message("Attaching cellular context-specific features")
@@ -63,7 +87,7 @@ getfeatureMatrix <- function(mae,
   seAtac <- experiments(mae)$ATAC[,contexts]
 
   # get the number of features
-  nFeats <- length(assays(experiments(mae)$coordFeat))+
+  nFeats <- length(assays(experiments(mae)$siteFeat))+
     length(assays(experiments(mae)$tfFeat))+
     length(assays(experiments(mae)$contextFeat))+
     length(assays(experiments(mae)$ATAC))+

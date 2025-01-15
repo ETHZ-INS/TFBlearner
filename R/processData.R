@@ -60,7 +60,7 @@
     seqDat[, end:=fifelse(strand=="-", end-5, end)]
   }
   else if(shift){
-    warning("Did not shift as strand column was not found")
+    warning("Did not shift as no column named strand was not found")
   }
 
   seqDat[, start:=as.integer(start)]
@@ -86,23 +86,15 @@
   return(atacFrag)
 }
 
-# is this needed ? Helps to have the clutter defined once when data is pre-mapped.
-# single functions shouldn't be helpers though because then they can be used with
-# ... args without passing all arguments to the top-level function
-mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
-                       annoCol="context",
-                       scoreCol="score",
-                       weightCol=NULL,
-                       isUncertainCol=NULL,
-                       aggregationFun=max,
-                       BPPARAM=SerialParam(), ...){
+.mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
+                        annoCol="context",
+                        scoreCol="score",
+                        weightCol=NULL,
+                        isUncertainCol=NULL,
+                        aggregationFun=max,
+                        shift=FALSE,
+                        BPPARAM=SerialParam()){
   type <- match.arg(type, choices=c("ATAC", "ChIP", "Motif"))
-
-  # check if data is already of correct dimension its assumed to be pre-mapped
-  # need to create SE :=> so still give it to .map<Type>Data ? => no just use annoCol and create it
-  # it is a list then pass it to .mapAtacData for mapping!!
-  # => use generic for .processData (call maybe process file then) to also handle data.table and data.frames
-  # => problem these arent S4 classes, would have to define a Union-Class ?
 
   if(is.data.table(data) | is.matrix(data) |
      is(data, 'sparseMatrix') | is.data.frame(data) |
@@ -134,7 +126,7 @@ mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
 
   if(type=="ATAC"){
     mappedSe <- .mapAtacData(data, refCoords,
-                             annoCol=annoCol, BPPARAM=BPPARAM,...)
+                             annoCol=annoCol, shift=shift, BPPARAM=BPPARAM)
   }
   else if(type=="ChIP"){
     mappedSe <- .mapChIPData(data, refCoords,
@@ -191,8 +183,7 @@ mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
                          refCoords,
                          annoCol="context",
                          shift=TRUE,
-                         BPPARAM=SerialParam(),
-                         ...)
+                         BPPARAM=SerialParam())
 {
   threads <- floor(getDTthreads())/BPPARAM$workers
 
@@ -200,7 +191,7 @@ mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
   #typeCountNames <- c("total_ov_counts", "type_ov_counts",
   #                    "total_ins_counts","type_ins_counts")
   atacCounts <- BiocParallel::bplapply(data, function(d, refCoords,
-                                                      threads){
+                                                      shift, threads){
 
     setDTthreads(threads)
     atacFrag <- .processData(d, shift=shift,
@@ -248,7 +239,7 @@ mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
                     list("total_inserts"=atacTotalIns),
                     atacTypeIns)
     return(atacAssays)},
-    refCoords, threads, BPPARAM=BPPARAM)
+    refCoords, shift, threads, BPPARAM=BPPARAM)
 
   typeCountNames <- names(atacCounts[[1]])
 

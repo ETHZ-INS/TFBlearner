@@ -2,7 +2,7 @@
 % Please edit documentation in R/genomicRangesMapping.R
 \name{genomicRangesMapping}
 \alias{genomicRangesMapping}
-\title{Mapping & aggregating modalities with genomic coordinates to a set of reference
+\title{Mapping & aggregation of modalities with genomic coordinates to a set of reference
 coordinates.}
 \usage{
 genomicRangesMapping(
@@ -15,8 +15,8 @@ genomicRangesMapping(
   scoreCol = NULL,
   aggregationFun = NULL,
   minoverlap = 1,
-  BPPARAM = SerialParam(),
-  ...
+  shift = FALSE,
+  BPPARAM = SerialParam()
 )
 }
 \arguments{
@@ -24,10 +24,10 @@ genomicRangesMapping(
 
 \item{assayTable}{List of \link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges}, \link[data.table:data.table]{data.table::data.table}, data.frames or paths to .bed /. bam files
 containing assay data (e.g. fragments, motif scores, peaks) to be aggregated across the reference ranges provided.
-Needs to contain genomic coordinates (e.g. a chr/seqnames, start and end column).}
+Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).}
 
 \item{byCols}{Variables across which the assays will be aggregated.
-Will be the columns of the resulting \link[Matrix:Matrix]{Matrix::Matrix}. If byCols is a vector with two elements,
+Will be the columns of the resulting \link[Matrix:Matrix-class]{Matrix::Matrix}. If byCols is a vector with two elements,
 the first one will constitute the list elements, the second the columns of the matrices being the list elements.}
 
 \item{scoreCol}{name of the score column (e.g. motif matching scores, atac fragment counts) to be aggregated.
@@ -39,10 +39,12 @@ If it is NULL, the number of assay ranges overlapping the reference ranges will 
 \item{minoverlap}{Minimal overlap between refRanges and the assay ranges
 Passed to \code{\link[GenomicRanges:findOverlaps-methods]{GenomicRanges::findOverlaps()}}}
 
+\item{shift}{If Tn5 insertion bias should be considered (only if strand column is provided).}
+
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}}.}
 }
 \value{
-\link[Matrix:Matrix]{Matrix::Matrix} or list of Matrices with rows corresponding to the reference ranges and columns (and list elements) to byCols.
+\link[Matrix:Matrix-class]{Matrix::Matrix} or list of Matrices with rows corresponding to the reference ranges and columns (and list elements) to byCols.
 }
 \description{
 Convencience function for mapping different modality scores with

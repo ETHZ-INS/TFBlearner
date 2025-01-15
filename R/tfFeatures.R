@@ -1,24 +1,25 @@
-#' @export
 .getMotifMatches <- function(coords,
                              tfName,
                              tfCofactors,
-                             motifs=NULL,
                              genome=BSgenome.Hsapiens.UCSC.hg38,
-                             species="Hsapiens",
                              seqStyle="UCSC"){
 
   # retrieve motifs
   seqlevelsStyle(coords) <- "UCSC"
-
-  if(is.null(motifs))
-  {
-    # TODO: Better fix for such and similar cases
-    #if(tfName=="YY1") tfName <- "TYY1"
-    motifs <- .getNonRedundantMotifs(c(tfName, tfCofactors), species=species)
-    motifNames <- names(motifs)
-    motifNames[grepl("YY1", motifNames)] <- "YY1"
-    names(motifs) <- motifNames
+  if(genome@metadata$organism=="Homo sapiens"){
+    species <- "Hsapiens"
   }
+  else if(genome@metadata$organism=="Mus musculus"){
+    species <- "Mmusculus"
+  }
+  else{
+    stop("Currently BSgenome needs to be either from Homo sapiens or Mus musculus")
+  }
+
+  motifs <- .getNonRedundantMotifs(c(tfName, tfCofactors), species=species)
+  motifNames <- names(motifs)
+  motifNames[grepl("YY1", motifNames)] <- "YY1"
+  names(motifs) <- motifNames
 
   # get motif matching scores & positions
   matchRanges <- motifmatchr::matchMotifs(motifs,
@@ -105,11 +106,11 @@
                                 tfCofactors,
                                 nPatterns=10,
                                 aggregate=TRUE,
-                                L1=c(0.5,0.5), ...){
+                                L1=c(0.5,0.5)){
 
     # Take out TF of interest
     cn <- colnames(chIPMat)
-    chIPMat <- chIPMat[, tstrsplit(cn, split="_", keep=1)[[1]]!=tfName, drop=FALSE]
+    chIPMat <- chIPMat[, tstrsplit(cn, split="_", keep=2)[[1]]!=tfName, drop=FALSE]
     cn <- colnames(chIPMat)
 
     cm <- .binMat(chIPMat, threshold=0)
@@ -194,7 +195,7 @@
   return(nb)
 }
 
-.selectMotifs <- function(matchScores, labels, nMotif=10, subSample=10000, ...)
+.selectMotifs <- function(matchScores, labels, nMotifs=10, subSample=10000)
 {
   labels <- .binMat(labels, threshold=0)
   labels <- rowMaxs(labels)
@@ -229,12 +230,12 @@
   matchCo <- .jaccard(matchCoScores, labels)
   matchCo[,motif_id:=1:.N]
   setorder(matchCo, -cont)
-  topCoMotif <- matchCo$motif_id[1:nMotif]
+  topCoMotif <- matchCo$motif_id[1:nMotifs]
 
   matchEx <- .jaccard(matchExScores, labels)
   matchEx[,motif_id:=1:.N]
   setorder(matchEx, -cont)
-  topExMotif <- matchEx$motif_id[1:nMotif]
+  topExMotif <- matchEx$motif_id[1:nMotifs]
 
   # select top ones
   selectedMotifs <- colnames(matchScores)[unique(c(topCoMotif, topExMotif))]
@@ -296,8 +297,8 @@
     mDt <- as.data.table(motifCoords[[tf]])
     mDt$tf <- tf
     coCount <- genomicRangesMapping(refCoords,
-                                     mDt[,c("seqnames", "start", "end", "tf")],
-                                     byCols=c("tf"))
+                                    mDt[,c("seqnames", "start", "end", "tf")],
+                                    byCols=c("tf"))
     colnames(coCount) <- paste("n_cooccuring_motifs", tf, sep="_")
     coCount
   })
@@ -329,14 +330,43 @@
   promMat
 }
 
+#' Transcription factor-specific features
+#'
+#' Adds an experiment with features specific for the specified transcription factor, such as co-occuring motifs and binding patterns, to the provided MultiAssayExperiment object.
+#'
+#' @name tfFeatures
+#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq
+#' and site-specific features as obtained by [TFBlearner::siteFeatures()].
+#' @param tfName Name of transcription factor to compute features for.
+#' Provided MultiAssayExperiment object needs to contain ChIP-seq data for the specified transcription factor (check `colData(experiments(mae)$ChIP`).
+#' @param tfCofactors Names of cofactors (other transcription factors) of the specified transcription factor.
+#' @param features Names of features to be added. Can be all or some of "Binding_Patterns", "Promoter_Association",
+#' "C_Score", "Cooccuring_Motifs", "Associated_Motifs". Features are stored in the assays of the added experiment.
+#' @param nPatterns Number of non-negative matrix factorization (NMF) components to consider for the decomposition of the ChIP-seq peaks matrix.
+#' Passed to [RcppML::nmf].
+#' @param L1 LASSO penalties for lower rank matrices w and h resulting from NMF. Vector with two elements for w and h.
+#' Passed to [RcppML::nmf]
+#' @param genome [BSgenome::BSgenome-class] to be used.
+#' @return [MultiAssayExperiment::MultiAssayExperiment-class] object with an experiment containing transcription factor-specific features added to [MultiAssayExperiment::experiments].
+#' If already an experiment with transcription factor-specific features exists in the object, columns for the specified transcription factor are added to it.
+#' @param nMotifs Number of associated motifs to select. Chooses `nMotifs` co-occuring and `nMotifs` mutually exclusive motifs.
+#' @import MultiAssayExperiment
+#' @importFrom motifmatchr matchMotifs
+#' @importFrom universalmotif convert_motifs
+#' @importFrom TFBSTools PFMatrixList PWMatrixList
+#' @importFrom MotifDb MotifDb
+#' @importFrom RcppML nmf
+#' @export
 tfFeatures <- function(mae,
                        tfName,
                        tfCofactors=NULL,
                        features=c("Binding_Patterns", "Promoter_Association",
                                   "C_Score", "Cooccuring_Motifs",
                                   "Associated_Motifs"),
-                       mode=c("Train", "Predict"),
-                       genome=BSgenome.Hsapiens.UCSC.hg38, ...){
+                       nPatterns=10,
+                       L1=c(0.5,0.5),
+                       nMotifs=10,
+                       genome=BSgenome.Hsapiens.UCSC.hg38){
 
   features <- match.arg(features, choices=c("Binding_Patterns",
                                             "Promoter_Association",
@@ -347,7 +377,7 @@ tfFeatures <- function(mae,
   featMats <- list()
 
   # object validator
-  .checkObject(mae, checkFor="Coord")
+  .checkObject(mae, checkFor="Site")
 
   # reference coordinates
   coords <- rowRanges(experiments(mae)$Motifs)
@@ -361,9 +391,9 @@ tfFeatures <- function(mae,
 
   # Normalize ATAC-seq data
   message("GC Normalization") # relevant for the computation of other features
-  coordFeatName <- "coordFeat" #names(experiments(mae))[[length(experiments(mae))]] # get the experiment added the last
-  gcFeatName <- paste(coordFeatName, "gc_content", sep="_")
-  gc <- assays(experiments(maeTrain)[[coordFeatName]])[[gcFeatName]][,,drop=TRUE]
+  siteFeatName <- "siteFeat" #names(experiments(mae))[[length(experiments(mae))]] # get the experiment added the last
+  gcFeatName <- paste(siteFeatName, "gc_content", sep="_")
+  gc <- assays(experiments(maeTrain)[[siteFeatName]])[[gcFeatName]][,,drop=TRUE]
 
   atacNormMat <- .GCSmoothQuantile(gc, atacMat, g=20, round=TRUE)
   assays(experiments(maeTrain)$ATAC)$norm_total_overlaps <- atacNormMat
@@ -408,7 +438,8 @@ tfFeatures <- function(mae,
   # NMF decomposition Binding Patterns
   if("Binding_Patterns" %in% features){
     message("Binding pattern Features")
-    bindPattern <- .getBindingPatterns(chIPMat, tfName=tfName, ...)
+    bindPattern <- .getBindingPatterns(chIPMat, tfName=tfName,
+                                       nPatterns=nPatterns, L1=L1)
     namesBindPattern <- colnames(bindPattern)
     bindPattern <- lapply(namesBindPattern,
                           function(col) bindPattern[,col,drop=FALSE])
@@ -472,7 +503,7 @@ tfFeatures <- function(mae,
 
     # select motifs
     matchScoresSub <- matchScores[,!c(colnames(matchScores) %in% tfCols), drop=FALSE]
-    selectedMotifs <- .selectMotifs(matchScoresSub, chIPLabels, ...)
+    selectedMotifs <- .selectMotifs(matchScoresSub, chIPLabels, nMotifs=nMotifs)
     selectedMotifs <- unique(c(selectedMotifs, tfCols))
 
     # important its added back to the full object!
@@ -497,7 +528,7 @@ tfFeatures <- function(mae,
   # add features full mae object: Features are only computed on training data
   if(length(featMats)>0){
     mae <- .addFeatures(mae, featMats, mapTo="Tf",
-                        prefix="tfFeat", tfName=tfName, ...)}
+                        prefix="tfFeat", tfName=tfName)}
 
   # check if pre-selected motifs are kept: => it is
   # .checkObject(mae, checkFor="TF")

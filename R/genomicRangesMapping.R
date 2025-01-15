@@ -1,4 +1,4 @@
-#' Mapping & aggregating modalities with genomic coordinates to a set of reference
+#' Mapping & aggregation of modalities with genomic coordinates to a set of reference
 #' coordinates.
 #'
 #' Convencience function for mapping different modality scores with
@@ -8,11 +8,11 @@
 #'
 #' @name genomicRangesMapping
 #' @param refRanges GRanges object with reference coordinates
-#' @param assayTable  List of [GenomicRanges::GRanges], [data.table::data.table], data.frames or paths to .bed /. bam files
+#' @param assayTable  List of [GenomicRanges::GRanges-class], [data.table::data.table], data.frames or paths to .bed /. bam files
 #' containing assay data (e.g. fragments, motif scores, peaks) to be aggregated across the reference ranges provided.
-#' Needs to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
+#' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
 #' @param byCols Variables across which the assays will be aggregated.
-#' Will be the columns of the resulting [Matrix::Matrix]. If byCols is a vector with two elements,
+#' Will be the columns of the resulting [Matrix::Matrix-class]. If byCols is a vector with two elements,
 #' the first one will constitute the list elements, the second the columns of the matrices being the list elements.
 #' @param scoreCol name of the score column (e.g. motif matching scores, atac fragment counts) to be aggregated.
 #' If it is NULL, the number of assay ranges overlapping the reference ranges will be counted.
@@ -20,10 +20,13 @@
 #' If it is NULL, the number of assay ranges overlapping the reference ranges will be counted.
 #' @param minoverlap Minimal overlap between refRanges and the assay ranges
 #' Passed to [GenomicRanges::findOverlaps()]
+#' @param shift If Tn5 insertion bias should be considered (only if strand column is provided).
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
-#' @return [Matrix::Matrix] or list of Matrices with rows corresponding to the reference ranges and columns (and list elements) to byCols.
+#' @return [Matrix::Matrix-class] or list of Matrices with rows corresponding to the reference ranges and columns (and list elements) to byCols.
 #' @import data.table
+#' @import GenomicRanges
 #' @import Matrix
+#' @importFrom BiocParallel bplapply MulticoreParam SerialParam SnowParam
 #' @export
 genomicRangesMapping <- function(refRanges,
                                  assayTable,
@@ -35,12 +38,12 @@ genomicRangesMapping <- function(refRanges,
                                  scoreCol=NULL,
                                  aggregationFun=NULL,
                                  minoverlap=1,
-                                 BPPARAM=SerialParam(),
-                                 ...){
+                                 shift=FALSE,
+                                 BPPARAM=SerialParam()){
 
   # TODO: - add warning for integer overflows - data.table size
-  assayTable <- .processData(copy(assayTable), readAll=TRUE,
-                             seqLevelStyle=seqlevelsStyle(refRanges), ...)
+  assayTable <- .processData(copy(assayTable), readAll=TRUE, shift=shift,
+                             seqLevelStyle=seqlevelsStyle(refRanges))
 
   if(sum(!(byCols %in% colnames(assayTable)))>0 | is.null(byCols)){
     stop("byCols needed to be provided and column names of assayTable.")
