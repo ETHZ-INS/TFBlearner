@@ -24,7 +24,7 @@ jobs:
         uses: r-lib/actions/setup-r-dependencies@v2
 
       - name: Install dependencies
-        run: Rscript -e "install.packages('devtools'); devtools::install_deps(dependencies=TRUE)"
+        run: Rscript -e "install.packages('devtools'); options(repos=c(mlrorg='https://mlr-org.r-universe.dev', CRAN='https://cloud.r-project.org/')); devtools::install_deps(dependencies=TRUE)"
 
       - name: Run tests
         run: Rscript -e "devtools::load_all(); devtools::test()"
