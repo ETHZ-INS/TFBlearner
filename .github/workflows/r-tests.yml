@@ -22,9 +22,7 @@ jobs:
 
       - name: Install packages
         uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          packages: |
-            any::devtools
+        run: Rscript -e "install.packages('devtools'); devtools::install_deps(dependencies=TRUE)"
 
       - name: Run tests
-        run: Rscript -e 'devtools::load_all(); devtools::test()'
+        run: Rscript -e "devtools::load_all(); devtools::test()"
