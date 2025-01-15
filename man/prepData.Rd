@@ -17,8 +17,7 @@ prepData(
   isUncertainCol = NULL,
   annoCol = "context",
   shift = FALSE,
-  BPPARAM = SerialParam(),
-  ...
+  BPPARAM = SerialParam()
 )
 }
 \arguments{
