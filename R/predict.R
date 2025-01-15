@@ -44,7 +44,6 @@ predictTfBindingBagged <- function(models,
   labelCol <- "contextFeat_label"
   contextCol <- "context"
 
-
   stackingStrat <- match.arg(stackingStrat,
                              choices=c("none", "last", "wlast",
                                        "wMean", "boostTree"))
@@ -72,7 +71,7 @@ predictTfBindingBagged <- function(models,
       predDt
     })
       predDt <- rbindlist(predDts)
-      predMat <- Matrix(as.matrix(predDt))
+      predMat <- Matrix::Matrix(as.matrix(predDt))
     }
     else{
       preds  <- predict(model, as.matrix(data[, colnames(data)!=labelCol &
@@ -84,7 +83,7 @@ predictTfBindingBagged <- function(models,
                                                 colnames(data)!="row_id"]))
       predDt <- data.table(pred=preds)
       if(sparsify) predDt[,pred:=fifelse(pred>model$params$sparse_thr,pred,0L)]
-      predMat <- Matrix(as.matrix(predDt))
+      predMat <- Matrix::Matrix(as.matrix(predDt))
     }
     gc()
     predMat
@@ -116,8 +115,6 @@ predictTfBindingBagged <- function(models,
   if(stackingStrat!="none" & isLabelled & !is.null(dataStack)){
     # predict on stacked data
     predsStack <- predictTfBindingBagged(models, dataStack,
-                                         labelCol=labelCol,
-                                         contextCol=contextCol,
                                          isLabelled=isLabelled,
                                          chunk=chunk,
                                          sparsify=sparsify,
@@ -147,6 +144,9 @@ predictTfBindingBagged <- function(models,
   # implement stacking strategies in function!!!
   stackingStrat <- match.arg(stackingStrat,
                              choices=c("last", "wlast", "wMean", "boostTree"))
+
+  labelCol <- "contextFeat_label"
+  contextCol <- "context"
 
   if(stackingStrat=="last"){
     predStack <- predsPred[,3]
@@ -214,8 +214,8 @@ predictTfBindingBagged <- function(models,
               "norm_counts", "gc_content",
               paste(tfName, "motif", sep="_"))
   fmStack <- dataStack[,colSel]
-  fmStack <- Matrix(fmStack, nrow=nrow(fmStack),
-                    ncol=ncol(fmStack))
+  fmStack <- Matrix::Matrix(fmStack, nrow=nrow(fmStack),
+                            ncol=ncol(fmStack))
   colnames(fmStack) <- colSel
 
   # predictions of models in bag
@@ -250,7 +250,7 @@ predictTfBindingBagged <- function(models,
 
   # get data for prediction
   fmPred <- dataPred[,colSel]
-  fmPred <- Matrix(fmPred, nrow=nrow(fmPred),
+  fmPred <- Matrix::Matrix(fmPred, nrow=nrow(fmPred),
                            ncol=ncol(fmPred))
   fmPred <- cbind(fmPred,
                   predsPred[,1:4])

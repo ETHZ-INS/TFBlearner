@@ -301,6 +301,7 @@ getContexts <- function(mae, tfName){
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] with Motif, ATAC- & ChIP-seq experiments.
 #' @import MultiAssayExperiment
+#' @import SummarizedExperiment
 #' @export
 prepData <- function(refCoords,
                      motifData,

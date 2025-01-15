@@ -476,6 +476,7 @@
  #' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam
  #' @importFrom lightgbm lgb.Dataset lightgbm
  #' @importFrom PRROC pr.curve
+ #' @importFrom MatrixGenerics colMaxs
  #' @export
 trainBagged <- function(tfName,
                         featMat,
@@ -661,7 +662,7 @@ trainBagged <- function(tfName,
   # median and mean AUC:
   aucs <- res[,grep("AUC",colnames(res)),drop=FALSE]
   res <- as.data.frame(res)
-  res$AUC.cost <- AUPRC.cost.factor*rowMeans(aucs)-colMaxs(as.matrix(aucs))
+  res$AUC.cost <- AUPRC.cost.factor*Matrix::rowMeans(aucs)-MatrixGenerics::colMaxs(as.matrix(aucs))
   res$nonZero.cost <- res$nonZero-min(res$nonZero)
   res$cost <- res$nonZero.cost - res$AUC.cost
   res <- res[order(res$cost),]

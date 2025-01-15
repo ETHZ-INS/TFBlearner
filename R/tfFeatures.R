@@ -187,9 +187,10 @@
   colnames(chIPMat) <- tfs
 
   # get per TF means
-  rm <- sapply(tfs, \(tf){rowMeans(chIPMat[,colnames(chIPMat)==tf, drop=FALSE])})
-  nb <- rowSums(rm)
-  nb <- Matrix(nb, ncol=1)
+  rm <- sapply(tfs, \(tf){
+    Matrix::rowMeans(chIPMat[,colnames(chIPMat)==tf, drop=FALSE])})
+  nb <- Matrix::rowSums(rm)
+  nb <- Matrix::Matrix(nb, ncol=1)
   colnames(nb) <- "n_chIP_peaks"
 
   return(nb)
@@ -359,6 +360,8 @@
 #' @importFrom RcppML nmf
 #' @importFrom preprocessCore normalize.quantiles
 #' @importFrom Hmisc cut2
+#' @importFrom DelayedMatrixStats colQuantiles
+#' @importFrom MatrixGenerics colMaxs
 #' @export
 tfFeatures <- function(mae,
                        tfName,

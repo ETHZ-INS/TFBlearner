@@ -27,6 +27,8 @@
 #' @import GenomicRanges
 #' @import Matrix
 #' @importFrom BiocParallel bplapply MulticoreParam SerialParam SnowParam
+#' @importFrom GenomicAlignments readGAlignmentPairs first start end strand
+#' @importFrom Rsamtools ScanBamParam
 #' @export
 genomicRangesMapping <- function(refRanges,
                                  assayTable,

@@ -17,7 +17,7 @@ predictTfBindingBagged(
 )
 }
 \arguments{
-\item{models}{List of tree-based gradient boosting \link{lightgbm} models as obtained by \link{trainBagged}}
+\item{models}{List of tree-based gradient boosting \link[lightgbm:lightgbm]{lightgbm::lightgbm} models as obtained by \link{trainBagged}}
 
 \item{featMat}{Feature matrix as obtained by \link{getFeatureMatrix} for prediction.}
 
