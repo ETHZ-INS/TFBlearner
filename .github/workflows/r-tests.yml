@@ -27,4 +27,4 @@ jobs:
             any::devtools
 
       - name: Run tests
-        run: Rscript -e 'devtools::test()'
+        run: Rscript -e 'devtools::load_all(); devtools::test()'
