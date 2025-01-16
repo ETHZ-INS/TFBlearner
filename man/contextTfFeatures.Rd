@@ -7,7 +7,6 @@
 contextTfFeatures(
   mae,
   tfName,
-  tfCofactors = NULL,
   addLabels = FALSE,
   whichCol = c("All", "OnlyTrain", "Col"),
   colSel = NULL,
@@ -24,8 +23,6 @@ contextTfFeatures(
 site-specific features as obtained by \code{\link[=siteFeatures]{siteFeatures()}} and transcription factor-specific features as obtained by \code{\link[=tfFeatures]{tfFeatures()}}.}
 
 \item{tfName}{Name of transcription factor to compute features for.}
-
-\item{tfCofactors}{Names of cofactors (other transcription factors) of the specified transcription factor.}
 
 \item{addLabels}{Should ChIP-seq peak labels be added to the features}
 

@@ -7,7 +7,6 @@
 #' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq,
 #' site-specific features as obtained by [TFBlearner::siteFeatures()] and transcription factor-specific features as obtained by [TFBlearner::tfFeatures()].
 #' @param tfName Name of transcription factor to compute features for.
-#' @param tfCofactors Names of cofactors (other transcription factors) of the specified transcription factor.
 #' @param addLabels Should ChIP-seq peak labels be added to the features
 #' @param whichCol Should features be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
 #' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
@@ -28,7 +27,6 @@
 #' @export
 contextTfFeatures <- function(mae,
                               tfName,
-                              tfCofactors=NULL,
                               addLabels=FALSE,
                               whichCol=c("All", "OnlyTrain", "Col"), # evt. rename these arguments
                               colSel=NULL,
@@ -64,6 +62,20 @@ contextTfFeatures <- function(mae,
   features <- match.arg(features, choices=c("Inserts", "Weighted_Inserts",
                                             "Cofactor_Inserts"),
                         several.ok=TRUE)
+
+  tfCofactors <- unique(unlist(subset(colData(experiments(mae)$ChIP),
+                                      tf_name==tfName)$tf_cofactors))
+  if("Cofactor_Inserts" %in% features & is.null(tfCofactors)){
+    msg <- c("No cofactors have been specified when computing transcription ",
+             "factor-specific features for ", tfName, ". ", "\n",
+             "Cofactor_Inserts will not be computed. ", "\n",
+             "Re-compute transcription factor-specific features (tfFeatures()) ",
+             "for ", tfName, " with argument `tfCofactors` specified ", "\n",
+             "if Cofactor_Insert features are required. ")
+
+    msg <- paste0(msg)
+    warning(msg)
+  }
 
   # get all cellular contexts covered for that TF
   contexts <- getContexts(maeSub, tfName)
@@ -147,7 +159,7 @@ contextTfFeatures <- function(mae,
      SIMPLIFY=FALSE,
      BPPARAM=BPPARAM)
 
-  if("Cofactor_Inserts" %in% features){
+  if("Cofactor_Inserts" %in% features & !is.null(tfCofactors)){
     coFeats <- BiocParallel::bplapply(contexts,
                                       function(context,
                                                coords,
