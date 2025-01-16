@@ -36,11 +36,6 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
-      - name: Install dependencies
-          run: |
-            Rscript -e "devtools::install_deps(dependencies=TRUE, repos=c(mlrorg="https://mlr-org.r-universe.dev", \
-            CRAN="https://cloud.r-project.org"))"
-
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
