@@ -205,5 +205,13 @@ getFeatureMatrix <- function(mae,
     colnames(featMats) <- featNames
   }
 
+  # add attributes of feature matrix
+  tfCofactors <- unique(unlist(subset(colData(experiments(mae)$ChIP),
+                                      tf_name==tfName)$tf_cofactors))
+
+  attr(featMats, "transcription_factor") <- tfName
+  attr(featMats, "cellular_contexts") <- contexts
+  attr(featMats, "cofactors") <- tfCofactors
+
   return(featMats)
 }

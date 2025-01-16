@@ -522,9 +522,13 @@ tfFeatures <- function(mae,
       fifelse(colDataChIP$tf_name==tfName, list(selectedMotifs),
               colDataChIP$preselected_motifs)
 
-    # get columns of preselected features
-    # that informtion doesn't need to be resaved in the object as its anyways saved
-    # simMotifs <- matchScores[,selectedMotifs]
+    # add cofactors too
+    if(is.null(colDataChIP$tf_cofactors)){
+      colDataChIP$tf_cofactors <- replicate(nrow(colDataChIP), list)}
+
+    colData(experiments(mae)$ChIP)$tf_cofactors <-
+      fifelse(colDataChIP$tf_name==tfName, list(tfCofactors),
+              colDataChIP$tf_cofactors)
   }
 
   # TODO: Normalize by width

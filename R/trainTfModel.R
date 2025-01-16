@@ -489,6 +489,11 @@ trainBagged <- function(tfName,
                         numThreads=10,
                         BPPARAM=SnowParam(workers=4)){
 
+  fmTfName <- attributes(featMat)$transcription_factor
+  if(fmTfName!=tfName){
+    stop(paste("Feature matrix has been computed for", fmTfName, "and not for", tfName))
+  }
+
   measureName <- match.arg(measureName, choices=c("classif.aucpr",
                                                   "classif.logloss"))
   if(measureName=="classif.aucpr"){
