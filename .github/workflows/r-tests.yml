@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
             Rscript -e "install.packages('devtools'); install.packages('remotes'); \
-            devtools::install_deps(dependencies=TRUE, repos=c(mlrorg="https://mlr-org.r-universe.dev",
+            devtools::install_deps(dependencies=TRUE, repos=c(mlrorg="https://mlr-org.r-universe.dev", \
             CRAN="https://cloud.r-project.org"))"
 
       - name: Run tests
