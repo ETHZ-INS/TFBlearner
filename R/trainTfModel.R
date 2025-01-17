@@ -465,14 +465,13 @@
  #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
  #' @return A list of four [lightgbm::lightgbm] models trained on different strata of the data.
  #' @import mlr3
- #' @import mlr3learners
  #' @import mlr3extralearners
- #' @import mlr3tuning
- #' @import mlr3mbo
- #' @import mlr3measures
- #' @import paradox
  #' @import data.table
  #' @import Matrix
+ #' @importFrom mlr3tuning trm ti
+ #' @importFrom mlr3mbo TunerMbo
+ #' @importFrom mlr3measures logloss
+ #' @importFrom paradox ParamSet p_int p_dbl p_int
  #' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam
  #' @importFrom lightgbm lgb.Dataset lightgbm
  #' @importFrom PRROC pr.curve
@@ -504,9 +503,9 @@ trainBagged <- function(tfName,
   countCol <- "total_overlaps"
 
   # check inputs ---------------------------------------------------------------
-  measureName <- match.arg(measureName,
-                           choices=unique(c(measureName,
-                                            mlr3::mlr_measures$keys())))
+  #measureName <- match.arg(measureName,
+  #                         choices=unique(c(measureName,
+  #                                          mlr3::mlr_measures$keys())))
   measure <- msr(measureName)
 
   setDTthreads(numThreads)
