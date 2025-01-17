@@ -91,6 +91,7 @@
 #' If already an experiment of this feature group exists, columns are added to it.
 #' @import MultiAssayExperiment
 #' @importFrom BiocParallel bpmapply bplapply SerialParam MulticoreParam SnowParam
+#' @importFrom chromVAR computeDeviations getBackgroundPeaks
 #' @export
 contextTfFeatures <- function(mae,
                               tfName,

@@ -10,9 +10,11 @@ contextTfFeatures(
   addLabels = FALSE,
   whichCol = c("All", "OnlyTrain", "Col"),
   colSel = NULL,
-  features = c("Inserts", "Weighted_Inserts", "Cofactor_Inserts"),
+  features = c("Inserts", "Weighted_Inserts", "Cofactor_Inserts", "ChromVAR_Scores",
+    "Cofactor_ChromVAR_Scores"),
   annoCol = "context",
   insertionProfile = NULL,
+  subSample = 10000,
   aggregationFun = sum,
   BPPARAM = SerialParam(),
   ...
@@ -39,12 +41,14 @@ See \link{listFeatures} for an overview of the features.}
 \item{insertionProfile}{Pre-computed insertion footprint profile for the specified transcription factor.
 Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").}
 
+\item{subSample}{If "ChromVAR_Scores" amongst features, the number of sites to subsample for computing the scores. If \code{NULL} no subsampling performed.}
+
 \item{aggregationFun}{function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 provided \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}} & \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}}.}
 
-\item{...}{Arguments passed to \link{getInsertionProfiles}.}
+\item{...}{Arguments passed to \link{getInsertionProfiles} and \link[chromVAR:getBackgroundPeaks]{chromVAR::getBackgroundPeaks}.}
 }
 \value{
 \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object with an experiment containing transcription factor- and cellular context-specific features added to \link[MultiAssayExperiment:MultiAssayExperiment-methods]{MultiAssayExperiment::experiments}.
