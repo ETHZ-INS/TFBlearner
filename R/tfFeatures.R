@@ -362,6 +362,7 @@
 #' @importFrom Hmisc cut2
 #' @importFrom DelayedMatrixStats colQuantiles
 #' @importFrom MatrixGenerics colMaxs
+#' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
 tfFeatures <- function(mae,
                        tfName,

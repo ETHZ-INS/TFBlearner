@@ -24,10 +24,10 @@
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @return [Matrix::Matrix-class] or list of Matrices with rows corresponding to the reference ranges and columns (and list elements) to byCols.
 #' @import data.table
-#' @import GenomicRanges
 #' @import Matrix
+#' @importFrom GenomicRanges findOverlaps GRangesList
 #' @importFrom BiocParallel bplapply MulticoreParam SerialParam SnowParam
-#' @importFrom GenomicAlignments readGAlignmentPairs first start end strand
+#' @importFrom GenomicAlignments readGAlignmentPairs start end strand
 #' @importFrom Rsamtools ScanBamParam
 #' @export
 genomicRangesMapping <- function(refRanges,
@@ -86,10 +86,11 @@ genomicRangesMapping <- function(refRanges,
                                           ignore.strand=TRUE)
 
   # find overlaps with ref. coordinates
-  overlapTable <- as.data.table(findOverlaps(refRanges, assayRanges,
-                                             type="any",
-                                             minoverlap=minoverlap,
-                                             ignore.strand=TRUE))
+  overlapTable <- as.data.table(GenomicRanges::findOverlaps(refRanges,
+                                                            assayRanges,
+                                                            type="any",
+                                                            minoverlap=minoverlap,
+                                                            ignore.strand=TRUE))
   rm(refRanges, assayRanges)
 
   # retrieve tf and cell type ids

@@ -18,10 +18,10 @@
   atacEndRanges <- .dtToGr(atacFrag, startCol="end", endCol="end",
                           seqCol="chr", stranded=stranded)
 
-  startHits <- findOverlaps(atacStartRanges, motifMarginRanges,
-                            type="within", ignore.strand=TRUE) # check if type within faster or slower
-  endHits <- findOverlaps(atacEndRanges, motifMarginRanges,
-                          type="within", ignore.strand=TRUE)
+  startHits <- GenomicRanges::findOverlaps(atacStartRanges, motifMarginRanges,
+                                           type="within", ignore.strand=TRUE)
+  endHits <- GenomicRanges::findOverlaps(atacEndRanges, motifMarginRanges,
+                                         type="within", ignore.strand=TRUE)
 
   # get overlapping insertion sites
   atacStartInserts <- atacFrag[queryHits(startHits),
@@ -85,7 +85,7 @@
 #' an insertion profile is provided or if `calcProfile=TRUE`.
 # If `calcProfile=TRUE` also a footprint profile around the motif matches is returned.
 #' @import data.table
-#' @import GenomicRanges
+#' @importFrom GenomicRanges findOverlaps GPos resize
 #' @export
 getInsertionProfiles <- function(atacData,
                                  motifRanges,
@@ -104,9 +104,9 @@ getInsertionProfiles <- function(atacData,
   }
 
   if(margin>0){
-    motifMarginRanges <- as.data.table(resize(motifRanges,
-                                              width=2*margin,
-                                              fix="center"))
+    motifMarginRanges <- as.data.table(GenomicRanges::resize(motifRanges,
+                                                             width=2*margin,
+                                                             fix="center"))
   }
   else{
     motifMarginRanges <- as.data.table(motifRanges)

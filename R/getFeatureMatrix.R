@@ -29,7 +29,7 @@
 #' @return Feature Matrix either as [Matrix::Matrix-class] or as [HDF5Array::HDF5Array-class] (if `saveHdf5=TRUE`).
 #' @import Matrix
 #' @import HDF5Array
-#' @import rhdf5
+#' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close
 #' @export
 getFeatureMatrix <- function(mae,
                              tfName,

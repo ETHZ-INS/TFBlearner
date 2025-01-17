@@ -10,11 +10,11 @@
       readPairs <- GenomicAlignments::readGAlignmentPairs(data, param=param)
 
       # get fragment coordinates from read pairs
-      seqDat <- GRanges(seqnames(GenomicAlignments::first(readPairs)),
-                        IRanges(start=pmin(GenomicAlignments::start(GenomicAlignments::first(readPairs)),
-                                           GenomicAlignments::start(GenomicAlignments::second(readPairs))),
-                                end=pmax(GenomicAlignments::end(GenomicAlignments::first(readPairs)),
-                                         GenomicAlignments::end(GenomicAlignments::second(readPairs)))),
+      seqDat <- GRanges(seqnames(readPairs@first),
+                        IRanges(start=pmin(GenomicAlignments::start(readPairs@first),
+                                           GenomicAlignments::start(readPairs@last)),
+                                end=pmax(GenomicAlignments::end(readPairs@first),
+                                         GenomicAlignments::end(readPairs@last))),
                         strand=GenomicAlignments::strand(readPairs))
       seqDat <- granges(seqDat, use.mcols=TRUE)
       seqDat <- as.data.table(seqDat)

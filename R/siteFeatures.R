@@ -40,6 +40,7 @@
 #' @import MultiAssayExperiment
 #' @importFrom Repitools cpgDensityCalc gcContentCalc
 #' @importFrom GenomicScores gscores
+#' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
 siteFeatures <- function(mae,
                          aggregationFun=max,
