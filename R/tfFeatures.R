@@ -308,10 +308,10 @@
   return(coCounts)
 }
 
-.getPromoterAssociation <- function(atacMat1, atacMat2){
+.getAssociation <- function(atacMat1, atacMat2){
 
   pearCor <- cor(Matrix::t(as.matrix(atacMat1)), Matrix::t(as.matrix(atacMat2)))
-  colnames(pearCor) <- paste("Promoter", "Pearson", 1:ncol(pearCor),
+  colnames(pearCor) <- paste("Pearson", 1:ncol(pearCor),
                              sep="_")
   pearCor <- Matrix::Matrix(pearCor)
 
@@ -324,7 +324,7 @@
   atacBinMat2 <- .binMat(atacScalMat2, threshold=0.3)
 
   cohKappa <- .matrixKappa(atacBinMat1, atacBinMat2)
-  colnames(cohKappa) <- paste("Promoter", "Cohen_Kappa", 1:ncol(cohKappa),
+  colnames(cohKappa) <- paste("Cohen_Kappa", 1:ncol(cohKappa),
                               sep="_")
 
   promMat <- cbind(pearCor, cohKappa)
@@ -461,7 +461,8 @@ tfFeatures <- function(mae,
     isProm <- which(rowData(experiments(mae)$ATAC_promoters)$tf_name==tfName)
     atacSubPromMat <- atacNormPromMat[isProm,,drop=FALSE]
 
-    promAssoc <- .getPromoterAssociation(atacNormMat, atacSubPromMat)
+    promAssoc <- .getAssociation(atacNormMat, atacSubPromMat)
+    colnames(promAssoc) <- paste("Promoter", colnames(promAssoc), sep="_")
     namesPromAssoc <- colnames(promAssoc)
 
     promAssoc <- lapply(namesPromAssoc,

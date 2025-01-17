@@ -19,6 +19,7 @@ Depends:
         HDF5Array
 Imports:
         BiocParallel,
+        chromVAR,
         DelayedMatrixStats,
         GenomicAlignments,
         GenomeInfoDb,
