@@ -268,6 +268,7 @@ addATACData <- function(mae, atacData,
 #' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
 #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData cbind assays
+#' @importClassesFrom SummarizedExperiment SummarizedExperiment RangedSummarizedExperiment
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
 prepData <- function(refCoords,

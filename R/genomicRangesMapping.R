@@ -25,7 +25,8 @@
 #' @return [Matrix::Matrix-class] or list of Matrices with rows corresponding to the reference ranges and columns (and list elements) to byCols.
 #' @import data.table
 #' @import Matrix
-#' @importFrom GenomicRanges findOverlaps GRangesList
+#' @importFrom GenomicRanges findOverlaps GRanges GRangesList
+#' @importClassesFrom GenomicRanges GRanges
 #' @importFrom BiocParallel bplapply MulticoreParam SerialParam SnowParam
 #' @importFrom GenomicAlignments readGAlignmentPairs start end strand
 #' @importFrom Rsamtools ScanBamParam
