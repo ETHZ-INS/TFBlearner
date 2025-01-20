@@ -13,15 +13,17 @@
 
     # Association with motif score
     nonZero <- Matrix::rowSums(atacMat)>0
-    atacNonZeroMat <- atacMat[nonZero,]
-    matchNonZeroScores <- matchScores[nonZero,]
+    atacNonZeroMat <- atacMat[nonZero,,drop=FALSE]
+    matchNonZeroScores <- matchScores[nonZero,,drop=FALSE]
     gcContent <- gcContent[nonZero]
 
     if(!is.null(subSample))
     {
+      if(subSample>length(nonZero)){
+        stop("Too few covered regions, choose smaller subSample argument")}
       subRows <- sample(1:nrow(atacNonZeroMat), subSample)
-      atacNonZeroMat <- atacNonZeroMat[subRows, ]
-      matchNonZeroScores <- matchNonZeroScores[subRows, ]
+      atacNonZeroMat <- atacNonZeroMat[subRows,,drop=FALSE]
+      matchNonZeroScores <- matchNonZeroScores[subRows,,drop=FALSE]
       gcContent <- gcContent[subRows]
     }
 
@@ -90,7 +92,7 @@
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] object with an experiment containing transcription factor- and cellular context-specific features added to [MultiAssayExperiment::experiments].
 #' If already an experiment of this feature group exists, columns are added to it.
 #' @import MultiAssayExperiment
-#' @importFrom BiocParallel bpmapply bplapply SerialParam MulticoreParam SnowParam
+#' @importFrom BiocParallel bpmapply bplapply SerialParam MulticoreParam SnowParam register
 #' @importFrom chromVAR computeDeviations getBackgroundPeaks
 #' @export
 contextTfFeatures <- function(mae,
@@ -113,14 +115,19 @@ contextTfFeatures <- function(mae,
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   if(whichCol=="OnlyTrain"){
     maeSub <- mae[,colData(mae)$is_training]
+    # get all cellular contexts covered for that TF
+    contexts <- getContexts(maeSub, tfName)
   }
   else if(whichCol=="Col"){
     if(is.null(colSel)) stop("If features should be computed only for some columns (e.g. cellular contexts,
                               (whichCol=Col), please do provide the names via colSel.")
     maeSub <- mae[,colSel,]
+    contexts <- colSel
   }
   else{
     maeSub <- mae
+    # get all cellular contexts covered for that TF
+    contexts <- getContexts(maeSub, tfName)
   }
 
   if(!is.null(insertionProfile)){
@@ -135,7 +142,7 @@ contextTfFeatures <- function(mae,
                                             "Cofactor_ChromVAR_Scores"),
                         several.ok=TRUE)
 
-  tfCofactors <- unique(unlist(subset(colData(experiments(mae)$ChIP),
+  tfCofactors <- unique(unlist(subset(colData(experiments(mae)$tfFeat),
                                       tf_name==tfName)$tf_cofactors))
   if(("Cofactor_Inserts" %in% features |
       "Cofactor_ChromVAR_Scores" %in% features) & is.null(tfCofactors)){
@@ -150,8 +157,6 @@ contextTfFeatures <- function(mae,
     warning(msg)
   }
 
-  # get all cellular contexts covered for that TF
-  contexts <- getContexts(maeSub, tfName)
   atacFragPaths <- unlist(subset(colData(experiments(maeSub)$ATAC),
                                  get(annoCol) %in% contexts)$origin)
 
@@ -173,7 +178,7 @@ contextTfFeatures <- function(mae,
       assays(experiments(maeSub)$ChIP)$peaks[,col,drop=TRUE]})
   }
   else{
-    labels <- rep(NULL, length(contexts))
+    labels <- vector(mode = "list", length = 2)
     names(labels) <- contexts
   }
 
@@ -315,8 +320,8 @@ contextTfFeatures <- function(mae,
     else{
       tfCols <- tfName}
 
-    matchScores <- assays(experiments(mae)$Motif)$match_scores[,tfCols,drop=FALSE]
-    matchScores[matchScores<5] <- 0
+    matchScores <- assays(experiments(mae)$Motif)$match_scores[,tfCols, drop=FALSE]
+    matchScores[matchScores<5,drop=FALSE] <- 0
     gcContent <-  assays(experiments(mae)$siteFeat)$siteFeat_gc_content[,,drop=TRUE]
     actFeatMats <- .getChromVARScores(atacMat, matchScores, gcContent, ...)
 
@@ -329,10 +334,15 @@ contextTfFeatures <- function(mae,
 
   # add features back to the full object
   for(context in contexts){
-     mae <- .addFeatures(mae, feats[[context]],
-                         mapTo="Col", prefix="contextFeat",
-                         tfName=tfName,
-                         colsToMap=context)}
+    featMats <- lapply(feats[[context]], `colnames<-`, NULL)
+    names(featMats) <- paste("contextTfFeat", names(featMats), sep="_")
+    seTfFeat <- SummarizedExperiment(assays=featMats,
+                                     rowRanges=coords)
+    colnames(seTfFeat) <- paste(context, tfName, sep="_")
+    colData(seTfFeat)$feature_type <- "contextTfFeat"
+    colData(seTfFeat)$tf_name <- tfName
+    mae <- .addFeatures(mae, seTfFeat, colsToMap=context,
+                        prefix="contextTfFeat")}
 
   return(mae)
 }

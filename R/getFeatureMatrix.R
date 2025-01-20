@@ -72,24 +72,24 @@ getFeatureMatrix <- function(mae,
   tfFeatMat <- Reduce("cbind", assays(seTf)[-1], assays(seTf)[[1]])
   colnames(tfFeatMat) <- names(assays(seTf))
 
-  selMotifs <- subset(colData(experiments(mae)$ChIP),
+  selMotifs <- subset(colData(experiments(mae)$tfFeat),
                       tf_name==tfName)$preselected_motifs
   selMotifs <- unique(unlist(selMotifs))
   motifMat <- assays(experiments(mae)$Motifs)$match_scores[,selMotifs, drop=FALSE]
   colnames(motifMat) <- paste("motif", colnames(motifMat), sep="_")
 
-  nonContextFeat <- list(siteFeatMat, tfFeatMat, motifMat)
-  nonContextFeat <- Reduce("cbind", nonContextFeat[-1], nonContextFeat[[1]])
+  noncontextTfFeat <- list(siteFeatMat, tfFeatMat, motifMat)
+  noncontextTfFeat <- Reduce("cbind", noncontextTfFeat[-1], noncontextTfFeat[[1]])
 
   message("Attaching cellular context-specific features")
   contexts <- getContexts(mae, tfName)
-  seTfContext <- experiments(mae)$contextFeat[,paste("contextFeat", tfName, contexts, sep="_")]
+  seTfContext <- experiments(mae)$contextTfFeat[,paste(contexts, tfName, sep="_")]
   seAtac <- experiments(mae)$ATAC[,contexts]
 
   # get the number of features
   nFeats <- length(assays(experiments(mae)$siteFeat))+
     length(assays(experiments(mae)$tfFeat))+
-    length(assays(experiments(mae)$contextFeat))+
+    length(assays(experiments(mae)$contextTfFeat))+
     length(assays(experiments(mae)$ATAC))+
     length(selMotifs)+1 # for contextCol
   if(!addLabels) nFeats <- nFeats-1
@@ -125,7 +125,7 @@ getFeatureMatrix <- function(mae,
   }
 
   if(convertInteger){
-    nonContextFeat <- .roundingCompression(nonContextFeat, factor=1e5)}
+    noncontextTfFeat <- .roundingCompression(noncontextTfFeat, factor=1e5)}
 
   featMats <- BiocParallel::bplapply(contexts, function(context, seAtac,
                                                         seTfContext,
@@ -138,8 +138,8 @@ getFeatureMatrix <- function(mae,
 
     # get context & TF-specific features
     featsTfContext <- lapply(assays(seTfContext), function(assayMat){
-      assayMat[,paste("contextFeat", tfName, context, sep="_"), drop=FALSE]})
-    if(!addLabels) featsTfContext[["contextFeat_label"]] <- NULL
+      assayMat[,paste(context, tfName, sep="_"), drop=FALSE]})
+    if(!addLabels) featsTfContext[["contextTfFeat_label"]] <- NULL
 
     featsTfContext <- Reduce("cbind", featsTfContext[-1], featsTfContext[[1]])
     colnames(featsTfContext) <- names(assays(seTfContext))
@@ -151,9 +151,9 @@ getFeatureMatrix <- function(mae,
     colnames(featsContext) <- names(assays(seAtac))
 
     featsContextMat <- cbind(featsTfContext, featsContext)
-    labelCol <- featsContextMat[,"contextFeat_label",drop=FALSE]
+    labelCol <- featsContextMat[,"contextTfFeat_label",drop=FALSE]
     featsContextMat <- featsContextMat[,setdiff(colnames(featsContextMat),
-                                                "contextFeat_label")]
+                                                "contextTfFeat_label")]
     if(colNorm){
       # column normalization
       featsContextMat <- Matrix::t(Matrix::t(featsContextMat)/colSums(featsContextMat))
@@ -180,7 +180,7 @@ getFeatureMatrix <- function(mae,
     else{
       return(featsMat)
     }
-  }, seAtac, seTfContext, nonContextFeat,
+  }, seAtac, seTfContext, noncontextTfFeat,
   colNorm, saveChunk, hdf5FileName,
   addLabels, convertInteger, BPPARAM=BPPARAM)
 

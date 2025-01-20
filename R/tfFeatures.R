@@ -399,8 +399,10 @@ tfFeatures <- function(mae,
   # Normalize ATAC-seq data
   message("GC Normalization") # relevant for the computation of other features
   siteFeatName <- "siteFeat" #names(experiments(mae))[[length(experiments(mae))]] # get the experiment added the last
-  gcFeatName <- paste(siteFeatName, "gc_content", sep="_")
-  gc <- assays(experiments(maeTrain)[[siteFeatName]])[[gcFeatName]][,,drop=TRUE]
+  #gcFeatName <- paste(siteFeatName, "gc_content", sep="_")
+  gc <- assays(experiments(maeTrain)[[siteFeatName]])[[paste("siteFeat",
+                                                             "gc_content",
+                                                             sep="_")]][,,drop=TRUE]
 
   atacNormMat <- .GCSmoothQuantile(gc, atacMat, g=20, round=TRUE)
   assays(experiments(maeTrain)$ATAC)$norm_total_overlaps <- atacNormMat
@@ -432,14 +434,19 @@ tfFeatures <- function(mae,
   for(tf in names(motifCoords)){
     matchCoords <- motifCoords[[tf]]
     scoreMat <- Matrix::Matrix(matchCoords$score, ncol=1)
-    colnames(scoreMat) <-  paste("match_score", tf, sep="_")
-    matchFeats <- list(scoreMat)
+    colnames(scoreMat) <-  "all"
+    scoreMat <- list(scoreMat)
+    names(scoreMat) <- paste("match_score", tf, sep="_")
     prefix <- paste("match_ranges", tf, sep="_")
-    names(matchFeats) <- prefix
     if(!(prefix) %in% names(experiments(mae))){
-      mae <- .addFeatures(mae, matchFeats, mapTo="Tf",
-                          prefix=paste("match_ranges", tf, sep="_"),
-                          tfName=tf, coords=matchCoords)}
+      seMatch <- SummarizedExperiment(assays=scoreMat,
+                                      rowRanges=matchCoords)
+      colData(seMatch)$feature_type <- "motif_matches"
+      rownames(colData(seMatch)) <- "all"
+      contextsTf <- getContexts(mae, tfName=tfName)
+      mae <- .addFeatures(mae, seMatch, colsToMap=contextsTf,
+                          prefix=prefix)
+      }
   }
 
   # NMF decomposition Binding Patterns
@@ -513,24 +520,6 @@ tfFeatures <- function(mae,
     matchScoresSub <- matchScores[,!c(colnames(matchScores) %in% tfCols), drop=FALSE]
     selectedMotifs <- .selectMotifs(matchScoresSub, chIPLabels, nMotifs=nMotifs)
     selectedMotifs <- unique(c(selectedMotifs, tfCols))
-
-    # important its added back to the full object!
-    # might actually not be needed as long as its just done on the training matrix
-    colDataChIP <- colData(experiments(mae)$ChIP)
-    if(is.null(colDataChIP$preselected_motifs)){
-      colDataChIP$preselected_motifs <- replicate(nrow(colDataChIP), list)}
-
-    colData(experiments(mae)$ChIP)$preselected_motifs <-
-      fifelse(colDataChIP$tf_name==tfName, list(selectedMotifs),
-              colDataChIP$preselected_motifs)
-
-    # add cofactors too
-    if(is.null(colDataChIP$tf_cofactors)){
-      colDataChIP$tf_cofactors <- replicate(nrow(colDataChIP), list)}
-
-    colData(experiments(mae)$ChIP)$tf_cofactors <-
-      fifelse(colDataChIP$tf_name==tfName, list(tfCofactors),
-              colDataChIP$tf_cofactors)
   }
 
   # TODO: Normalize by width
@@ -538,12 +527,37 @@ tfFeatures <- function(mae,
   # how to do this => check how this was done earlier
 
   # add features full mae object: Features are only computed on training data
-  if(length(featMats)>0){
-    mae <- .addFeatures(mae, featMats, mapTo="Tf",
-                        prefix="tfFeat", tfName=tfName)}
+  featMats <- lapply(featMats, `colnames<-`, NULL)
+  names(featMats) <- paste("tfFeat", names(featMats), sep="_")
+  seTfFeat <- SummarizedExperiment(assays=featMats,
+                                   rowRanges=coords)
+  colnames(seTfFeat) <- tfName
+  colData(seTfFeat)$feature_type <- "tfFeat"
+  colData(seTfFeat)$tf_name <- tfName
 
-  # check if pre-selected motifs are kept: => it is
-  # .checkObject(mae, checkFor="TF")
+  colsToMap <- getContexts(mae, tfName)
+  mae <- .addFeatures(mae, seTfFeat, colsToMap=colsToMap, prefix="tfFeat")
+
+  # add cofactors
+  colDataTf <- colData(experiments(mae)$tfFeat)
+  if(is.null(colDataTf$tf_cofactors)){
+      colDataTf$tf_cofactors <- replicate(nrow(colDataTf), list)}
+
+  colData(experiments(mae)$tfFeat)$tf_cofactors <-
+    fifelse(colDataTf$tf_name==tfName, list(tfCofactors),
+            colDataTf$tf_cofactors)
+
+
+  # add associated motifs to colData
+  if("Associated_Motifs" %in% features){
+    # might actually not be needed as long as its just done on the training matrix
+    if(is.null(colDataTf$preselected_motifs)){
+      colDataTf$preselected_motifs <- replicate(nrow(colDataTf), list)}
+
+    colData(experiments(mae)$tfFeat)$preselected_motifs <-
+      fifelse(colDataTf$tf_name==tfName, list(selectedMotifs),
+              colDataTf$preselected_motifs)
+  }
 
   return(mae)
 }

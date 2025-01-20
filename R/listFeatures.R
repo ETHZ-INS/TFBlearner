@@ -3,7 +3,7 @@
 #' Note feature matrix column names and assay names of the MultiAssayExperiment object are the same.
 #'
 #' @name listFeatures
-#' @return [data.table] containing an overview of the features.
+#' @return [data.table::data.table] containing an overview of the features.
 #' @import data.table
 #' @export
 listFeatures <- function(){

@@ -94,12 +94,16 @@ siteFeatures <- function(mae,
                                        ...)},
       annoData, names(annoData), scoreCols, ...)
 
-    names(annotFeats) <- names(annot)
+    names(annotFeats) <- names(annotData)
     featMats <- append(featMats, annotFeats)
   }
 
-  if(length(featMats)>0){
-    mae <- .addFeatures(mae, featMats, mapTo="All", prefix="siteFeat")}
+  names(featMats) <- paste("siteFeat", names(featMats), sep="_")
+  seSiteFeat <- SummarizedExperiment(assays=featMats, rowRanges=coords)
+  colnames(seSiteFeat) <- "all"
+  colData(seSiteFeat)$feature_type <- "c"
+  colsToMap <- unique(sampleMap(mae)$primary)
+  mae <- .addFeatures(mae, seSiteFeat, colsToMap=colsToMap, prefix="siteFeat")
 
   return(mae)
 }

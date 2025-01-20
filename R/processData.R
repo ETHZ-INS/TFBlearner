@@ -306,7 +306,7 @@
                               seqLevelStyle=seqlevelsStyle(refCoords))
 
     if(!is.null(isUncertainCol)){
-      #chIPPeaks[,is_uncertain:=fifelse(is.na(is_uncertain), TRUE, is_uncertain)]
+      chIPPeaks[,is_uncertain:=fifelse(is.na(is_uncertain), TRUE, is_uncertain)]
       byCols <- isUncertainCol}
     else{
       chIPPeaks$combination <- comb

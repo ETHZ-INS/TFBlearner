@@ -1,7 +1,3 @@
-# Costum MultiassayExperiment object constructor
-# if is path, data will be mapped.
-
-# write a validator! to check if objects are of the correct shape !!
 .checkObject <- function(mae,
                          checkFor=c("None", "Site", "TF", "Context")){
 
@@ -47,7 +43,7 @@
   }
 
   if("Context" %in% checkFor){
-    if(sum(grepl("contextFeat", experimentNames, ignore.case=TRUE))==0){
+    if(sum(grepl("contextTfFeat", experimentNames, ignore.case=TRUE))==0){
       stop("Context-features as obtained by using contextTffeatures() on the object
             are required for further use.")
     }
@@ -60,81 +56,50 @@
   return(TRUE)
 }
 
-.addExperiment <- function(mae,
-                           fm,
-                           coords,
-                           mapTo=c("All", "Tf", "Col"), # all essentially the same as coord
-                           prefix="features",
-                           annoCol="context",
-                           tfName=NULL,
-                           colsToMap=NULL, ...){
+.seToMae <- function(mae, seFeat, prefix, colsToMap, annoCol="context"){
 
-  # get coldata of feature matrix
-  names(fm) <- paste(prefix, names(fm), sep="_")
-  contexts <- unique(sampleMap(mae)$primary) #TODO: Check how protect is the primary naming
-
-  if(mapTo=="All"){
-    colFeatData <- DataFrame(feature_type=prefix,
-                             row.names=prefix)
-
-    rseFeat <- SummarizedExperiment(assays=fm,
-                                    rowRanges=coords,
-                                    colData=colFeatData,
-                                    checkDimnames=FALSE)
-
-    mapFeat <- data.frame(primary=rep(contexts, nrow(colFeatData)),
-                          colname=rep(rownames(colFeatData),
-                                      each=length(contexts)),
-                          stringsAsFactors=FALSE)
-    contextMap <- data.frame(row.names=contexts,
-                             description=rep(annoCol, length(contexts)))
-  }
-  else{
-    if(is.null(tfName)) stop("Provide the name of the TF for which features are added")
-
-    if(mapTo=="Tf"){
-       colDataChIP <- colData(experiments(mae)$ChIP)
-       colsToMap <- unique(subset(colDataChIP, tf_name==tfName)[[annoCol]])
-       colFeatData <- DataFrame(feature_type=prefix,
-                                tf_name=tfName,
-                                row.names=paste(prefix, tfName, sep="_"))
-    }
-
-    if(mapTo=="Col"){
-      if(is.null(colsToMap)) stop("Column to match to needs to be provided")
-        colFeatData <- DataFrame(feature_type=prefix,
-                                 tf_name=tfName,
-                                 row.names=paste(prefix, tfName,
-                                                 colsToMap, sep="_"))
-        colFeatData[[annoCol]] <- colsToMap
-    }
-
-    rseFeat <- SummarizedExperiment(assays=fm,
-                                    rowRanges=coords,
-                                    colData=colFeatData,
-                                    checkDimnames=FALSE)
-
+  colFeatData <- colData(seFeat)
+  if(length(setdiff(rownames(colFeatData), colsToMap))!=0){
     mapFeat <- data.frame(primary=rep(colsToMap, nrow(colFeatData)),
                           colname=rep(rownames(colFeatData),
-                                      each=length(colsToMap)),
+                                    each=length(colsToMap)),
+                          stringsAsFactors=FALSE)}
+  else{
+    mapFeat <- data.frame(primary=colsToMap,
+                          colname=colsToMap,
                           stringsAsFactors=FALSE)
-    contextMap <- data.frame(row.names=colsToMap,
-                             description=rep(annoCol, length(colsToMap)))
   }
-  # create multiassayexperiment object for feature to be added
-  maeFeat <- .createMaeFeat(mapFeat, rseFeat, contextMap, mae, prefix=prefix)
+  #contextMap <- data.frame(row.names=colsToMap,
+  #                         description=rep(annoCol, length(colsToMap)))
 
-  # Merge with existing object
-  mae <- c(mae, maeFeat)
-  return(mae)
-}
+  if(prefix %in% names(experiments(mae))){
+    seOrig <- experiments(mae)[[prefix]]
+    commonAssays <- intersect(names(assays(seOrig)), names(assays(seFeat)))
+    assays(seOrig) <- assays(seOrig)[commonAssays]
+    assays(seFeat) <- assays(seFeat)[commonAssays]
 
-.createMaeFeat <- function(mapFeat, rseFeat, contextMap, mae, prefix){
+    # fill missing colData columns
+    for(col in setdiff(colnames(colData(seOrig)), colnames(colData(seFeat)))){
+      colData(seFeat)[[col]] <- rep(NA, nrow(colData(seFeat)))}
+
+    # Avoid duplicate columns - keep newly added columns
+    seFeat <- SummarizedExperiment::cbind(
+      seOrig[,!(colnames(seOrig) %in% colnames(seFeat))], seFeat)
+
+    mapOrig <- as.data.table(subset(sampleMap(mae), assay==prefix)[,c("primary",
+                                                                      "colname")])
+    mapFeat <- unique(rbind(mapOrig, mapFeat, use.names=TRUE, fill=TRUE))
+    mapFeat <- as.data.frame(mapFeat)
+  }
+
+  contextMap <- data.frame(row.names=unique(mapFeat$primary))
+  contextMap[[annoCol]] <- unique(mapFeat$primary)
+  #contextMap$description <- annoCol
 
   listMap <- list(mapFeat)
   names(listMap) <- prefix
   dfMap <- listToMap(listMap)
-  objList <- list(rseFeat)
+  objList <- list(seFeat)
   names(objList) <- prefix
 
   # construct MultiAssayExperimentObject containing features
@@ -147,130 +112,126 @@
                    by.x=c("primary"),
                    by.y=c("primary"), all.x=TRUE, all.y=FALSE,
                    allow.cartesian=TRUE)
+  mapFeat[,is_testing:=fifelse(is.na(is_testing), FALSE, is_testing)]
+  mapFeat[,is_training:=fifelse(is.na(is_training), FALSE, is_training)]
+
   sampleMap(maeFeat) <- mapFeat
 
   return(maeFeat)
 }
 
-#' @import MultiAssayExperiment
-.addColumn <- function(mae,
-                       fm,
-                       coords,
-                       mapTo=c("All", "Tf", "Col"), # all essentially the same as coord
-                       prefix="features",
-                       annoCol="context",
-                       tfName=NULL,
-                       colsToMap=colsToMap, ...){
-  warning("Assays which are not shared are dropped")
-  seOrig <- experiments(mae)[[prefix]]
-  names(fm) <- paste(prefix, names(fm), sep="_")
-
-  if(mapTo=="Tf" | mapTo=="Col"){
-    if(is.null(tfName)) stop("Provide the name of the TF for which features are added")
-    if(mapTo=="Tf"){
-      colDataChIP <- colData(experiments(mae)$ChIP)
-      colsToMap <- unique(subset(colDataChIP, tf_name==tfName)[[annoCol]])
-
-      colFeatData <- DataFrame(feature_type=prefix,
-                               tf_name=tfName,
-                               row.names=paste(prefix, tfName, sep="_"))
-    }
-
-    if(mapTo=="Col"){
-      if(is.null(colsToMap)) stop("Column to match to needs to be provided")
-      colFeatData <- DataFrame(feature_type=prefix,
-                               tf_name=tfName,
-                               row.names=paste(prefix, tfName,
-                                               colsToMap, sep="_"))
-      colFeatData[[annoCol]] <- colsToMap
-    }
-
-    seFeat <- SummarizedExperiment(assays=fm,
-                                   rowRanges=coords,
-                                   colData=colFeatData,
-                                   checkDimnames=FALSE)
-
-    mapFeat <- data.table(primary=rep(colsToMap, nrow(colFeatData)),
-                          colname=rep(rownames(colFeatData),
-                                      each=length(colsToMap)),
-                          stringsAsFactors=FALSE)
-    contextMap <- data.frame(row.names=colsToMap,
-                             description=rep(annoCol, length(colsToMap)))
+.retainMappings <- function(mae){
+  experimentNames <- intersect(names(experiments(mae)),
+                               c("Motifs", "siteFeat", "tfFeat"))
+  for(experimentName in experimentNames){
+    mapComb <- as.data.table(sampleMap(mae))
+    mapMotif <- subset(mapComb, assay==experimentName)
+    allComb <- data.table(expand.grid(primary=unique(mapComb$primary),
+                                      colname=unique(mapMotif$colname)))
+    allComb <- allComb[,lapply(.SD, as.character), .SDcols=colnames(allComb)]
+    allComb$assay <- experimentName
+    allComb$is_training <- FALSE
+    allComb$is_testing <- FALSE
+    sampleMap(mae) <- data.frame(rbind(mapComb,
+                                       allComb[!mapMotif, on=.(primary, colname)],
+                                       use.names=TRUE))
   }
-  else{
-    stop("Other cases like adding an assay are not implemented (yet)")
-  }
-
-  commonAssays <- intersect(names(assays(seOrig)), names(assays(seFeat)))
-  assays(seOrig) <- assays(seOrig)[commonAssays]
-  assays(seFeat) <- assays(seFeat)[commonAssays]
-  seComb <- SummarizedExperiment::cbind(seOrig, seFeat)
-
-  mapOrig <- as.data.table(subset(sampleMap(mae), assay==prefix)[,c("primary",
-                                                                    "colname")])
-  mapComb <- rbind(mapOrig, mapFeat, use.names=TRUE, fill=TRUE)
-  mapComb <- as.data.frame(mapComb)
-  contextMap <- data.frame(row.names=unique(mapComb$primary))
-  contextMap$description <- annoCol
-
-  # add back combined assay to original mae
-  # create multiassayexperiment object for feature to be added
-  maeFeat <- .createMaeFeat(mapComb, seComb, contextMap, mae, prefix=prefix)
-
-  #TODO:  is there a better way of doing this?
-  # remove experiments from mae
-  experiments(mae)[[prefix]] <- NULL
-
-  # Merge with existing object
-  mae <- c(mae, maeFeat)
-
   return(mae)
 }
 
-# Function to help adding Features !!
-.addFeatures <- function(mae,
-                         fm,
-                         mapTo=c("All", "Tf", "Col"), # all essentially the same as coord
+.addFeatures <- function(mae, seFeat,
+                         colsToMap,
                          prefix="features",
                          annoCol="context",
-                         tfName=NULL,
-                         colsToMap=NULL,
-                         coords=NULL, ...){
-  # object validator
+                         ...){
   .checkObject(mae)
+  maeFeat <- .seToMae(mae, seFeat=seFeat, prefix=prefix,
+                      colsToMap=colsToMap, annoCol=annoCol)
 
-  mapTo <- match.arg(mapTo, choices=c("All", "Tf", "Col"))
-  if(mapTo=="Tf" & is.null(tfName)) stop("Provide name of TF to map features to")
+  experiments(mae)[[prefix]] <- NULL
 
-  if(is.null(coords)) coords <- rowRanges(experiments(mae)$Motifs)
-
-  #TODO: If prefix exists as an experiment only add Columns!!!!
-  if(!(prefix %in% names(experiments(mae)))){
-    mae <- .addExperiment(mae, fm, coords, mapTo=mapTo, # all essentially the same as coord
-                          prefix=prefix, annoCol=annoCol, tfName=tfName,
-                          colsToMap=colsToMap, ...)
-  }
-  else{
-    mae <- .addColumn(mae, fm, coords, mapTo=mapTo, # all essentially the same as coord
-                      prefix=prefix, annoCol=annoCol, tfName=tfName,
-                      colsToMap=colsToMap, ...)
-  }
-
-
-  #else{
-  #  stop("Other cases are not implemented yet, e.g. adding")
-  #}
+  # ensure that motifs still map to every cellular context
+  mae <- c(mae, maeFeat)
+  mae <- .retainMappings(mae)
 
   return(mae)
 }
 
 # helper function to get the cellular contexts per TF
-getContexts <- function(mae, tfName){
+getContexts <- function(mae, tfName=NULL){
   .checkObject(mae)
 
-  colDatChIP <- colData(experiments(mae)$ChIP)
-  contexts <- subset(colDatChIP, tf_name==tfName)$context
+  colsChIP <- colnames(experiments(mae)$ChIP)
+  colsChIP <- as.data.table(tstrsplit(colsChIP, split="_"))
+  if(!is.null(tfName)){
+    contexts <- subset(colsChIP, V2==tfName)$V1}
+  else{
+    contexts <- unique(sampleMap(mae)$primary)}
+
   return(contexts)
+}
+
+
+#' Add further ATAC-seq datasets to object
+#'
+#' Adds additional columns for provided ATAC-seq datasets in the ATAC-seq experiments and
+#' computes features if required.
+#'
+#' @name addATACData
+#' @param atacData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
+#' or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
+#' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
+#' @param testSet Vector of cellular context labels used for testing.
+#' @param computeFeatures If features should be computed ([TFBlearner::contextTfFeatures()]).
+#' @param tfName Name of transcription factor to compute context-specific features for.
+#' @param annoCol Name of column indicating cellular contexts in colData.
+#' @param shift Only for ATAC-seq data, if Tn5 insertion bias should be considered (only if a strand column is provided).
+#' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
+#' @param ... Additional arguments passed to [TFBlearner::contextTfFeatures()].
+#' @return [MultiAssayExperiment::MultiAssayExperiment-class] with added ATAC-seq experiments (and cellular context and TF-specific features if `computeFeatures=TRUE`).
+#' @import MultiAssayExperiment
+#' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
+#' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData cbind assays
+#' @importFrom GenomeInfoDb seqlevelsStyle
+addATACData <- function(mae, atacData,
+                        testSet=NULL,
+                        computeFeatures=TRUE,
+                        tfName=tfName,
+                        annoCol=annoCol,
+                        shift=shift,
+                        BPPARAM=SerialParam(), ...){
+  .checkObject(mae)
+
+  coords <- rowRanges(experiments(mae)$Motifs)
+  seAtac <- .mapSeqData(atacData, coords, type="ATAC", annoCol=annoCol,
+                        shift=shift, BPPARAM=BPPARAM)
+
+  mae <- .addFeatures(mae, seAtac, names(atacData), prefix="ATAC",
+                      annoCol=annoCol)
+  matchedContexts <- intersect(colData(experiments(mae)$ATAC)[[annoCol]],
+                               colData(experiments(mae)$ChIP)[[annoCol]])
+
+  annoDt <- as.data.table(sampleMap(mae))
+  annoDt[,is_testing:=fifelse(primary %in% testSet, TRUE, is_testing)]
+  annoDt[,is_testing:=fifelse(is.na(is_testing), FALSE, is_testing)]
+  annoDt[,is_training:=fifelse(primary %in% matchedContexts & !is_testing,
+                               TRUE, FALSE)]
+  sampleMap(mae) <- annoDt
+
+  colData(mae)$is_testing <- fifelse(colData(mae)[[annoCol]] %in% testSet,
+                                     TRUE, colData(mae)$is_testing)
+  colData(mae)$is_testing <- fifelse(is.na(colData(mae)$is_testing), FALSE,
+                                     colData(mae)$is_testing)
+  colData(mae)$is_training <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
+                                      colData(mae)$is_testing,TRUE, FALSE)
+
+  if(computeFeature){
+    if(is.null(tfName)) stop("Please provide a TF to compute the features for")
+    mae <- contextTfFeatures(mae, tfName=tfName, whichCol="Col",
+                             colSel=unique(names(atacData)), ...)
+  }
+
+  return(mae)
 }
 
 #' Custom MultiAssayExperiment construction.
@@ -301,6 +262,7 @@ getContexts <- function(mae, tfName){
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] with Motif, ATAC- & ChIP-seq experiments.
 #' @import MultiAssayExperiment
+#' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
 #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData cbind assays
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
@@ -331,7 +293,7 @@ prepData <- function(refCoords,
   # Preparing ATAC-seq data ----------------------------------------------------
   message("Processing ATAC-seq data")
   atacSe <- .mapSeqData(atacData, refCoords, type="ATAC", annoCol=annoCol,
-                       shift=shift, BPPARAM=BPPARAM)
+                        shift=shift, BPPARAM=BPPARAM)
   atacMap <- data.frame(primary=colData(atacSe)[[annoCol]],
                         colname=colData(atacSe)[[annoCol]],
                         stringsAsFactors=FALSE)
