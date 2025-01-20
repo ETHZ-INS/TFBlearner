@@ -87,7 +87,7 @@
                      j=chIPMat@j,
                      x=chIPMat@x,
                      name=cn[chIPMat@j+1])
-  cmDt[,c("tf", "context"):=tstrsplit(name, split="_", keep=1:2)]
+  cmDt[,c("context", "tf"):=tstrsplit(name, split="_", keep=1:2)]
 
   aggDt <- cmDt[,.(value=sum(x>0)),by=c("i", aggVar)]
   cols <- unique(aggDt[[aggVar]])
@@ -180,7 +180,8 @@
 
 .getNBindings <- function(chIPMat, tfName){
 
-  chIPMat <- chIPMat[,unlist(tstrsplit(colnames(chIPMat), split="_", keep=1))!=tfName]
+  chIPMat <- chIPMat[,unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))!=tfName,
+                     drop=FALSE]
   chIPMat <- .binMat(chIPMat)
 
   tfs <- tstrsplit(colnames(chIPMat), split="_", keep=2)[[1]]
@@ -244,6 +245,29 @@
   selectedMotifs <- selectedMotifs[!is.na(selectedMotifs)]
 
   return(selectedMotifs)
+}
+
+.getCofactorBindings <- function(chIPMat,
+                                 tfName,
+                                 tfCofactors){
+
+  tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
+  chIPMat <- chIPMat[,tfCols!=tfName, drop=FALSE]
+  tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
+  tfCofactors <- intersect(tfCols, tfCofactors)
+
+  if(length(tfCofactors)>0){
+    cofactBindings <- lapply(tfCofactors, function(tfCol){
+      cofactBinding <- Matrix(rowMeans(chIPMat[,tfCols==tfCol, drop=FALSE]),
+                              ncol=1)
+      colnames(cofactBinding) <- paste("Cofactor_binding", tfCol, sep="_")
+      cofactBinding})
+    names(cofactBindings) <- paste("Cofactor_binding", tfCofactors, sep="_")
+      return(cofactBindings)
+    }
+  else{
+    return(NULL)
+  }
 }
 
 
@@ -369,7 +393,7 @@ tfFeatures <- function(mae,
                        tfCofactors=NULL,
                        features=c("Binding_Patterns", "Promoter_Association",
                                   "C_Score", "Cooccuring_Motifs",
-                                  "Associated_Motifs"),
+                                  "Associated_Motifs", "Cofactor_Binding"),
                        nPatterns=10,
                        L1=c(0.5,0.5),
                        nMotifs=10,
@@ -379,7 +403,8 @@ tfFeatures <- function(mae,
                                             "Promoter_Association",
                                             "C_Score",
                                             "Cooccuring_Motifs",
-                                            "Associated_Motifs"),
+                                            "Associated_Motifs",
+                                            "Cofactor_Binding"),
                         several.ok=TRUE)
   featMats <- list()
 
@@ -478,6 +503,16 @@ tfFeatures <- function(mae,
     featMats <- append(featMats, promAssoc)
   }
 
+  if("Cofactor_Binding" %in% features){
+    message("Cofactor Bindings")
+    if(is.null(tfCofactors)){
+      stop("Please provide cofactor names (`tfCofactors`) if Cofactor_Bindings should be computed.")}
+    cofactBindings <- .getCofactorBindings(chIPMat, tfName, tfCofactors)
+    if(!is.null(cofactBindings)){
+      featMats <- append(featMats, cofactBindings)
+    }
+  }
+
   if("C_Score" %in% features){
     message("Crowdedness Scores")
     cScore <- list(.getNBindings(chIPMat, tfName=tfName))
@@ -489,16 +524,7 @@ tfFeatures <- function(mae,
     message("Co-occuring motifs counts")
 
     coCounts <- .getCoOccuringMotifs(motifCoords, coords)
-    if(ncol(coCounts)>1){
-      namesCoCounts <- c("n_cooccuring_tf_motifs",
-                         paste("n_cooccuring_cofactor_motifs",
-                               1:max(1, ncol(coCounts)-1), sep="_"))
-    }
-    else{
-      namesCoCounts <- "n_cooccuring_tf_motifs"
-    }
-
-    colnames(coCounts) <- namesCoCounts
+    namesCoCounts <- colnames(coCounts)
 
     coCounts <- lapply(namesCoCounts,
                        function(col) coCounts[,col,drop=FALSE])

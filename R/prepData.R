@@ -223,7 +223,7 @@ addATACData <- function(mae, atacData,
   colData(mae)$is_testing <- fifelse(is.na(colData(mae)$is_testing), FALSE,
                                      colData(mae)$is_testing)
   colData(mae)$is_training <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
-                                      colData(mae)$is_testing,TRUE, FALSE)
+                                      !colData(mae)$is_testing,TRUE, FALSE)
 
   if(computeFeature){
     if(is.null(tfName)) stop("Please provide a TF to compute the features for")
