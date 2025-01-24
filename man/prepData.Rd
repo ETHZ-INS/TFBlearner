@@ -17,6 +17,8 @@ prepData(
   isUncertainCol = NULL,
   annoCol = "context",
   shift = FALSE,
+  saveHdf5 = FALSE,
+  outDir = FALSE,
   BPPARAM = SerialParam()
 )
 }
@@ -52,6 +54,10 @@ and/or a uncertainty label (isUncertainCol).}
 \item{annoCol}{Name of column indicating cellular contexts in colData.}
 
 \item{shift}{Only for ATAC-seq data, if Tn5 insertion bias should be considered (only if a strand column is provided).}
+
+\item{saveHdf5}{If assays should be saved as HDF5 files.}
+
+\item{outDir}{Directory to save HDF5 file to.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}}.}
 }

@@ -259,9 +259,13 @@ addATACData <- function(mae, atacData,
 #' @param isUncertainCol Optional, column name of ChIP-seq data labelling uncertain peaks (TRUE/FALSE).
 #' @param annoCol Name of column indicating cellular contexts in colData.
 #' @param shift Only for ATAC-seq data, if Tn5 insertion bias should be considered (only if a strand column is provided).
+#' @param saveHdf5 If assays should be saved as HDF5 files.
+#' @param outDir Directory to save HDF5 file to.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] with Motif, ATAC- & ChIP-seq experiments.
+#' @import HDF5Array
 #' @import MultiAssayExperiment
+#' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
 #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData cbind assays
 #' @importFrom GenomeInfoDb seqlevelsStyle
@@ -278,6 +282,8 @@ prepData <- function(refCoords,
                      isUncertainCol=NULL,
                      annoCol="context",
                      shift=FALSE,
+                     saveHdf5=FALSE,
+                     outDir=FALSE,
                      BPPARAM=SerialParam()) {
 
   #TODO: Add flag for training (matched and not in test list),
@@ -293,7 +299,8 @@ prepData <- function(refCoords,
   # Preparing ATAC-seq data ----------------------------------------------------
   message("Processing ATAC-seq data")
   atacSe <- .mapSeqData(atacData, refCoords, type="ATAC", annoCol=annoCol,
-                        shift=shift, BPPARAM=BPPARAM)
+                        shift=shift, saveHdf5=saveHdf5, outDir=outDir,
+                        BPPARAM=BPPARAM)
   atacMap <- data.frame(primary=colData(atacSe)[[annoCol]],
                         colname=colData(atacSe)[[annoCol]],
                         stringsAsFactors=FALSE)
@@ -304,6 +311,7 @@ prepData <- function(refCoords,
                        weightCol=weightCol,
                        aggregationFun=aggregationFun,
                        isUncertainCol=isUncertainCol,
+                       saveHdf5=saveHdf5, outDir=outDir,
                        BPPARAM=BPPARAM)
   covTfs <- unique(colData(chIPSe)$tf_name)
   chIPMap <- data.frame(primary=colData(chIPSe)[[annoCol]],
@@ -316,6 +324,7 @@ prepData <- function(refCoords,
   message("Processing Motif matching scores")
   motifSe <- .mapSeqData(motifData, refCoords, type="Motif",
                         aggregationFun=aggregationFun,
+                        saveHdf5=saveHdf5, outDir=outDir,
                         scoreCol=scoreCol, BPPARAM=BPPARAM)
 
   motifMap <- data.frame(primary=rep(allContexts, ncol(motifSe)),
