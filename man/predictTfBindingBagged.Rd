@@ -7,10 +7,8 @@
 predictTfBindingBagged(
   models,
   featMat,
-  isLabelled = FALSE,
   chunk = FALSE,
   sparsify = TRUE,
-  stackingStrat = c("none", "last", "wlast", "wMean", "boostTree"),
   dataStack = NULL,
   numThreads = 40,
   BPPARAM = SerialParam()
@@ -21,14 +19,9 @@ predictTfBindingBagged(
 
 \item{featMat}{Feature matrix as obtained by \link{getFeatureMatrix} for prediction.}
 
-\item{isLabelled}{Does the feature matrix contain a label column}
-
 \item{chunk}{If predictions should be performed on chunks of the data to lower the memory footprint (chunk-size: 1e5)}
 
 \item{sparsify}{Should predictions be sparsified. Very small binding probabilities will be rounded to zero.}
-
-\item{stackingStrat}{Stacking strategy to use, either "none", the last model trained (e.g. the one seeing the most data points),
-the last models using weights ("wLast"), weighted mean of the models based on performance on hold-out data ("wMean"),}
 
 \item{dataStack}{Hold-out data to be used for training stacked models (e.g. if \code{stackingStrat} is either "wMean" or "boostTree").}
 

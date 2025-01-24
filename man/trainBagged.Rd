@@ -13,6 +13,7 @@ trainBagged(
   posFrac = 0.25,
   loContext = FALSE,
   numThreads = 10,
+  tuneHyperparams = TRUE,
   BPPARAM = SnowParam(workers = 4)
 )
 }
@@ -37,6 +38,9 @@ Only works if more than one cellular-context is contained within the feature mat
 
 \item{numThreads}{Total number of threads to be used. In case \link[BiocParallel:MulticoreParam-class]{BiocParallel::MulticoreParam} or \link[BiocParallel:SnowParam-class]{BiocParallel::SnowParam} with several workers are
 are specified as parallel back-ends, \code{floor(numThreads/nWorker)} threads are used per worker.}
+
+\item{tuneHyperparams}{If hyperparameters should be tuned with \link[mlr3tuning:TunerMbo]{mlr3tuning::TunerMbo}. Recommend to have this turned on (\code{tuneHyperparams=TRUE}).
+Otherwise (hopefully) sensible defaults are used.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}}.}
 }

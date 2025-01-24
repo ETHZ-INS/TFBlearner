@@ -35,6 +35,7 @@
                              earlyStoppingRounds,
                              evalRounds,
                              numThreads,
+                             tuneHyperparams=TRUE,
                              loContext=FALSE,
                              labels=NULL,
                              weights=NULL){
@@ -67,13 +68,14 @@
    print("Size of training table")
    print(dim(trainTable))
 
+   if(tuneHyperparams){
    task <- mlr3::TaskClassif$new(id="tfb_tree_param",
                                  backend=trainTable,
                                  target="label",
                                  positive="1")
 
    task$set_col_roles("weights", add_to="weight", remove_from="feature")
-   task$set_col_roles("siteFeat_width", remove_from="feature")
+   #task$set_col_roles("siteFeat_width", remove_from="feature")
 
    if(loContext){
      task$set_col_roles("context", add_to="group", remove_from="feature")
@@ -98,7 +100,7 @@
                                      num_threads=numThreads)
 
    paramSet <- paradox::ParamSet$new(list(
-     num_leaves=paradox::p_int(lower=31,upper=floor((nrow(trainTable)*0.8)/20)),
+     num_leaves=paradox::p_int(lower=31,upper=min(floor((nrow(trainTable)*0.8)/20), 8192)),
      lambda_l1=paradox::p_dbl(lower=0.001,upper=1000),
      lambda_l2=paradox::p_dbl(lower=0.001,upper=1000),
      feature_fraction=paradox::p_dbl(lower=0.5,upper=1.0),
@@ -120,8 +122,16 @@
    # lgr::get_logger("mlr3")$set_threshold("warn")
    tuner <- mlr3mbo::TunerMbo$new()
    suppressMessages(tuner$optimize(lgbmInst))
-
-   hp <- data.table::as.data.table(lgbmInst$result)
+   hp <- data.table::as.data.table(lgbmInst$result)}
+   else{
+     hp <- data.table(num_leaves=min(floor((nrow(trainTable)*0.8)/20), 8192),
+                      scale_pos_weight=scalePosMin,
+                      lambda_l1=1,
+                      lambda_l2=1,
+                      feature_fraction=0.75,
+                      bagging_freq=5,
+                      scale_pos_weight=scalePosMin)
+   }
 
    return(hp)
  }
@@ -154,8 +164,12 @@
    # add training datapoints keeping similar weight distributions
    trainSet <- .addUnused(weights, labels, unique(c(set, valSet)),
                           trainSet, posFrac=0.25, weighted=isWeighted)
-   colsSel <- !(colnames(featMat) %in% c("context", "label","chIP_label",
-                                         "width", "weights", "row_id"))
+
+   allFeats <- listFeatures()
+   colsToRemove <- unlist(subset(allFeats,
+                                 !included_in_training)$feature_matrix_column_names)
+   colsSel <- !(colnames(featMat) %in% c("context", "contextFeat_label",
+                                         colsToRemove))
 
    trainData <- lgb.Dataset(data=as.matrix(featMat[trainSet,colsSel,drop=FALSE]),
                             label=labels[trainSet],
@@ -180,7 +194,7 @@
 
    # sample negatives
    indNeg <- setdiff(which(labels==0), trainSet)
-   indSubNeg <- sample(indNeg, 2e5)
+   indSubNeg <- sample(indNeg, min(2e5, length(indNeg)))
 
    indSubPosAll <- c(indSubPos, valSet[labels[valSet]==1])
    nPos <- floor(length(indSubNeg)*((posFracMed)/(1-posFracMed)))
@@ -244,6 +258,12 @@
    gc()
 
    mod$params$sparse_thr <- th # sparsification threshold parameter
+   mod$params$n_pos_train <- sum(trainData$get_field("label")==1)
+   mod$params$n_neg_train <- sum(trainData$get_field("label")==0)
+   mod$params$n_pos_val1 <-sum(validData1$get_field("label")==1)
+   mod$params$n_pos_val2 <-sum(validData2$get_field("label")==1)
+   mod$params$n_neg_val1 <-sum(validData1$get_field("label")==0)
+   mod$params$n_neg_val2 <- sum(validData2$get_field("label")==0)
 
    return(mod)
  }
@@ -297,7 +317,7 @@
      if(is.null(nPos))
      {
        nPosAvail <- nrow(weightsSampDt)+length(resizePos)
-       nPos <- fifelse(nPosAvail>5e4, 5e4, nPosAvail)
+       nPos <- fifelse(nPosAvail>5e4, 5e4, nPosAvail) # 5e4
      }
      nPosAdd <- nPos-length(resizePos)
 
@@ -372,7 +392,7 @@
    posIds <-  which(labels==1)
 
    if(nModels>1){
-    nSampPos <- floor(seq(from=sqrt(4000),
+    nSampPos <- floor(seq(from=sqrt(min(4000, nTotPos)),
                           to=min(200,sqrt(nTotPos)),
                           length.out=nModels)^2)
     randSamp <- FALSE
@@ -462,6 +482,8 @@
  #' Only works if more than one cellular-context is contained within the feature matrix.
  #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
  #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
+ #' @param tuneHyperparams If hyperparameters should be tuned with [mlr3tuning::TunerMbo]. Recommend to have this turned on (`tuneHyperparams=TRUE`).
+ #' Otherwise (hopefully) sensible defaults are used.
  #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
  #' @return A list of four [lightgbm::lightgbm] models trained on different strata of the data.
  #' @import mlr3
@@ -486,6 +508,7 @@ trainBagged <- function(tfName,
                         posFrac=0.25,
                         loContext=FALSE,
                         numThreads=10,
+                        tuneHyperparams=TRUE,
                         BPPARAM=SnowParam(workers=4)){
 
   fmTfName <- attributes(featMat)$transcription_factor
@@ -498,7 +521,7 @@ trainBagged <- function(tfName,
   if(measureName=="classif.aucpr"){
     mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)}
 
-  labelCol <- "contextFeat_label"
+  labelCol <- "contextTfFeat_label"
   cellTypeCol <- "context"
   countCol <- "total_overlaps"
 
@@ -531,8 +554,7 @@ trainBagged <- function(tfName,
 
   if(!loContext | length(contexts)==1){
     # scale to weight positives of contexts overall the same
-    weightsDt <- data.table(w=weights,
-                            con=featMat[,cellTypeCol])
+    weightsDt <- data.table(w=weights, con=featMat[,cellTypeCol])
     weightsDt[,sum_w:=sum(w), by=.(con)]
     weightsDt[,scaled_w:=(w/sum(w))*1e3, by=.(con)]
     weights <- weightsDt$scaled_w
@@ -574,10 +596,10 @@ trainBagged <- function(tfName,
   labelInd <- as(as.matrix(featMat[,labelCol, drop=FALSE]), "TsparseMatrix")
   labels <- rep(0, nrow(featMat))
   labels[labelInd@i+1] <- 1
-  featMat <- featMat[,setdiff(colnames(featMat), labelCol)]
-  featNames <- colnames(featMat)
-  featMat <- featMat[,setdiff(featNames,
-                              featNames[grepl("chIP", featNames)])]
+
+  colsToRemove <- unlist(subset(allFeats, !included_in_training)$feature_matrix_column_names)
+  colsToRemove <- c(colsToRemove, labelCol)
+  featMat <- featMat[,!(colnames(featMat) %in% colsToRemove)]
 
   setsWeighted <- .chooseBags(featMat,
                               weights,
@@ -608,6 +630,7 @@ trainBagged <- function(tfName,
                                               earlyStoppingRounds=earlyStoppingRounds,
                                               evalRounds=evalRounds,
                                               loContext=loContext,
+                                              tuneHyperparams=tuneHyperparams,
                                               numThreads=floor(numThreads/nWorker)),
                                   BPPARAM=BPPARAM,
                                   SIMPLIFY=FALSE)
@@ -628,6 +651,7 @@ trainBagged <- function(tfName,
                                posFrac=0.01),
                  SIMPLIFY=FALSE,
                  BPPARAM=BPPARAM)
+
   message(paste("Time elapsed for training the model:", round((proc.time()-ptm)[2],1), "\n"))
 
   fits <- lapply(fits, function(mod){mod$params$tf <- tfName
@@ -672,4 +696,121 @@ trainBagged <- function(tfName,
   res <- res[order(res$cost),]
   if(retAll) return(res)
   res$thres[1]
+}
+
+
+trainStacked <- function(featMat, modsBagged,
+                         stackingStrat=c("last", "wLast",
+                                         "wMean", "boostTree"),
+                         subSample=1e5,
+                         evalRounds=100,
+                         earlyStoppingRounds=10,
+                         numThreads=4){
+
+  stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
+                                                      "wMean", "boostTree"))
+  preds <- predictTfBindingBagged(modsBagged, featMat)
+
+  if(stackingStrat=="last"){
+    stackMod <- modsBagged[[3]]
+    attr(stackMod, "stacking_strategy") <- "last"
+  }
+  else if(stackingStrat=="wLast"){
+    stackMod <- modsBagged[[4]]
+    attr(stackMod, "stacking_strategy") <- "weighted_last"
+  }
+  else if(stackingStrat=="wMean"){
+
+    stackMod <- .trainWeightedMean(preds, subSample=subSample)
+    attr(stackMod, "stacking_strategy") <- "weighted_mean"
+  }
+  else{
+    stackMod <- .trainStackedBoostedTree(featMat, preds, evalRounds=evalRounds,
+                             earlyStoppingRounds=earlyStoppingRounds,
+                             numThreads=numThreads)
+    attr(stackMod, "stacking_strategy") <- "boosted_tree"
+  }
+
+  return(stackMod)
+}
+
+.trainWeightedMean <- function(preds, subSample=1e5){
+
+  contextCol <- "context"
+  labelCol <- "contextTfFeat_label"
+
+  preds <- preds[preds[,"label_bin"]>=0,]
+  preds <- preds[,setdiff(colnames(preds), labelCol)]
+  subRows <- sample(nrow(preds))
+  predsDt <- as.data.table(as.matrix(preds[subRows,]))
+
+  #predsDt <- melt(predsDt, id.vars=c("label_bin", contextCol,
+  #                                   "tfFeat_n_chIP_peaks"))
+
+  predsDt$row_id <- 1:nrow(predsDt)
+  predsDt <- melt(predsDt, id.vars=c("row_id","label_bin", contextCol,
+                                     "tfFeat_n_chIP_peaks"))
+
+  # get weights based on auc-pr
+  auprDt <- .getRocs(predsDt, labels="label_bin", scores="value",
+                     models="variable", posClass=1, negClass=0)
+  auprDt <- auprDt[,.(auc=data.table::first(auc_pr_mod)), by=variable]
+  auprDt[,w:=auc/sum(auc)]
+
+  modelWeights <-  as.list(auprDt$w)
+  names(modelWeights) <- auprDt$variable
+
+  return(modelWeights)
+}
+
+.trainStackedBoostedTree <- function(featMat,
+                                     preds,
+                                     evalRounds=100,
+                                     earlyStoppingRounds=10,
+                                     numThreads=4){
+  message("Training stacked model")
+  mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)
+
+  labelCol <- "contextTfFeat_label"
+  contextCol <- "context"
+
+  colSel <- c("siteFeat_width", contextCol,
+              "total_overlaps", "siteFeat_gc_content",
+              labelCol,
+              paste("motif", tfName, sep="_"))
+  fmStack <- featMat[,colSel]
+
+  # predictions of models in bag
+  fmStack <- cbind(fmStack,
+                   preds[,c("top_weighted_pos", "med_weighted_pos",
+                            "all_weighted_pos", "all_pos")])
+
+  labelsStack <- fmStack[,labelCol]
+  nonFlank <- labelsStack>=0 & !is.na(labelsStack)
+  fmStack <- fmStack[nonFlank,] # remove flanking regions for training
+  labelsBinStack <- labelsStack[nonFlank]
+  labelsBinStack <- fifelse(labelsBinStack>0,1,0)
+  colSel <- setdiff(colSel, labelCol)
+
+  # select hyperparameters
+  set <- 1:nrow(fmStack)
+  hp <- .getTunersBagged(set,
+                         isWeighted=FALSE,
+                         data=as.matrix(fmStack[,colSel]), # is that conversion needed?
+                         earlyStoppingRounds=earlyStoppingRounds,
+                         evalRounds=evalRounds,
+                         numThreads=numThreads,
+                         measure=msr("classif.aucpr"),
+                         contexts=fmStack[,contextCol],
+                         labels=labelsBinStack)
+
+  stackedMod <- .fitModel(hp, set,
+                          isWeighted=FALSE,
+                          featMat=fmStack[,colSel],
+                          labels=labelsBinStack,
+                          earlyStoppingRounds=earlyStoppingRounds,
+                          numThreads=numThreads,
+                          posFrac=0.25)
+
+  return(stackedMod)
 }
