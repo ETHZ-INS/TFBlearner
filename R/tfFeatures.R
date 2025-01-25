@@ -206,7 +206,8 @@
   #thr <- vapply(colnames(matchScores), function(col){
   #  thr <- quantile(matchScores[,col], prob=0.9)
   #})
-  thr <- DelayedMatrixStats::colQuantiles(matchScores, probs=0.9)
+  subRowsQuant <- sample(1:nrow(matchScores), subSample*10)
+  thr <- DelayedMatrixStats::colQuantiles(matchScores[subRowsQuant,], probs=0.9)
   #ind <- which(matchScores != 0, arr.ind = TRUE)
 
   subRows <- sample(1:nrow(matchScores), subSample)
@@ -415,7 +416,9 @@ tfFeatures <- function(mae,
   coords <- rowRanges(experiments(mae)$Motifs)
 
   # subset to training data
-  maeTrain <- mae[,colData(mae)$is_training]
+  #maeTrain <- mae[,colData(mae)$is_training]
+  # temporary fix
+  maeTrain <- mae[,colnames(mae) %in% unique(subset(sampleMap(mae), is_training)$colname),]
 
   # get assays: ChIP & ATAC
   atacMat <- assays(experiments(maeTrain)$ATAC)$total_overlaps
@@ -538,7 +541,7 @@ tfFeatures <- function(mae,
     isTf <- colData(experiments(maeTrain)$ChIP)$tf_name==tfName
     chIPLabels <- chIPMat[,isTf, drop=FALSE]
 
-    matchScores <- assays(experiments(maeTrain)$Motifs)$match_scores
+    matchScores <- assays(experiments(maeTrain)$Motifs)[[1]]
     tfCols <- grep(paste(c(tfName, tfCofactors),collapse="|"),
                    colnames(matchScores), value=TRUE) # these will be included anyways
 
