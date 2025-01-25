@@ -59,3 +59,55 @@
   }
   return(gr)
 }
+
+.getRocs <- function(dt,
+                    scores="score",
+                    labels="cond",
+                    models="method",
+                    posClass="pos",
+                    negClass="neg",
+                    subSample=FALSE){
+
+  dt <- copy(dt)
+  setnames(dt, scores, "scores")
+  setorder(dt, -scores)
+  if(subSample)
+  {
+    dt <- dt[,.SD[sample(.N, min(3,.N))], by=c(models)]
+  }
+
+
+
+  dt[,tpr:=cumsum(.SD==posClass)/sum(.SD==posClass), by=c(models), .SD=labels]
+  dt[,fpr:=cumsum(.SD==negClass)/sum(.SD==negClass), by=c(models), .SD=labels]
+  dt[,fdr:=cumsum(.SD==negClass)/seq_len(.N), by=c(models), .SD=labels]
+  dt[,ppv:=cumsum(.SD==posClass)/seq_len(.N), by=c(models), .SD=labels]
+  dt[,p:=seq_len(.N), by=c(models)]
+  dt[,idx:=1:.N, by=c(models)]
+
+  # Found no better solution for this
+  setnames(dt, c(labels), c("labels"))
+
+  dt[,sum_pos:=sum(labels==posClass), by=c(models)]
+  dt[,sum_neg:=sum(labels==negClass), by=c(models)]
+  dt <- subset(dt, sum_pos>0 & sum_neg>0)
+
+  if(nrow(dt)>0){
+
+    #dt[,auc_mod:=pROC::auc(pROC::roc(labels, scores)), by=c(models)]
+
+    dt[,auc_pr_mod:=PRROC::pr.curve(scores.class0=scores,
+                                    weights.class0=as.integer(labels),
+                                    curve=FALSE)$auc.integral, # actually needs to be defined whats changing and whats not
+       by=c(models)]
+
+
+    setnames(dt, c("labels"), c(labels))
+
+    return(dt)
+  }
+  else
+  {
+    return(NULL)
+  }
+}
