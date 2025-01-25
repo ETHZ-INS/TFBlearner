@@ -379,7 +379,7 @@
 
 
   atacColData[,origin:=lapply(get(annoCol), function(x){
-    ds <- data[names(data)==x]
+    ds <- unlist(data[names(data)==x])
     ds <- lapply(ds, function(d) fifelse(is.character(d), d, NA))
     return(ds)})]
 
@@ -504,7 +504,7 @@
   chIPColData <- data.table(combination=colNames)
   chIPColData[,c(annoCol, "tf_name"):=tstrsplit(combination, split="_")]
   chIPColData[,origin:=lapply(combination, function(x){
-    ds <- data[names(data)==x]
+    ds <- unlist(data[names(data)==x])
     ds <- lapply(ds, function(d) fifelse(is.character(d), d, NA))
     return(ds)})]
 
