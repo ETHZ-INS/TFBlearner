@@ -9,7 +9,7 @@ tfFeatures(
   tfName,
   tfCofactors = NULL,
   features = c("Binding_Patterns", "Promoter_Association", "C_Score",
-    "Cooccuring_Motifs", "Associated_Motifs"),
+    "Cooccuring_Motifs", "Associated_Motifs", "Cofactor_Binding"),
   nPatterns = 10,
   L1 = c(0.5, 0.5),
   nMotifs = 10,

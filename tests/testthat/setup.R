@@ -1,6 +1,9 @@
 library(data.table)
 library(GenomicRanges)
 library(BiocParallel)
+library(GenomeInfoDb)
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(phastCons100way.UCSC.hg38)
 
 refCoords <- readRDS(test_path("./test_data/refCoords_test.rds"))
 
@@ -52,3 +55,43 @@ assayTableTestLarge <- data.table(chr=paste0("chr", sample(1:20, nLarge, replace
 assayTableTestLarge[, start:=round(sample(start(motifCoords),nLarge,replace=TRUE)+runif(nLarge,-100,100))]
 assayTableTestLarge[, end:=round(start+runif(nLarge, 1,100))]
 
+# example data for mae for feature functions -----------------------------------
+
+load(test_path("../../data/example_coords.rda"))
+exampleMotif <- list(CTCF=test_path("../../inst/extdata/ctcf_motif.tsv"),
+                     JUN=test_path("../../inst/extdata/jun_motif.tsv"))
+exampleATAC <-  list(A549=test_path("../../inst/extdata/example_atac_A549.bed"),
+                     K562=test_path("../../inst/extdata/example_atac_K562.bed"))
+exampleChIP <-  list(K562_CTCF=test_path("../../inst/extdata/example_chIP_K562_ctcf.tsv"),
+                     A549_CTCF=test_path("../../inst/extdata/example_chIP_A549_ctcf.tsv"),
+                     K562_JUN=test_path("../../inst/extdata/example_chIP_K562_jun.tsv"))
+
+exampleMotif <- list(CTCF="../../inst/extdata/ctcf_motif.tsv",
+                     JUN="../../inst/extdata/jun_motif.tsv")
+exampleATAC <-  list(A549="../../inst/extdata/example_atac_A549.bed",
+                     K562="../../inst/extdata/example_atac_K562.bed")
+exampleChIP <-  list(K562_CTCF="../../inst/extdata/example_chIP_K562_ctcf.tsv",
+                     A549_CTCF="../../inst/extdata/example_chIP_A549_ctcf.tsv",
+                     K562_JUN="../../inst/extdata/example_chIP_K562_jun.tsv")
+
+maeTest <- suppressMessages({prepData(example_coords,
+                                      motifData=exampleMotif,
+                                      atacData=exampleATAC,
+                                      chIPData=exampleChIP,
+                                      testSet="A549")})
+maeTest <- siteFeatures(maeTest)
+maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN")
+maeTest <- contextTfFeatures(maeTest, tfName="CTCF", BPPARAM=SerialParam())
+saveRDS(maeTest, "./test_data/maeTest.rds")
+#outDirTest <- tempdir()
+maeTestHdf5 <- suppressMessages({prepData(example_coords,
+                                      motifData=exampleMotif,
+                                      atacData=exampleATAC,
+                                      chIPData=exampleChIP,
+                                      testSet="A549",
+                                      saveHdf5=TRUE,
+                                      outDir=".")})
+maeTestHdf5 <- siteFeatures(maeTestHdf5)
+maeTestHdf5 <- tfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN")
+maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN")
+saveRDS(maeTestHdf5, test_path("./test_data/maeTest_hdf5.rds"))

@@ -47,7 +47,7 @@ getFeatureMatrix <- function(mae,
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   if(whichCol=="OnlyTrain"){
-    maeSub <- mae[,colData(mae)$is_training]
+    maeTrain <- mae[,colnames(mae) %in% unique(subset(sampleMap(mae), is_training)$colname),]
   }
   else if(whichCol=="Col"){
     if(is.null(colSel)) stop("If features should be computed only for some columns (e.g. cellular contexts,
@@ -75,7 +75,7 @@ getFeatureMatrix <- function(mae,
   selMotifs <- subset(colData(experiments(mae)$tfFeat),
                       tf_name==tfName)$preselected_motifs
   selMotifs <- unique(unlist(selMotifs))
-  motifMat <- assays(experiments(mae)$Motifs)$match_scores[,selMotifs, drop=FALSE]
+  motifMat <- as(assays(experiments(mae)$Motifs)$match_scores[,selMotifs, drop=FALSE], "CsparseMatrix")
   colnames(motifMat) <- paste("motif", colnames(motifMat), sep="_")
 
   noncontextTfFeat <- list(siteFeatMat, tfFeatMat, motifMat)
@@ -146,7 +146,7 @@ getFeatureMatrix <- function(mae,
 
     # get TF-specific features
     featsContext <- lapply(assays(seAtac), function(assayMat){
-      assayMat[,context, drop=FALSE]})
+      as(assayMat[,context, drop=FALSE], "CsparseMatrix")})
     featsContext <- Reduce("cbind", featsContext[-1], featsContext[[1]])
     colnames(featsContext) <- names(assays(seAtac))
 

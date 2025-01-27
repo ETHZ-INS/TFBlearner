@@ -83,8 +83,8 @@ siteFeatures <- function(mae,
       scoreCols <- rep(scoreCols, length(annoData))
     }
 
-    annotFeats <- mapply(function(ad, an, ...){
-      annoDt <- .processData(ad,readAll=TRUE)
+    annotFeats <- mapply(function(ad, an, scoreCol, ...){
+      annoDt <- .processData(ad, readAll=TRUE)
       annoDt$type <- an
       annoFeat <- genomicRangesMapping(coords,
                                        annoDt,
@@ -94,7 +94,7 @@ siteFeatures <- function(mae,
                                        ...)},
       annoData, names(annoData), scoreCols, ...)
 
-    names(annotFeats) <- names(annotData)
+    names(annotFeats) <- names(annoData)
     featMats <- append(featMats, annotFeats)
   }
 

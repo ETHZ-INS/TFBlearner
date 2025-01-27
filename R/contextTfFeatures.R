@@ -114,7 +114,7 @@ contextTfFeatures <- function(mae,
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   if(whichCol=="OnlyTrain"){
-    maeSub <- mae[,colData(mae)$is_training]
+    maeSub <- mae[,colnames(mae) %in% unique(subset(sampleMap(mae), is_training)$colname),]
     # get all cellular contexts covered for that TF
     contexts <- getContexts(maeSub, tfName)
   }
@@ -244,7 +244,9 @@ contextTfFeatures <- function(mae,
      SIMPLIFY=FALSE,
      BPPARAM=BPPARAM)
 
-  if("Cofactor_Inserts" %in% features & !is.null(tfCofactors)){
+  tfCofactorsSub <- intersect(tfCofactors, names(motifRanges))
+  if("Cofactor_Inserts" %in% features & length(tfCofactorsSub)>0){
+
     coFeats <- BiocParallel::bplapply(contexts,
                                       function(context,
                                                coords,
@@ -298,9 +300,9 @@ contextTfFeatures <- function(mae,
       names(insCoFeats) <- namesFeats
 
       return(insCoFeats)
-    }, coords=coords, atacFrag=atacFragPaths, tfCofactors=tfCofactors,
-       motifRanges=motifRanges[tfCofactors], features=features,
-       profile=insertionProfile[tfCofactors],
+    }, coords=coords, atacFrag=atacFragPaths, tfCofactors=tfCofactorsSub,
+       motifRanges=motifRanges[tfCofactorsSub], features=features,
+       profile=insertionProfile[tfCofactorsSub],
        aggregationFun=aggregationFun, ...,
        BPPARAM=BPPARAM)
     names(coFeats) <- contexts
@@ -312,15 +314,17 @@ contextTfFeatures <- function(mae,
   }
 
   if("ChromVAR_Scores" %in% features){
-    atacMat <- assays(experiments(mae)$ATAC)$total_overlaps
-
+    atacMat <- as(assays(experiments(mae)$ATAC)$total_overlaps, "CsparseMatrix")
 
     if("Cofactor_ChromVAR_Scores" %in% features){
       tfCols <- c(tfName, tfCofactors)}
     else{
       tfCols <- tfName}
 
-    matchScores <- assays(experiments(mae)$Motif)$match_scores[,tfCols, drop=FALSE]
+    cols <- intersect(paste(tfCols, "motif", sep="_"),
+                      colnames(experiments(mae)$Motifs))
+    matchScores <- as(assays(experiments(mae)$Motif)$match_scores[,cols,drop=FALSE],
+                      "CsparseMatrix")
     matchScores[matchScores<5,drop=FALSE] <- 0
     gcContent <-  assays(experiments(mae)$siteFeat)$siteFeat_gc_content[,,drop=TRUE]
     actFeatMats <- .getChromVARScores(atacMat, matchScores, gcContent, ...)

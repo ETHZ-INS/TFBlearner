@@ -206,11 +206,13 @@
   #thr <- vapply(colnames(matchScores), function(col){
   #  thr <- quantile(matchScores[,col], prob=0.9)
   #})
-  thr <- DelayedMatrixStats::colQuantiles(matchScores, probs=0.9)
+  subRows <- sample(1:nrow(matchScores), min(subSample*10, nrow(matchScores)))
+  matchSubScores <- matchScores[subRows,,drop=FALSE]
+  thr <- DelayedMatrixStats::colQuantiles(matchSubScores, probs=0.9)
   #ind <- which(matchScores != 0, arr.ind = TRUE)
 
-  subRows <- sample(1:nrow(matchScores), subSample)
-  matchSubScores <- matchScores[subRows,,drop=FALSE]
+  subRows <- sample(1:nrow(matchSubScores), min(subSample, nrow(matchScores)))
+  matchSubScores <- matchSubScores[subRows,,drop=FALSE]
   matchSubScores <- as(as.matrix(matchSubScores), "TsparseMatrix")
   labels <- labels[subRows]
 
@@ -415,11 +417,14 @@ tfFeatures <- function(mae,
   coords <- rowRanges(experiments(mae)$Motifs)
 
   # subset to training data
-  maeTrain <- mae[,colData(mae)$is_training]
+  cols <- lapply(experiments(mae),
+                 function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
+                                                                        is_training)$colname)]})
+  maeTrain <- subsetByColumn(mae, cols)
 
   # get assays: ChIP & ATAC
-  atacMat <- assays(experiments(maeTrain)$ATAC)$total_overlaps
-  chIPMat <- assays(experiments(maeTrain)$ChIP)$peaks
+  atacMat <- as(assays(experiments(maeTrain)$ATAC)$total_overlaps, "CsparseMatrix")
+  chIPMat <- as(assays(experiments(maeTrain)$ChIP)$peaks, "CsparseMatrix")
 
   # Normalize ATAC-seq data
   message("GC Normalization") # relevant for the computation of other features
