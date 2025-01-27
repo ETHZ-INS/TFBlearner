@@ -68,7 +68,8 @@ genomicRangesMapping <- function(refRanges,
 
   # get dimensions of tables
   nRefs <- length(refRanges)
-  nColsWidth <- length(unique(assayTable$col_width))
+  colsWidth <- unique(assayTable$col_width)
+  nColsWidth <- length(colsWidth)
   colsDepth <- unique(assayTable$col_depth)
 
   # convert to integer for speed-up
@@ -150,9 +151,10 @@ genomicRangesMapping <- function(refRanges,
   # add combinations with zero overlaps
   missingDepthCols <- setdiff(colsDepth, names(overlapTable))
   if(length(missingDepthCols)>0){
+    missingMat <- Matrix(0,nrow=nRefs, ncol=nColsWidth, doDiag=FALSE)
+    colnames(missingMat) <- colsWidth
     missingTables <- replicate(length(missingDepthCols),
-                               Matrix(0,nrow=nRefs,
-                                        ncol=nColsWidth, doDiag=FALSE))
+                               missingMat)
     names(missingTables) <- missingDepthCols
     overlapTable <- c(overlapTable, missingTables)
   }

@@ -206,10 +206,10 @@
   #thr <- vapply(colnames(matchScores), function(col){
   #  thr <- quantile(matchScores[,col], prob=0.9)
   #})
+
   subRows <- sample(1:nrow(matchScores), min(subSample*10, nrow(matchScores)))
   matchSubScores <- matchScores[subRows,,drop=FALSE]
   thr <- DelayedMatrixStats::colQuantiles(matchSubScores, probs=0.9)
-  #ind <- which(matchScores != 0, arr.ind = TRUE)
 
   subRows <- sample(1:nrow(matchSubScores), min(subSample, nrow(matchScores)))
   matchSubScores <- matchSubScores[subRows,,drop=FALSE]
@@ -543,7 +543,7 @@ tfFeatures <- function(mae,
     isTf <- colData(experiments(maeTrain)$ChIP)$tf_name==tfName
     chIPLabels <- chIPMat[,isTf, drop=FALSE]
 
-    matchScores <- assays(experiments(maeTrain)$Motifs)$match_scores
+    matchScores <- assays(experiments(maeTrain)$Motifs)[[1]]
     tfCols <- grep(paste(c(tfName, tfCofactors),collapse="|"),
                    colnames(matchScores), value=TRUE) # these will be included anyways
 
