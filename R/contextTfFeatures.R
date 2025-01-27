@@ -114,7 +114,10 @@ contextTfFeatures <- function(mae,
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   if(whichCol=="OnlyTrain"){
-    maeSub <- mae[,colnames(mae) %in% unique(subset(sampleMap(mae), is_training)$colname),]
+    cols <- lapply(experiments(mae),
+                   function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
+                                                                          is_training)$colname)]})
+    maeSub <- subsetByColumn(mae, cols)
     # get all cellular contexts covered for that TF
     contexts <- getContexts(maeSub, tfName)
   }
@@ -206,11 +209,6 @@ contextTfFeatures <- function(mae,
                    profiles=profile, calcProfile=calcProfile), addArgs)
     insRes <- suppressMessages(do.call(getInsertionProfiles, args))
 
-      #getInsertionProfiles(atacFrag, motifRanges,
-      #                                              profiles=profile,
-      #                                              calcProfile=calcProfile,
-      #                                              ...))
-
     scoreCols <- c()
     if("Weighted_Inserts" %in% features) scoreCols <- c(scoreCols,
                                                         "weighted_insert_counts")
@@ -219,11 +217,13 @@ contextTfFeatures <- function(mae,
     # aggregate features across ranges of interest
     insFeats <- lapply(scoreCols, function(scoreCol){
       feats <- genomicRangesMapping(coords,
-                                     insRes$motifScores,
-                                     scoreCol=scoreCol,
-                                     byCols="type",
-                                     aggregationFun=aggregationFun)
-      colnames(feats) <- paste(tfName, scoreCol, c("margin", "within"), sep="_")
+                                    insRes$motifScores,
+                                    scoreCol=scoreCol,
+                                    byCols="type",
+                                    aggregationFun=aggregationFun)
+      colnames(feats) <- fifelse(colnames(feats)=="0",
+                                 paste(tfName, scoreCol, "margin", sep="_"),
+                                 paste(tfName, scoreCol, "within", sep="_"))
       feats
     })
     insFeats <- Reduce("cbind", insFeats[-1], insFeats[[1]])
@@ -277,17 +277,15 @@ contextTfFeatures <- function(mae,
                          profiles=profile, calcProfile=calcProfile), addArgs)
           insResCo <- suppressMessages(do.call(getInsertionProfiles, args))
 
-          #insResCo <- getInsertionProfiles(atacFrag, cofactRanges,
-          #                                 profiles=profile,
-          #                                 calcProfile=calcProfile, ...)
-
           insFeats <- lapply(scoreCols, function(scoreCol){
             feats <- genomicRangesMapping(coords,
                                            insResCo$motifScores,
                                            scoreCol=scoreCol,
                                            byCols="type",
                                            aggregationFun=aggregationFun)
-            colnames(feats) <- paste(coFact, i, scoreCol, c("margin", "within"), sep="_")
+            colnames(feats) <- fifelse(colnames(feats)=="0",
+                                       paste(coFact, i, scoreCol, "margin", sep="_"),
+                                       paste(coFact, i, scoreCol, "within", sep="_"))
             feats
           })
          insFeats <- Reduce("cbind", insFeats[-1], insFeats[[1]])
@@ -314,7 +312,7 @@ contextTfFeatures <- function(mae,
   }
 
   if("ChromVAR_Scores" %in% features){
-    atacMat <- as(assays(experiments(mae)$ATAC)$total_overlaps, "CsparseMatrix")
+    atacMat <- as(assays(experiments(maeSub)$ATAC)$total_overlaps, "CsparseMatrix")
 
     if("Cofactor_ChromVAR_Scores" %in% features){
       tfCols <- c(tfName, tfCofactors)}
@@ -322,12 +320,13 @@ contextTfFeatures <- function(mae,
       tfCols <- tfName}
 
     cols <- intersect(paste(tfCols, "motif", sep="_"),
-                      colnames(experiments(mae)$Motifs))
-    matchScores <- as(assays(experiments(mae)$Motif)$match_scores[,cols,drop=FALSE],
+                      colnames(experiments(maeSub)$Motifs))
+    matchScores <- as(assays(experiments(maeSub)$Motif)$match_scores[,cols,drop=FALSE],
                       "CsparseMatrix")
     matchScores[matchScores<5,drop=FALSE] <- 0
-    gcContent <-  assays(experiments(mae)$siteFeat)$siteFeat_gc_content[,,drop=TRUE]
-    actFeatMats <- .getChromVARScores(atacMat, matchScores, gcContent, ...)
+    gcContent <-  assays(experiments(maeSub)$siteFeat)$siteFeat_gc_content[,,drop=TRUE]
+    actFeatMats <- .getChromVARScores(atacMat, matchScores, gcContent,
+                                      subSample=subSample, ...)
 
     feats <- lapply(contexts, function(context){
       c(feats[[context]], actFeatMats[[context]])

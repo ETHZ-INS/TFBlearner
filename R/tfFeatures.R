@@ -543,7 +543,7 @@ tfFeatures <- function(mae,
     isTf <- colData(experiments(maeTrain)$ChIP)$tf_name==tfName
     chIPLabels <- chIPMat[,isTf, drop=FALSE]
 
-    matchScores <- assays(experiments(maeTrain)$Motifs)[[1]]
+    matchScores <- assays(experiments(maeTrain)$Motifs)$match_scores
     tfCols <- grep(paste(c(tfName, tfCofactors),collapse="|"),
                    colnames(matchScores), value=TRUE) # these will be included anyways
 

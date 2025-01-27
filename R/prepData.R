@@ -379,7 +379,6 @@ prepData <- function(refCoords,
                                       primary %in% matchedContexts, TRUE, FALSE)
 
   sampleMap(mae) <- annoDt
-  show(mae)
 
   return(mae)
 }

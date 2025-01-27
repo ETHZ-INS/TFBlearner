@@ -74,24 +74,35 @@ exampleChIP <-  list(K562_CTCF="../../inst/extdata/example_chIP_K562_ctcf.tsv",
                      A549_CTCF="../../inst/extdata/example_chIP_A549_ctcf.tsv",
                      K562_JUN="../../inst/extdata/example_chIP_K562_jun.tsv")
 
-maeTest <- suppressMessages({prepData(example_coords,
-                                      motifData=exampleMotif,
-                                      atacData=exampleATAC,
-                                      chIPData=exampleChIP,
-                                      testSet="A549")})
-maeTest <- siteFeatures(maeTest)
-maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN")
-maeTest <- contextTfFeatures(maeTest, tfName="CTCF", BPPARAM=SerialParam())
-saveRDS(maeTest, "./test_data/maeTest.rds")
+# maeTest <- suppressMessages({prepData(example_coords,
+#                                       motifData=exampleMotif,
+#                                       atacData=exampleATAC,
+#                                       chIPData=exampleChIP,
+#                                       testSet="A549")})
+# maeTest <- siteFeatures(maeTest)
+# maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN")
+# maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
+#                              features=c("Inserts", "Weighted_Inserts",
+#                                         "Cofactor_Inserts"),
+#                              BPPARAM=SerialParam())
+# saveRDS(maeTest, "./test_data/maeTest.rds")
+
+maeTest <- readRDS(test_path("./test_data/maeTest.rds"))
+
 #outDirTest <- tempdir()
-maeTestHdf5 <- suppressMessages({prepData(example_coords,
-                                      motifData=exampleMotif,
-                                      atacData=exampleATAC,
-                                      chIPData=exampleChIP,
-                                      testSet="A549",
-                                      saveHdf5=TRUE,
-                                      outDir=".")})
-maeTestHdf5 <- siteFeatures(maeTestHdf5)
-maeTestHdf5 <- tfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN")
-maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN")
-saveRDS(maeTestHdf5, test_path("./test_data/maeTest_hdf5.rds"))
+# maeTestHdf5 <- suppressMessages({prepData(example_coords,
+#                                       motifData=exampleMotif,
+#                                       atacData=exampleATAC,
+#                                       chIPData=exampleChIP,
+#                                       testSet="A549",
+#                                       saveHdf5=TRUE,
+#                                       outDir="./test_data")})
+# maeTestHdf5 <- siteFeatures(maeTestHdf5)
+# maeTestHdf5 <- tfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN")
+# maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
+#                                  features=c("Inserts", "Weighted_Inserts",
+#                                             "Cofactor_Inserts"),
+#                                  BPPARAM=SerialParam())
+# saveRDS(maeTestHdf5, "./test_data/maeTest_hdf5.rds")
+
+maeTestHdf5 <- readRDS(test_path("./test_data/maeTest_hdf5.rds"))
