@@ -85,7 +85,8 @@
 #' an insertion profile is provided or if `calcProfile=TRUE`.
 # If `calcProfile=TRUE` also a footprint profile around the motif matches is returned.
 #' @import data.table
-#' @importFrom GenomicRanges findOverlaps GPos resize
+#' @importFrom GenomicRanges findOverlaps GPos resize GRanges
+#' @importClassesFrom GenomicRanges GRanges
 #' @export
 getInsertionProfiles <- function(atacData,
                                  motifRanges,
