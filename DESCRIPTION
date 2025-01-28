@@ -45,5 +45,7 @@ Imports:
         TFBSTools,
         universalmotif
 Suggests: 
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    BSgenome.Hsapiens.UCSC.hg38,
+    phastCons100way.UCSC.hg38
 Config/testthat/edition: 3
