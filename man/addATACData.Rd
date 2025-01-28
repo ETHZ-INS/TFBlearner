@@ -8,10 +8,10 @@ addATACData(
   mae,
   atacData,
   testSet = NULL,
-  computeFeatures = TRUE,
-  tfName = tfName,
-  annoCol = annoCol,
-  shift = shift,
+  computeFeatures = FALSE,
+  tfName = NULL,
+  annoCol = "context",
+  shift = FALSE,
   BPPARAM = SerialParam(),
   ...
 )

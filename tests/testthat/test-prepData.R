@@ -76,20 +76,69 @@ test_that("Object construction: Saving as hdf5", {
 
 
 test_that("Mappings check - addATACData", {
-  # check that all mappings get retained
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- addATACData(maeTest, atacData, shift=FALSE)
+  expect_s4_class(maeTest, "MultiAssayExperiment")
+
+  expect_equal(c(colnames(experiments(maeTest)$ATAC),  c("MCF7", "JURKAT")),
+               colnames(experiments(maeAdd)$ATAC))
+  motifs <- subset(sampleMap(maeAdd), primary=="MCF7" & assay=="Motifs")$colname
+  motifs <- motifs[order(motifs)]
+  motifsAll <- subset(sampleMap(maeTest), assay=="Motifs")$colname
+  motifsAll <- motifsAll[order(motifsAll)]
+  expect_equal(unique(motifs), unique(motifsAll))
+})
+
+test_that("Mappings check HDF5 - addATACData", {
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAddHdf5 <- addATACData(maeTestHdf5, atacData, shift=FALSE)
+  expect_s4_class(maeAddHdf5, "MultiAssayExperiment")
+
+  motifs <- subset(sampleMap(maeAddHdf5), primary=="MCF7" & assay=="Motifs")$colname
+  motifs <- motifs[order(motifs)]
+  motifsAll <- subset(sampleMap(maeAddHdf5), assay=="Motifs")$colname
+  motifsAll <- motifsAll[order(motifsAll)]
+  expect_equal(unique(motifs), unique(motifsAll))
 })
 
 test_that("Coldata check - addATACData", {
-  # check that is_testing, is_training is set correctly
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- addATACData(maeTest, atacData, shift=FALSE, testSet="MCF7")
+  testCons <- subset(colData(maeAdd), is_testing)$context
+  trainCons <- subset(colData(maeAdd), is_training)$context
+
+  expect_contains(testCons, "MCF7")
+  expect_true(!("MCF7" %in% trainCons))
 })
 
 test_that("Features check - addATACData", {
-  #TODO: move this test to the corresponding file
-  # check that features get computed for correct tf
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- addATACData(maeTest, atacData, shift=FALSE,
+                        tfName="CTCF",
+                        computeFeatures=TRUE,
+                        features=c("Inserts"))
+
+  expect_contains(colnames(experiments(maeAdd)$contextTfFeat),
+                  c("MCF7_CTCF", "JURKAT_CTCF"))
 })
 
-test_that("Arguments check - addATACData", {
-  # check if correct specification are provided
+test_that("Features check  HDF5- addATACData", {
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- addATACData(maeTestHdf5, atacData, shift=FALSE,
+                        tfName="CTCF",
+                        computeFeatures=TRUE,
+                        features=c("Inserts"))
+
+  expect_contains(colnames(experiments(maeAdd)$contextTfFeat),
+                  c("MCF7_CTCF", "JURKAT_CTCF"))
 })
-
-

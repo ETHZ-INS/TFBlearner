@@ -60,13 +60,11 @@ assayTableTestLarge[, end:=round(start+runif(nLarge, 1,100))]
 load(test_path("../../data/example_coords.rda"))
 exampleMotif <- list(CTCF=test_path("../../inst/extdata/ctcf_motif.tsv"),
                      JUN=test_path("../../inst/extdata/jun_motif.tsv"))
-exampleMotif <- list(CTCF="../../inst/extdata/ctcf_motif.tsv",
-                     JUN="../../inst/extdata/jun_motif.tsv")
-exampleATAC <-  list(A549="../../inst/extdata/example_atac_A549.bed",
-                     K562="../../inst/extdata/example_atac_K562.bed")
-exampleChIP <-  list(K562_CTCF="../../inst/extdata/example_chIP_K562_ctcf.tsv",
-                     A549_CTCF="../../inst/extdata/example_chIP_A549_ctcf.tsv",
-                     K562_JUN="../../inst/extdata/example_chIP_K562_jun.tsv")
+exampleATAC <-  list(A549=test_path("../../inst/extdata/example_atac_A549.bed"),
+                     K562=test_path("../../inst/extdata/example_atac_K562.bed"))
+exampleChIP <-  list(K562_CTCF=test_path("../../inst/extdata/example_chIP_K562_ctcf.tsv"),
+                     A549_CTCF=test_path("../../inst/extdata/example_chIP_A549_ctcf.tsv"),
+                     K562_JUN=test_path("../../inst/extdata/example_chIP_K562_jun.tsv"))
 
 # maeTest <- suppressMessages({prepData(example_coords,
 #                                        motifData=exampleMotif,

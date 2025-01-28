@@ -83,8 +83,9 @@
       colData(seFeat)[[col]] <- rep(NA, nrow(colData(seFeat)))}
 
     # Avoid duplicate columns - keep newly added columns
-    seFeat <- SummarizedExperiment::cbind(
-      seOrig[,!(colnames(seOrig) %in% colnames(seFeat))], seFeat)
+    seFeat <- combineCols(
+      seOrig[,!(colnames(seOrig) %in% colnames(seFeat))], seFeat,
+      use.names=FALSE)
 
     mapOrig <- as.data.table(subset(sampleMap(mae), assay==prefix)[,c("primary",
                                                                       "colname")])
@@ -147,7 +148,6 @@
   .checkObject(mae)
   maeFeat <- .seToMae(mae, seFeat=seFeat, prefix=prefix,
                       colsToMap=colsToMap, annoCol=annoCol)
-
   experiments(mae)[[prefix]] <- NULL
 
   # ensure that motifs still map to every cellular context
@@ -191,14 +191,15 @@ getContexts <- function(mae, tfName=NULL){
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] with added ATAC-seq experiments (and cellular context and TF-specific features if `computeFeatures=TRUE`).
 #' @import MultiAssayExperiment
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
-#' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData cbind assays
+#' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData assays
+#' @importFrom S4Vectors combineCols
 #' @importFrom GenomeInfoDb seqlevelsStyle
 addATACData <- function(mae, atacData,
                         testSet=NULL,
-                        computeFeatures=TRUE,
-                        tfName=tfName,
-                        annoCol=annoCol,
-                        shift=shift,
+                        computeFeatures=FALSE,
+                        tfName=NULL,
+                        annoCol="context",
+                        shift=FALSE,
                         BPPARAM=SerialParam(), ...){
   .checkObject(mae)
 
@@ -225,7 +226,7 @@ addATACData <- function(mae, atacData,
   colData(mae)$is_training <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
                                       !colData(mae)$is_testing,TRUE, FALSE)
 
-  if(computeFeature){
+  if(computeFeatures){
     if(is.null(tfName)) stop("Please provide a TF to compute the features for")
     mae <- contextTfFeatures(mae, tfName=tfName, whichCol="Col",
                              colSel=unique(names(atacData)), ...)
