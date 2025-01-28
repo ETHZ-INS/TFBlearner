@@ -7,7 +7,7 @@
 listFeatures()
 }
 \value{
-\link{data.table} containing an overview of the features.
+\link[data.table:data.table]{data.table::data.table} containing an overview of the features.
 }
 \description{
 Note feature matrix column names and assay names of the MultiAssayExperiment object are the same.

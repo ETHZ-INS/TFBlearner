@@ -87,7 +87,7 @@
                      j=chIPMat@j,
                      x=chIPMat@x,
                      name=cn[chIPMat@j+1])
-  cmDt[,c("tf", "context"):=tstrsplit(name, split="_", keep=1:2)]
+  cmDt[,c("context", "tf"):=tstrsplit(name, split="_", keep=1:2)]
 
   aggDt <- cmDt[,.(value=sum(x>0)),by=c("i", aggVar)]
   cols <- unique(aggDt[[aggVar]])
@@ -180,7 +180,8 @@
 
 .getNBindings <- function(chIPMat, tfName){
 
-  chIPMat <- chIPMat[,unlist(tstrsplit(colnames(chIPMat), split="_", keep=1))!=tfName]
+  chIPMat <- chIPMat[,unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))!=tfName,
+                     drop=FALSE]
   chIPMat <- .binMat(chIPMat)
 
   tfs <- tstrsplit(colnames(chIPMat), split="_", keep=2)[[1]]
@@ -205,11 +206,13 @@
   #thr <- vapply(colnames(matchScores), function(col){
   #  thr <- quantile(matchScores[,col], prob=0.9)
   #})
-  thr <- DelayedMatrixStats::colQuantiles(matchScores, probs=0.9)
-  #ind <- which(matchScores != 0, arr.ind = TRUE)
 
-  subRows <- sample(1:nrow(matchScores), subSample)
+  subRows <- sample(1:nrow(matchScores), min(subSample*10, nrow(matchScores)))
   matchSubScores <- matchScores[subRows,,drop=FALSE]
+  thr <- DelayedMatrixStats::colQuantiles(matchSubScores, probs=0.9)
+
+  subRows <- sample(1:nrow(matchSubScores), min(subSample, nrow(matchScores)))
+  matchSubScores <- matchSubScores[subRows,,drop=FALSE]
   matchSubScores <- as(as.matrix(matchSubScores), "TsparseMatrix")
   labels <- labels[subRows]
 
@@ -244,6 +247,29 @@
   selectedMotifs <- selectedMotifs[!is.na(selectedMotifs)]
 
   return(selectedMotifs)
+}
+
+.getCofactorBindings <- function(chIPMat,
+                                 tfName,
+                                 tfCofactors){
+
+  tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
+  chIPMat <- chIPMat[,tfCols!=tfName, drop=FALSE]
+  tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
+  tfCofactors <- intersect(tfCols, tfCofactors)
+
+  if(length(tfCofactors)>0){
+    cofactBindings <- lapply(tfCofactors, function(tfCol){
+      cofactBinding <- Matrix(rowMeans(chIPMat[,tfCols==tfCol, drop=FALSE]),
+                              ncol=1)
+      colnames(cofactBinding) <- paste("Cofactor_binding", tfCol, sep="_")
+      cofactBinding})
+    names(cofactBindings) <- paste("Cofactor_binding", tfCofactors, sep="_")
+      return(cofactBindings)
+    }
+  else{
+    return(NULL)
+  }
 }
 
 
@@ -369,7 +395,7 @@ tfFeatures <- function(mae,
                        tfCofactors=NULL,
                        features=c("Binding_Patterns", "Promoter_Association",
                                   "C_Score", "Cooccuring_Motifs",
-                                  "Associated_Motifs"),
+                                  "Associated_Motifs", "Cofactor_Binding"),
                        nPatterns=10,
                        L1=c(0.5,0.5),
                        nMotifs=10,
@@ -379,7 +405,8 @@ tfFeatures <- function(mae,
                                             "Promoter_Association",
                                             "C_Score",
                                             "Cooccuring_Motifs",
-                                            "Associated_Motifs"),
+                                            "Associated_Motifs",
+                                            "Cofactor_Binding"),
                         several.ok=TRUE)
   featMats <- list()
 
@@ -390,17 +417,22 @@ tfFeatures <- function(mae,
   coords <- rowRanges(experiments(mae)$Motifs)
 
   # subset to training data
-  maeTrain <- mae[,colData(mae)$is_training]
+  cols <- lapply(experiments(mae),
+                 function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
+                                                                        is_training)$colname)]})
+  maeTrain <- subsetByColumn(mae, cols)
 
   # get assays: ChIP & ATAC
-  atacMat <- assays(experiments(maeTrain)$ATAC)$total_overlaps
-  chIPMat <- assays(experiments(maeTrain)$ChIP)$peaks
+  atacMat <- as(assays(experiments(maeTrain)$ATAC)$total_overlaps, "CsparseMatrix")
+  chIPMat <- as(assays(experiments(maeTrain)$ChIP)$peaks, "CsparseMatrix")
 
   # Normalize ATAC-seq data
   message("GC Normalization") # relevant for the computation of other features
   siteFeatName <- "siteFeat" #names(experiments(mae))[[length(experiments(mae))]] # get the experiment added the last
-  gcFeatName <- paste(siteFeatName, "gc_content", sep="_")
-  gc <- assays(experiments(maeTrain)[[siteFeatName]])[[gcFeatName]][,,drop=TRUE]
+  #gcFeatName <- paste(siteFeatName, "gc_content", sep="_")
+  gc <- assays(experiments(maeTrain)[[siteFeatName]])[[paste("siteFeat",
+                                                             "gc_content",
+                                                             sep="_")]][,,drop=TRUE]
 
   atacNormMat <- .GCSmoothQuantile(gc, atacMat, g=20, round=TRUE)
   assays(experiments(maeTrain)$ATAC)$norm_total_overlaps <- atacNormMat
@@ -432,14 +464,19 @@ tfFeatures <- function(mae,
   for(tf in names(motifCoords)){
     matchCoords <- motifCoords[[tf]]
     scoreMat <- Matrix::Matrix(matchCoords$score, ncol=1)
-    colnames(scoreMat) <-  paste("match_score", tf, sep="_")
-    matchFeats <- list(scoreMat)
+    colnames(scoreMat) <-  "all"
+    scoreMat <- list(scoreMat)
+    names(scoreMat) <- paste("match_score", tf, sep="_")
     prefix <- paste("match_ranges", tf, sep="_")
-    names(matchFeats) <- prefix
     if(!(prefix) %in% names(experiments(mae))){
-      mae <- .addFeatures(mae, matchFeats, mapTo="Tf",
-                          prefix=paste("match_ranges", tf, sep="_"),
-                          tfName=tf, coords=matchCoords)}
+      seMatch <- SummarizedExperiment(assays=scoreMat,
+                                      rowRanges=matchCoords)
+      colData(seMatch)$feature_type <- "motif_matches"
+      rownames(colData(seMatch)) <- "all"
+      contextsTf <- getContexts(mae, tfName=tfName)
+      mae <- .addFeatures(mae, seMatch, colsToMap=contextsTf,
+                          prefix=prefix)
+      }
   }
 
   # NMF decomposition Binding Patterns
@@ -471,6 +508,16 @@ tfFeatures <- function(mae,
     featMats <- append(featMats, promAssoc)
   }
 
+  if("Cofactor_Binding" %in% features){
+    message("Cofactor Bindings")
+    if(is.null(tfCofactors)){
+      stop("Please provide cofactor names (`tfCofactors`) if Cofactor_Bindings should be computed.")}
+    cofactBindings <- .getCofactorBindings(chIPMat, tfName, tfCofactors)
+    if(!is.null(cofactBindings)){
+      featMats <- append(featMats, cofactBindings)
+    }
+  }
+
   if("C_Score" %in% features){
     message("Crowdedness Scores")
     cScore <- list(.getNBindings(chIPMat, tfName=tfName))
@@ -482,16 +529,7 @@ tfFeatures <- function(mae,
     message("Co-occuring motifs counts")
 
     coCounts <- .getCoOccuringMotifs(motifCoords, coords)
-    if(ncol(coCounts)>1){
-      namesCoCounts <- c("n_cooccuring_tf_motifs",
-                         paste("n_cooccuring_cofactor_motifs",
-                               1:max(1, ncol(coCounts)-1), sep="_"))
-    }
-    else{
-      namesCoCounts <- "n_cooccuring_tf_motifs"
-    }
-
-    colnames(coCounts) <- namesCoCounts
+    namesCoCounts <- colnames(coCounts)
 
     coCounts <- lapply(namesCoCounts,
                        function(col) coCounts[,col,drop=FALSE])
@@ -513,24 +551,6 @@ tfFeatures <- function(mae,
     matchScoresSub <- matchScores[,!c(colnames(matchScores) %in% tfCols), drop=FALSE]
     selectedMotifs <- .selectMotifs(matchScoresSub, chIPLabels, nMotifs=nMotifs)
     selectedMotifs <- unique(c(selectedMotifs, tfCols))
-
-    # important its added back to the full object!
-    # might actually not be needed as long as its just done on the training matrix
-    colDataChIP <- colData(experiments(mae)$ChIP)
-    if(is.null(colDataChIP$preselected_motifs)){
-      colDataChIP$preselected_motifs <- replicate(nrow(colDataChIP), list)}
-
-    colData(experiments(mae)$ChIP)$preselected_motifs <-
-      fifelse(colDataChIP$tf_name==tfName, list(selectedMotifs),
-              colDataChIP$preselected_motifs)
-
-    # add cofactors too
-    if(is.null(colDataChIP$tf_cofactors)){
-      colDataChIP$tf_cofactors <- replicate(nrow(colDataChIP), list)}
-
-    colData(experiments(mae)$ChIP)$tf_cofactors <-
-      fifelse(colDataChIP$tf_name==tfName, list(tfCofactors),
-              colDataChIP$tf_cofactors)
   }
 
   # TODO: Normalize by width
@@ -538,12 +558,37 @@ tfFeatures <- function(mae,
   # how to do this => check how this was done earlier
 
   # add features full mae object: Features are only computed on training data
-  if(length(featMats)>0){
-    mae <- .addFeatures(mae, featMats, mapTo="Tf",
-                        prefix="tfFeat", tfName=tfName)}
+  featMats <- lapply(featMats, `colnames<-`, NULL)
+  names(featMats) <- paste("tfFeat", names(featMats), sep="_")
+  seTfFeat <- SummarizedExperiment(assays=featMats,
+                                   rowRanges=coords)
+  colnames(seTfFeat) <- tfName
+  colData(seTfFeat)$feature_type <- "tfFeat"
+  colData(seTfFeat)$tf_name <- tfName
 
-  # check if pre-selected motifs are kept: => it is
-  # .checkObject(mae, checkFor="TF")
+  colsToMap <- getContexts(mae, tfName)
+  mae <- .addFeatures(mae, seTfFeat, colsToMap=colsToMap, prefix="tfFeat")
+
+  # add cofactors
+  colDataTf <- colData(experiments(mae)$tfFeat)
+  if(is.null(colDataTf$tf_cofactors)){
+      colDataTf$tf_cofactors <- replicate(nrow(colDataTf), list)}
+
+  colData(experiments(mae)$tfFeat)$tf_cofactors <-
+    fifelse(colDataTf$tf_name==tfName, list(tfCofactors),
+            colDataTf$tf_cofactors)
+
+
+  # add associated motifs to colData
+  if("Associated_Motifs" %in% features){
+    # might actually not be needed as long as its just done on the training matrix
+    if(is.null(colDataTf$preselected_motifs)){
+      colDataTf$preselected_motifs <- replicate(nrow(colDataTf), list)}
+
+    colData(experiments(mae)$tfFeat)$preselected_motifs <-
+      fifelse(colDataTf$tf_name==tfName, list(selectedMotifs),
+              colDataTf$preselected_motifs)
+  }
 
   return(mae)
 }

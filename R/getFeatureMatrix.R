@@ -47,15 +47,15 @@ getFeatureMatrix <- function(mae,
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   if(whichCol=="OnlyTrain"){
-    maeSub <- mae[,colData(mae)$is_training]
+    cols <- lapply(experiments(mae),
+                   function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
+                                                                          is_training)$colname)]})
+    mae <- subsetByColumn(mae, cols)
   }
   else if(whichCol=="Col"){
     if(is.null(colSel)) stop("If features should be computed only for some columns (e.g. cellular contexts,
                               (whichCol=Col), please do provide the names via colSel.")
-    maeSub <- mae[,colSel,]
-  }
-  else{
-    maeSub <- mae
+    mae <- mae[,colSel,]
   }
 
   sampleMapDt <- as.data.table(sampleMap(mae))
@@ -72,27 +72,30 @@ getFeatureMatrix <- function(mae,
   tfFeatMat <- Reduce("cbind", assays(seTf)[-1], assays(seTf)[[1]])
   colnames(tfFeatMat) <- names(assays(seTf))
 
-  selMotifs <- subset(colData(experiments(mae)$ChIP),
+  selMotifs <- subset(colData(experiments(mae)$tfFeat),
                       tf_name==tfName)$preselected_motifs
   selMotifs <- unique(unlist(selMotifs))
-  motifMat <- assays(experiments(mae)$Motifs)$match_scores[,selMotifs, drop=FALSE]
+  motifMat <- as(assays(experiments(mae)$Motifs)$match_scores[,selMotifs,drop=FALSE], "CsparseMatrix")
   colnames(motifMat) <- paste("motif", colnames(motifMat), sep="_")
 
-  nonContextFeat <- list(siteFeatMat, tfFeatMat, motifMat)
-  nonContextFeat <- Reduce("cbind", nonContextFeat[-1], nonContextFeat[[1]])
+  noncontextTfFeat <- list(siteFeatMat, tfFeatMat, motifMat)
+  noncontextTfFeat <- Reduce("cbind", noncontextTfFeat[-1], noncontextTfFeat[[1]])
 
   message("Attaching cellular context-specific features")
   contexts <- getContexts(mae, tfName)
-  seTfContext <- experiments(mae)$contextFeat[,paste("contextFeat", tfName, contexts, sep="_")]
+  seTfContext <- experiments(mae)$contextTfFeat[,paste(contexts, tfName, sep="_")]
   seAtac <- experiments(mae)$ATAC[,contexts]
 
   # get the number of features
   nFeats <- length(assays(experiments(mae)$siteFeat))+
     length(assays(experiments(mae)$tfFeat))+
-    length(assays(experiments(mae)$contextFeat))+
+    length(assays(experiments(mae)$contextTfFeat))+
     length(assays(experiments(mae)$ATAC))+
     length(selMotifs)+1 # for contextCol
-  if(!addLabels) nFeats <- nFeats-1
+
+  if(!addLabels &
+     "contextTfFeat_label" %in% names(assays(experiments(mae)$contextTfFeat))){
+    nFeats <- nFeats-1}
 
   #TODO: check better heueristic for this
   if(saveHdf5)
@@ -125,7 +128,7 @@ getFeatureMatrix <- function(mae,
   }
 
   if(convertInteger){
-    nonContextFeat <- .roundingCompression(nonContextFeat, factor=1e5)}
+    noncontextTfFeat <- .roundingCompression(noncontextTfFeat, factor=1e5)}
 
   featMats <- BiocParallel::bplapply(contexts, function(context, seAtac,
                                                         seTfContext,
@@ -138,22 +141,29 @@ getFeatureMatrix <- function(mae,
 
     # get context & TF-specific features
     featsTfContext <- lapply(assays(seTfContext), function(assayMat){
-      assayMat[,paste("contextFeat", tfName, context, sep="_"), drop=FALSE]})
-    if(!addLabels) featsTfContext[["contextFeat_label"]] <- NULL
+      assayMat[,paste(context, tfName, sep="_"), drop=FALSE]})
+    if(!addLabels) featsTfContext[["contextTfFeat_label"]] <- NULL
 
     featsTfContext <- Reduce("cbind", featsTfContext[-1], featsTfContext[[1]])
     colnames(featsTfContext) <- names(assays(seTfContext))
 
     # get TF-specific features
     featsContext <- lapply(assays(seAtac), function(assayMat){
-      assayMat[,context, drop=FALSE]})
+      as(assayMat[,context, drop=FALSE], "CsparseMatrix")})
     featsContext <- Reduce("cbind", featsContext[-1], featsContext[[1]])
     colnames(featsContext) <- names(assays(seAtac))
 
     featsContextMat <- cbind(featsTfContext, featsContext)
-    labelCol <- featsContextMat[,"contextFeat_label",drop=FALSE]
+    if(addLabels){
+      labelCol <- featsContextMat[,"contextTfFeat_label",drop=FALSE]
+    }
+    else{
+      labelCol <- NULL
+    }
+
     featsContextMat <- featsContextMat[,setdiff(colnames(featsContextMat),
-                                                "contextFeat_label")]
+                                                "contextTfFeat_label")]
+
     if(colNorm){
       # column normalization
       featsContextMat <- Matrix::t(Matrix::t(featsContextMat)/colSums(featsContextMat))
@@ -169,18 +179,20 @@ getFeatureMatrix <- function(mae,
 
     if(saveChunk){
       i <- which(colnames(seAtac)==context)
+      featsMat <- cbind(featsMat,
+                        Matrix(i, nrow=nrow(featsMat), ncol=1))
       h5write(as.matrix(featsMat), file=hdf5FileName,
               name="feature_matrix",
               createnewfile=FALSE,
               index=list(((i-1)*nrow(featsMat)+1):(nrow(featsMat)*i),
                          1:ncol(featsMat)))
-      #TODO: Dirty
+
       return(head(featsMat,1))
     }
     else{
       return(featsMat)
     }
-  }, seAtac, seTfContext, nonContextFeat,
+  }, seAtac, seTfContext, noncontextTfFeat,
   colNorm, saveChunk, hdf5FileName,
   addLabels, convertInteger, BPPARAM=BPPARAM)
 
@@ -189,7 +201,6 @@ getFeatureMatrix <- function(mae,
   colnames(contextCol) <- annoCol
   featMats <- Reduce("rbind", featMats[-1], featMats[[1]])
   featMats <- cbind(featMats, contextCol)
-  #featMats <- Matrix(featMats)
 
   if(saveHdf5){
     featNames <- colnames(featMats)
