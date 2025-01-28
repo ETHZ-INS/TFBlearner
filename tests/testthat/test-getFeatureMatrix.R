@@ -36,7 +36,7 @@ test_that("Feature Matrix: Basic functionality - Saving to HDF5", {
   file.remove(fmFilePath)
 })
 
-test_that("Feature Matrix: Basic functionality - Saving to HDF5", {
+test_that("Feature Matrix: Correct context selection - only for training contexts", {
   fm <- getFeatureMatrix(maeTest, tfName="CTCF",
                          which="OnlyTrain",
                          addLabels=FALSE,
@@ -48,4 +48,22 @@ test_that("Feature Matrix: Basic functionality - Saving to HDF5", {
 
   expect_equal(nrow(fm), length(trainContexts)*length(example_coords))
   expect_equal(attributes(fm)$cellular_contexts, trainContexts)
+})
+
+test_that("Feature Matrix: Correct context selection - only for specified context", {
+  fm <- getFeatureMatrix(maeTest, tfName="CTCF",
+                         which="Col",
+                         colSel="A549",
+                         addLabels=FALSE,
+                         saveHdf5=FALSE)
+
+  expect_equal(nrow(fm), length(example_coords))
+  expect_equal(attributes(fm)$cellular_contexts, "A549")
+})
+
+test_that("Feature Matrix: Correct context selection - no context provided", {
+  expect_error(getFeatureMatrix(maeTest, tfName="CTCF",
+                                which="Col",
+                                addLabels=FALSE,
+                                saveHdf5=FALSE))
 })

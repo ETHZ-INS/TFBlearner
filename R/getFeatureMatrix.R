@@ -19,6 +19,7 @@
 #' @param addLabels Should ChIP-seq peak labels be added to the feature matrix.
 #' @param whichCol Should feature matrix be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
 #' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
+#' @param colSel If `whichCol="colSel"`, name of the cellular context to compute the feature matrix for.
 #' @param colNorm If cellular-context specific features should be column-normalized.
 #' @param convertInteger If feature matrix should be converted to integer (to lower memory footprint).
 #' @param saveHdf5 If feature matrix should be saved as HDF5 file.
@@ -35,6 +36,7 @@ getFeatureMatrix <- function(mae,
                              tfName,
                              addLabels=TRUE,
                              whichCol=c("All", "OnlyTrain", "Col"),
+                             colSel=NULL,
                              colNorm=TRUE,
                              convertInteger=FALSE,
                              saveHdf5=TRUE,
