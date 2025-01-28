@@ -7,11 +7,8 @@
 predictTfBindingBagged(
   models,
   featMat,
-  isLabelled = FALSE,
   chunk = FALSE,
   sparsify = TRUE,
-  stackingStrat = c("none", "last", "wlast", "wMean", "boostTree"),
-  dataStack = NULL,
   numThreads = 40,
   BPPARAM = SerialParam()
 )
@@ -19,24 +16,20 @@ predictTfBindingBagged(
 \arguments{
 \item{models}{List of tree-based gradient boosting \link[lightgbm:lightgbm]{lightgbm::lightgbm} models as obtained by \link{trainBagged}}
 
-\item{featMat}{Feature matrix as obtained by \link{getFeatureMatrix} for prediction.}
-
-\item{isLabelled}{Does the feature matrix contain a label column}
+\item{featMat}{Feature matrix to predict on, as obtained by \link{getFeatureMatrix} for prediction.}
 
 \item{chunk}{If predictions should be performed on chunks of the data to lower the memory footprint (chunk-size: 1e5)}
 
 \item{sparsify}{Should predictions be sparsified. Very small binding probabilities will be rounded to zero.}
-
-\item{stackingStrat}{Stacking strategy to use, either "none", the last model trained (e.g. the one seeing the most data points),
-the last models using weights ("wLast"), weighted mean of the models based on performance on hold-out data ("wMean"),}
-
-\item{dataStack}{Hold-out data to be used for training stacked models (e.g. if \code{stackingStrat} is either "wMean" or "boostTree").}
 
 \item{numThreads}{Total number of threads to be used. In case \link[BiocParallel:MulticoreParam-class]{BiocParallel::MulticoreParam} or \link[BiocParallel:SnowParam-class]{BiocParallel::SnowParam} with several workers are
 are specified as parallel back-ends, \code{floor(numThreads/nWorker)} threads are used per worker.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}}.}
 }
+\value{
+Matrix with predicted binding probabilities.
+}
 \description{
-Not done yet
+Predicts bindings with each model in the bag (as obtained by \link{trainBagged}) seperately.
 }
