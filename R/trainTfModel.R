@@ -141,10 +141,10 @@
                        isWeighted,
                        featMat,
                        labels,
-                       weights,
                        numThreads,
                        earlyStoppingRounds,
                        posFrac,
+                       weights=NULL,
                        seed=42){
    set.seed(42)
    if(!isWeighted){
@@ -165,7 +165,7 @@
    trainSet <- .addUnused(weights, labels, unique(c(set, valSet)),
                           trainSet, posFrac=0.25, weighted=isWeighted)
 
-   allFeats <- listFeatures()
+   allFeats <- TFBlearner::listFeatures()
    colsToRemove <- unlist(subset(allFeats,
                                  !included_in_training)$feature_matrix_column_names)
    colsSel <- !(colnames(featMat) %in% c("context", "contextFeat_label",
