@@ -49,18 +49,3 @@ test_that("Feature Matrix: Basic functionality - Saving to HDF5", {
   expect_equal(nrow(fm), length(trainContexts)*length(example_coords))
   expect_equal(attributes(fm)$cellular_contexts, trainContexts)
 })
-
-#
-# test_that("Feature Matrix: Correct training context selection", {
-#   experiments(maeTest)$contextTfFeat <- NULL
-#   maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF",
-#                                    whichCol="OnlyTrain",
-#                                    features=c("Inserts", "Weighted_Inserts",
-#                                               "Cofactor_Inserts"))
-#
-#   expect_s4_class(maeTestHdf5, "MultiAssayExperiment")
-#   expect_equal(rownames(colData(experiments(maeTestHdf5)$contextTfFeat)),
-#                "K562_CTCF")
-# })
-
-# add dimensionality checks and mapping checks

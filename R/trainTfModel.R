@@ -99,6 +99,10 @@
                                      learning_rate=1,
                                      num_threads=numThreads)
 
+   if(nrow(trainTable)<775){
+    stop("Too few datapoints for training. A minimum of 775 datapoints is required")
+   }
+
    paramSet <- paradox::ParamSet$new(list(
      num_leaves=paradox::p_int(lower=31,upper=min(floor((nrow(trainTable)*0.8)/20), 8192)),
      lambda_l1=paradox::p_dbl(lower=0.001,upper=1000),
@@ -183,7 +187,6 @@
                              params=list(max_bin=63))
    gc()
 
-   # 3.12. thats where i stopped, continue from here
    # get second validation set with observed rate of weights (just recorded)
    topPosFrac <- sum(labels[set]==1)/sum(labels==1)
    nPosSub <- floor((1-topPosFrac)*sum(labels==1)*0.15)
@@ -209,7 +212,6 @@
                              label=labels[valSet2],
                              weight=weights[valSet2],
                              params=list(max_bin=63))
-   #print(dim(validData2))
    gc()
 
    # best model is chosen best on the first set
@@ -264,6 +266,8 @@
    mod$params$n_pos_val2 <-sum(validData2$get_field("label")==1)
    mod$params$n_neg_val1 <-sum(validData1$get_field("label")==0)
    mod$params$n_neg_val2 <- sum(validData2$get_field("label")==0)
+   mod$params$n_overlap_train_val1 <- intersect(trainSet, valSet)
+   mod$params$n_overlap_train_val2 <- intersect(trainSet, valSet2)
 
    return(mod)
  }
@@ -425,32 +429,43 @@
    atacFrags <- featMat[,countCol]
    ids <- 1:nrow(featMat)
 
-   .chooseNeg <- function(motifScores,
-                          atacFrags,
-                          ids,
-                          labels,
-                          nEasyNeg,
-                          nHardNeg){
+   .chooseNeg <- function(motifScores, atacFrags, ids,
+                          labels, nNeg){
+
+     nEasyNeg <- floor(nNeg*0.3)
+     nHardNeg <- nNeg-nEasyNeg
+
      isNegative <- labels==0
      isEasyNegative <- isNegative &
                        (motifScores < quantile(motifScores, 0.4, na.rm=TRUE) |
                        motifScores < 1 |
                        atacFrags <= quantile(atacFrags, 0.3, na.rm=TRUE))
+     isHardNegative <- !isEasyNegative & isNegative
+
+     if(nHardNeg>sum(isHardNegative)){
+       diff <- nHardNeg-  sum(isHardNegative)
+       nHardNeg <- sum(isHardNegative)
+       nEasyNeg <- nEasyNeg+diff
+     }
+
+     if(nEasyNeg>sum(isEasyNegative)){
+       diff <- nEasyNeg-sum(isEasyNegative)
+       nEasyNeg <- sum(isEasyNegative)
+       nHardNeg <- nHardNeg+diff
+     }
 
      easyNegIds <- sample(ids[isEasyNegative], nEasyNeg)
-     hardNegIds <- sample(ids[!isEasyNegative & isNegative], nHardNeg)
+     hardNegIds <- sample(ids[isHardNegative], nHardNeg)
      sampNeg <- c(easyNegIds, hardNegIds)
 
      return(sampNeg)
    }
 
    negSamps <- lapply(nSampPos, function(p){
-     nNeg <- p*negFact
+     nNeg <- min(p*negFact, length(negIds))
 
-     nEasyNeg <- floor(nNeg*0.3)
-     nHardNeg <- nNeg-nEasyNeg
      negSamp <- .chooseNeg(motifScores, atacFrags, ids,
-                           labels, nEasyNeg, nHardNeg)
+                           labels, nNeg)
      negSamp
    })
 
@@ -482,7 +497,7 @@
  #' Only works if more than one cellular-context is contained within the feature matrix.
  #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
  #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
- #' @param tuneHyperparams If hyperparameters should be tuned with [mlr3tuning::TunerMbo]. Recommend to have this turned on (`tuneHyperparams=TRUE`).
+ #' @param tuneHyperparams If hyperparameters should be tuned with [mlr3mbo::TunerMbo]. Recommend to have this turned on (`tuneHyperparams=TRUE`).
  #' Otherwise (hopefully) sensible defaults are used.
  #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
  #' @return A list of four [lightgbm::lightgbm] models trained on different strata of the data.
@@ -494,7 +509,7 @@
  #' @importFrom mlr3mbo TunerMbo
  #' @importFrom mlr3measures logloss
  #' @importFrom paradox ParamSet p_int p_dbl p_int
- #' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam
+ #' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam register
  #' @importFrom lightgbm lgb.Dataset lightgbm
  #' @importFrom PRROC pr.curve
  #' @importFrom MatrixGenerics colMaxs
@@ -509,7 +524,7 @@ trainBagged <- function(tfName,
                         loContext=FALSE,
                         numThreads=10,
                         tuneHyperparams=TRUE,
-                        BPPARAM=SnowParam(workers=4)){
+                        BPPARAM=SerialParam){
 
   fmTfName <- attributes(featMat)$transcription_factor
   if(fmTfName!=tfName){
@@ -597,6 +612,7 @@ trainBagged <- function(tfName,
   labels <- rep(0, nrow(featMat))
   labels[labelInd@i+1] <- 1
 
+  allFeats <- TFBlearner::listFeatures()
   colsToRemove <- unlist(subset(allFeats, !included_in_training)$feature_matrix_column_names)
   colsToRemove <- c(colsToRemove, labelCol)
   featMat <- featMat[,!(colnames(featMat) %in% colsToRemove)]
@@ -699,13 +715,45 @@ trainBagged <- function(tfName,
 }
 
 
+#' Training transcription factor-specific tree-based gradient boosting Models
+#'
+#' Trains a stacked model provided a bag of four tree-based gradient boosting models as obtained by [TFBlearner::trainBagged].
+#' For different stacking strategies can be used.
+#'
+#' @name trainStacked
+#' @param featMat Labelled feature matrix as obtained with [TFBlearner::getFeatureMatrix]. Ideally not used for training the bagged models.
+#' @param modsBagged Bag of models trained on different stratas of the data, as obtained by [TFBlearner::trainBagged].
+#' @param stackingStrat Stacking strategy to use. `last`, chooses the the model which has been trained on all (most) positives not using
+#' observational weights for the ChIP-seq peaks. `wLast` using the last model which has seen most positives and has been trained with observational weights.
+#' `wMean` weighted mean all models based on performance on the feature matrix provided.
+#' `boostTree` Trains a lightgbm model on the predictions of the models in the bag, together with some additional features (e.g. gc_content, total_overlaps).
+#' @param subSample Number of rows of featMat whoich should be used for computing performance estimates. Only used if `stackingStrat="wMean"`-
+#' @param evalRounds Number of evaluation rounds for the hyperparameter selection rounds. Only used if `stackingStrat="wBoost"`.
+#' @param earlyStoppingRounds Number of early stopping rounds for the hyperparameter selection and training of the [lightgbm::lightgbm] model. Only used if `stackingStrat="wBoost"`.
+#' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
+#' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
+#' @return Stacked model. Depending on the strategy either a [lightgbm:lightgbm] model (`last`, `wLast`, `boostTree`)
+#' or a vector with weights for the models in the provided bag (`wMean`).
+#' @import mlr3
+#' @import mlr3extralearners
+#' @import data.table
+#' @import Matrix
+#' @importFrom mlr3tuning trm ti
+#' @importFrom mlr3mbo TunerMbo
+#' @importFrom mlr3measures logloss
+#' @importFrom paradox ParamSet p_int p_dbl p_int
+#' @importFrom lightgbm lgb.Dataset lightgbm
+#' @importFrom PRROC pr.curve
+#' @importFrom MatrixGenerics colMaxs
+#' @export
 trainStacked <- function(featMat, modsBagged,
                          stackingStrat=c("last", "wLast",
                                          "wMean", "boostTree"),
                          subSample=1e5,
                          evalRounds=100,
                          earlyStoppingRounds=10,
-                         numThreads=4){
+                         numThreads=4,
+                         BPPARAM=SerialParam()){
 
   stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
                                                       "wMean", "boostTree"))

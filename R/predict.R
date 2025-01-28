@@ -11,17 +11,17 @@
 
 #' Predicts transcription-factor binding
 #'
-#' Not done yet
+#' Predicts bindings with each model in the bag (as obtained by [TFBlearner::trainBagged]) seperately.
 #'
 #' @name predictTfBindingBagged
 #' @param models List of tree-based gradient boosting [lightgbm::lightgbm] models as obtained by [TFBlearner::trainBagged]
-#' @param featMat Feature matrix as obtained by [TFBlearner::getFeatureMatrix] for prediction.
+#' @param featMat Feature matrix to predict on, as obtained by [TFBlearner::getFeatureMatrix] for prediction.
 #' @param chunk If predictions should be performed on chunks of the data to lower the memory footprint (chunk-size: 1e5)
 #' @param sparsify Should predictions be sparsified. Very small binding probabilities will be rounded to zero.
-#' @param dataStack Hold-out data to be used for training stacked models (e.g. if `stackingStrat` is either "wMean" or "boostTree").
 #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
 #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
+#' @return Matrix with predicted binding probabilities.
 #' @import Matrix
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
 #' @export
@@ -29,7 +29,6 @@ predictTfBindingBagged <- function(models,
                                    featMat,
                                    chunk=FALSE,
                                    sparsify=TRUE,
-                                   dataStack=NULL,
                                    numThreads=40,
                                    BPPARAM=SerialParam()){
 
@@ -105,17 +104,30 @@ predictTfBindingBagged <- function(models,
   return(preds)
 }
 
-predictTfBindingStacked <- function(modsStacked, featMat, predsBagged=NULL, ...){
-  stackingStrat <- attributes(modsStacked)$stacking_strategy
+#' Predicts transcription-factor binding
+#'
+#' Predicts bindings for the stacked model as obtained by [TFBlearner::trainStacked]
+#'
+#' @name predictTfBindingStacked
+#' @param modelStacked Stacked model as obtained by [TFBlearner::trainStacked].
+#' @param featMat Feature matrix to predict on, as obtained by [TFBlearner::getFeatureMatrix] for prediction.
+#' @param predsBagged Predictions of the single models in the bag. Only needed if the stacked model has been obtained with the weighted mean strategy.
+#' @param ... Additional arguments passed to [TFBlearner::predictTfBindingBagged].
+#' @return Matrix with predicted binding probabilities.
+#' @import data.table
+#' @import Matrix
+#' @export
+predictTfBindingStacked <- function(modelStacked, featMat, predsBagged=NULL, ...){
+  stackingStrat <- attributes(modelStacked)$stacking_strategy
   labelCol <- "contextTfFeat_label"
 
   if(stackingStrat %in% c("last", "weighted_last")){
-    preds <- predictTfBindingBagged(list("preds_stacked"=modsStacked), featMat, ...)
+    preds <- predictTfBindingBagged(list("preds_stacked"=modelStacked), featMat, ...)
   }
   else if(stackingStrat=="weighted_mean"){
     if(is.null(predsBagged)) stop("Provide bagged predictions")
-    preds <- lapply(names(modsStacked), function(modelName){
-      predsBagged[,modelName,drop=FALSE]*modsStacked[[modelName]]
+    preds <- lapply(names(modelStacked), function(modelName){
+      predsBagged[,modelName,drop=FALSE]*modelStacked[[modelName]]
     })
     preds <- Matrix(rowSums(Reduce("cbind", preds[-1], preds[[1]])), ncol=1)
     colnames(preds) <- "preds_stacked"
@@ -144,7 +156,7 @@ predictTfBindingStacked <- function(modsStacked, featMat, predsBagged=NULL, ...)
     featMat <- cbind(featMat, predsBagged[,c("top_weighted_pos", "med_weighted_pos",
                                              "all_weighted_pos", "all_pos"),
                                           with=FALSE])
-    preds <- predictTfBindingBagged(list("preds_stacked"=modsStacked), featMat, ...)
+    preds <- predictTfBindingBagged(list("preds_stacked"=modelStacked), featMat, ...)
   }
 
   return(preds)
