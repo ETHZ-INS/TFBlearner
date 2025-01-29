@@ -53,4 +53,6 @@ A list of four \link[lightgbm:lightgbm]{lightgbm::lightgbm} models trained on di
 \description{
 Trains a bag of four tree-based gradient boosting models of the \link[lightgbm:lightgbm]{lightgbm::lightgbm} library.
 Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the \link{mlr3tuning} library.
+The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository \url{https://github.com/mlr-org/mlr3extralearners}, whichs
+contains the remote package \link{mlr3extralearners} developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
 }

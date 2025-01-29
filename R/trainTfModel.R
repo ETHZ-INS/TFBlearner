@@ -89,18 +89,18 @@
    }
    rs$instantiate(task)
 
-   learner <- mlr3extralearners::lrn("classif.lightgbm",
-                                     predict_type="prob",
-                                     objective="binary",
-                                     verbose=-1,
-                                     max_bin=63,
-                                     min_data_in_leaf=20,
-                                     first_metric_only=TRUE,
-                                     num_iterations=50,
-                                     bagging_fraction=0.7,
-                                     learning_rate=1,
-                                     seed=seed,
-                                     num_threads=numThreads)
+   learner <- mlr3::lrn("classif.lightgbm",
+                        predict_type="prob",
+                        objective="binary",
+                        verbose=-1,
+                        max_bin=63,
+                        min_data_in_leaf=20,
+                        first_metric_only=TRUE,
+                        num_iterations=50,
+                        bagging_fraction=0.7,
+                        learning_rate=1,
+                        seed=seed,
+                        num_threads=numThreads)
 
    if(nrow(trainTable)<775){
     stop("Too few datapoints for training. A minimum of 775 datapoints is required")
@@ -494,6 +494,8 @@
  #'
  #' Trains a bag of four tree-based gradient boosting models of the [lightgbm::lightgbm] library.
  #' Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the [mlr3tuning] library.
+ #' The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), whichs
+ #' contains the remote package [mlr3extralearners] developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
  #'
  #' @name trainBagged
  #' @param tfName Name of transcription factor to train model for.
@@ -515,13 +517,14 @@
  #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
  #' @return A list of four [lightgbm::lightgbm] models trained on different strata of the data.
  #' @import mlr3
- #' @import mlr3extralearners
  #' @import data.table
  #' @import Matrix
+ #' @importFrom R6 R6Class
  #' @importFrom mlr3tuning trm ti
  #' @importFrom mlr3mbo TunerMbo
  #' @importFrom mlr3measures logloss
- #' @importFrom paradox ParamSet p_int p_dbl p_int
+ #' @importFrom mlr3misc crate named_list
+ #' @importFrom paradox CondAnyOf CondEqual ParamSet ps p_int p_dbl p_int p_lgl p_uty p_fct
  #' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam register
  #' @importFrom lightgbm lgb.Dataset lightgbm
  #' @importFrom PRROC pr.curve
@@ -734,6 +737,8 @@ trainBagged <- function(tfName,
 #'
 #' Trains a stacked model provided a bag of four tree-based gradient boosting models as obtained by [TFBlearner::trainBagged].
 #' For different stacking strategies can be used.
+#' The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), whichs
+#' contains the remote package [mlr3extralearners] developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
 #'
 #' @name trainStacked
 #' @param featMat Labelled feature matrix as obtained with [TFBlearner::getFeatureMatrix]. Ideally not used for training the bagged models.
@@ -752,13 +757,15 @@ trainBagged <- function(tfName,
 #' @return Stacked model. Depending on the strategy either a [lightgbm:lightgbm] model (`last`, `wLast`, `boostTree`)
 #' or a vector with weights for the models in the provided bag (`wMean`).
 #' @import mlr3
-#' @import mlr3extralearners
 #' @import data.table
 #' @import Matrix
+#' @importFrom R6 R6Class
 #' @importFrom mlr3tuning trm ti
 #' @importFrom mlr3mbo TunerMbo
 #' @importFrom mlr3measures logloss
-#' @importFrom paradox ParamSet p_int p_dbl p_int
+#' @importFrom mlr3misc crate named_list
+#' @importFrom paradox CondAnyOf CondEqual ParamSet ps p_int p_dbl p_int p_lgl p_uty p_fct
+#' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam register
 #' @importFrom lightgbm lgb.Dataset lightgbm
 #' @importFrom PRROC pr.curve
 #' @importFrom MatrixGenerics colMaxs
