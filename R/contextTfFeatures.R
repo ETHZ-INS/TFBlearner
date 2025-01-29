@@ -89,6 +89,7 @@
 #' @param subSample If "ChromVAR_Scores" amongst features, the number of sites to subsample for computing the scores. If `NULL` no subsampling performed.
 #' @param aggregationFun function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 #' provided [MultiAssayExperiment::MultiAssayExperiment-class] object.
+#' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()] & [BiocParallel::bplapply()].
 #' @param ... Arguments passed to [TFBlearner::getInsertionProfiles] and [chromVAR::getBackgroundPeaks].
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] object with an experiment containing transcription factor- and cellular context-specific features added to [MultiAssayExperiment::experiments].
@@ -109,6 +110,7 @@ contextTfFeatures <- function(mae,
                               insertionProfile=NULL,
                               subSample=1e4,
                               aggregationFun=sum,
+                              seed=42,
                               BPPARAM=SerialParam(),
                               ...){
 
@@ -340,6 +342,7 @@ contextTfFeatures <- function(mae,
     gcContent <-  assays(experiments(maeSub)$siteFeat)$siteFeat_gc_content[,,drop=TRUE]
     actFeatMats <- .getChromVARScores(atacMat, matchScores, gcContent,
                                       subSample=subSample,
+                                      seed=seed,
                                       BPPARAM=BPPARAM, ...)
 
     feats <- lapply(contexts, function(context){

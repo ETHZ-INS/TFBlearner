@@ -66,7 +66,10 @@
                     models="method",
                     posClass="pos",
                     negClass="neg",
-                    subSample=FALSE){
+                    subSample=FALSE,
+                    seed=seed){
+
+  set.seed(seed)
 
   dt <- copy(dt)
   setnames(dt, scores, "scores")

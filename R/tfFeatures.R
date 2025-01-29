@@ -114,7 +114,9 @@
                                 tfCofactors,
                                 nPatterns=10,
                                 aggregate=TRUE,
-                                L1=c(0.5,0.5)){
+                                L1=c(0.5,0.5),
+                                seed=42){
+    set.seed(seed)
 
     # Take out TF of interest
     cn <- colnames(chIPMat)
@@ -125,10 +127,12 @@
 
     if(aggregate){
       aggTf <- .aggregate(cm, aggVar="tf")
-      nmfTfRes <- suppressMessages(RcppML::nmf(aggTf, k=nPatterns, L1=L1))
+      nmfTfRes <- suppressMessages(RcppML::nmf(aggTf, k=nPatterns, L1=L1,
+                                               seed=seed))
 
       aggCon <- .aggregate(cm, aggVar="context")
-      nmfConRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1))
+      nmfConRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1,
+                                                seed=seed))
 
       wTf <- nmfTfRes$w
       colnames(wTf) <- paste("pattern", "tf", 1:ncol(wTf), sep="_")
@@ -144,7 +148,7 @@
 
     }
     else{
-      nmfRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1))
+      nmfRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1, seed=seed))
       fm <- nmfRes$w
     }
 
@@ -378,10 +382,11 @@
 #' Passed to [RcppML::nmf].
 #' @param L1 LASSO penalties for lower rank matrices w and h resulting from NMF. Vector with two elements for w and h.
 #' Passed to [RcppML::nmf]
+#' @param nMotifs Number of associated motifs to select. Chooses `nMotifs` co-occuring and `nMotifs` mutually exclusive motifs.
+#' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
 #' @param genome [BSgenome::BSgenome-class] to be used.
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] object with an experiment containing transcription factor-specific features added to [MultiAssayExperiment::experiments].
 #' If already an experiment with transcription factor-specific features exists in the object, columns for the specified transcription factor are added to it.
-#' @param nMotifs Number of associated motifs to select. Chooses `nMotifs` co-occuring and `nMotifs` mutually exclusive motifs.
 #' @import MultiAssayExperiment
 #' @importFrom motifmatchr matchMotifs
 #' @importFrom universalmotif convert_motifs
@@ -402,7 +407,9 @@ tfFeatures <- function(mae,
                        nPatterns=10,
                        L1=c(0.5,0.5),
                        nMotifs=10,
+                       seed=42,
                        genome=BSgenome.Hsapiens.UCSC.hg38){
+  set.seed(seed)
 
   features <- match.arg(features, choices=c("Binding_Patterns",
                                             "Promoter_Association",
@@ -486,7 +493,8 @@ tfFeatures <- function(mae,
   if("Binding_Patterns" %in% features){
     message("Binding pattern Features")
     bindPattern <- .getBindingPatterns(chIPMat, tfName=tfName,
-                                       nPatterns=nPatterns, L1=L1)
+                                       nPatterns=nPatterns, L1=L1,
+                                       seed=seed)
     namesBindPattern <- colnames(bindPattern)
     bindPattern <- lapply(namesBindPattern,
                           function(col) bindPattern[,col,drop=FALSE])

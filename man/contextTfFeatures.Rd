@@ -16,6 +16,7 @@ contextTfFeatures(
   insertionProfile = NULL,
   subSample = 10000,
   aggregationFun = sum,
+  seed = 42,
   BPPARAM = SerialParam(),
   ...
 )
@@ -45,6 +46,8 @@ Needs to contain coordinate (chr/seqnames, start, end) columns and weight column
 
 \item{aggregationFun}{function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 provided \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object.}
+
+\item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}} & \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}}.}
 

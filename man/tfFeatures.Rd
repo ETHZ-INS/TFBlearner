@@ -13,6 +13,7 @@ tfFeatures(
   nPatterns = 10,
   L1 = c(0.5, 0.5),
   nMotifs = 10,
+  seed = 42,
   genome = BSgenome.Hsapiens.UCSC.hg38
 )
 }
@@ -36,6 +37,8 @@ Passed to \link[RcppML:nmf]{RcppML::nmf}.}
 Passed to \link[RcppML:nmf]{RcppML::nmf}}
 
 \item{nMotifs}{Number of associated motifs to select. Chooses \code{nMotifs} co-occuring and \code{nMotifs} mutually exclusive motifs.}
+
+\item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
 
 \item{genome}{\link[BSgenome:BSgenome-class]{BSgenome::BSgenome} to be used.}
 }

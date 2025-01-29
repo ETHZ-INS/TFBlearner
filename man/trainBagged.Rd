@@ -12,8 +12,9 @@ trainBagged(
   earlyStoppingRounds = 100,
   posFrac = 0.25,
   loContext = FALSE,
-  numThreads = 10,
   tuneHyperparams = TRUE,
+  seed = 42,
+  numThreads = 10,
   BPPARAM = SerialParam
 )
 }
@@ -36,11 +37,13 @@ Negatives will be supsampled to achieve the specified fraction.}
 \item{loContext}{Should cellular-contexts be used for leave-one-context-out rounds during hyperparameter selection.
 Only works if more than one cellular-context is contained within the feature matrix.}
 
-\item{numThreads}{Total number of threads to be used. In case \link[BiocParallel:MulticoreParam-class]{BiocParallel::MulticoreParam} or \link[BiocParallel:SnowParam-class]{BiocParallel::SnowParam} with several workers are
-are specified as parallel back-ends, \code{floor(numThreads/nWorker)} threads are used per worker.}
-
 \item{tuneHyperparams}{If hyperparameters should be tuned with \link[mlr3mbo:mlr_tuners_mbo]{mlr3mbo::TunerMbo}. Recommend to have this turned on (\code{tuneHyperparams=TRUE}).
 Otherwise (hopefully) sensible defaults are used.}
+
+\item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
+
+\item{numThreads}{Total number of threads to be used. In case \link[BiocParallel:MulticoreParam-class]{BiocParallel::MulticoreParam} or \link[BiocParallel:SnowParam-class]{BiocParallel::SnowParam} with several workers are
+are specified as parallel back-ends, \code{floor(numThreads/nWorker)} threads are used per worker.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}}.}
 }

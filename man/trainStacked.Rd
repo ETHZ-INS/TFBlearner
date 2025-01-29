@@ -11,7 +11,8 @@ trainStacked(
   subSample = 1e+05,
   evalRounds = 100,
   earlyStoppingRounds = 10,
-  numThreads = 4,
+  seed = 42,
+  numThreads = 10,
   BPPARAM = SerialParam()
 )
 }
@@ -31,8 +32,12 @@ observational weights for the ChIP-seq peaks. \code{wLast} using the last model 
 
 \item{earlyStoppingRounds}{Number of early stopping rounds for the hyperparameter selection and training of the \link[lightgbm:lightgbm]{lightgbm::lightgbm} model. Only used if \code{stackingStrat="wBoost"}.}
 
+\item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
+
 \item{numThreads}{Total number of threads to be used. In case \link[BiocParallel:MulticoreParam-class]{BiocParallel::MulticoreParam} or \link[BiocParallel:SnowParam-class]{BiocParallel::SnowParam} with several workers are
 are specified as parallel back-ends, \code{floor(numThreads/nWorker)} threads are used per worker.}
+
+\item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}}.}
 }
 \value{
 Stacked model. Depending on the strategy either a \link{lightgbm:lightgbm} model (\code{last}, \code{wLast}, \code{boostTree})
