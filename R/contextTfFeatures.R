@@ -321,9 +321,14 @@ contextTfFeatures <- function(mae,
 
     cols <- intersect(paste(tfCols, "motif", sep="_"),
                       colnames(experiments(maeSub)$Motifs))
-    matchScores <- as(assays(experiments(maeSub)$Motif)$match_scores[,cols,drop=FALSE],
-                      "CsparseMatrix")
-    matchScores[matchScores<5,drop=FALSE] <- 0
+    matchScores <- as(as(assays(experiments(maeSub)$Motif)$match_scores[,cols,drop=FALSE],
+                      "CsparseMatrix"), "TsparseMatrix")
+    colDataMotifs <- subset(colData(experiments(maeSub)$Motifs), motif %in% cols)
+    colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif, cols)),,
+                                   drop=FALSE]
+    thr <- colDataMotifs$max_score/2
+
+    matchScores@x[matchScores@x<thr[matchScores@j + 1] & matchScores@x<4] <- 0
     gcContent <-  assays(experiments(maeSub)$siteFeat)$siteFeat_gc_content[,,drop=TRUE]
     actFeatMats <- .getChromVARScores(atacMat, matchScores, gcContent,
                                       subSample=subSample, ...)

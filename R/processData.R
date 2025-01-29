@@ -204,6 +204,7 @@
                                        byCols="motif_name",
                                        aggregationFun=aggregationFun,
                                        BPPARAM=SerialParam())
+    maxScore <- max(motifScore@x)
 
     if(saveHdf5){
       i <- which(colNames==name)
@@ -215,11 +216,14 @@
       motifScore <- head(motifScore, n=1)
     }
 
-    return(motifScore)
+    return(list(motifScore, maxScore))
   }, refCoords=refCoords, scoreCol=scoreCol,
      aggregationFun=aggregationFun, thread=threads,
      saveHdf5=saveHdf5, hdf5FileName=hdf5FileName, colNames=colNames,
      BPPARAM=BPPARAM)
+
+  maxScores <- unlist(lapply(motifScores, `[[`, 2))
+  motifScores <- lapply(motifScores, `[[`, 1)
 
   if(saveHdf5){
     H5close()
@@ -230,7 +234,8 @@
   }
 
   colnames(motifScores) <- colNames
-  motifColData <- data.table(motif=colnames(motifScores))
+  motifColData <- data.table(motif=colnames(motifScores),
+                             max_score=maxScores)
   motifSe <- SummarizedExperiment(assays=list(match_scores=motifScores),
                                   rowRanges=refCoords,
                                   colData=motifColData)

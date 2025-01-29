@@ -197,29 +197,25 @@
   return(nb)
 }
 
-.selectMotifs <- function(matchScores, labels, nMotifs=10, subSample=10000)
+.selectMotifs <- function(matchScores, maxScores, labels, nMotifs=10,
+                          subSample=10000)
 {
   labels <- .binMat(labels, threshold=0)
   labels <- rowMaxs(labels)
 
-  # per motif threshold: checkout H5sparseMarix
-  #thr <- vapply(colnames(matchScores), function(col){
-  #  thr <- quantile(matchScores[,col], prob=0.9)
-  #})
+  thr <- maxScores/2
 
-  subRows <- sample(1:nrow(matchScores), min(subSample*10, nrow(matchScores)))
+  subRows <- sample(1:nrow(matchScores), min(subSample, nrow(matchScores)))
   matchSubScores <- matchScores[subRows,,drop=FALSE]
-  thr <- DelayedMatrixStats::colQuantiles(matchSubScores, probs=0.9)
-
-  subRows <- sample(1:nrow(matchSubScores), min(subSample, nrow(matchScores)))
-  matchSubScores <- matchSubScores[subRows,,drop=FALSE]
   matchSubScores <- as(as.matrix(matchSubScores), "TsparseMatrix")
   labels <- labels[subRows]
 
   # top motif scores
   matchCoScores <- matchSubScores
-  matchCoScores@x[matchCoScores@x < thr[matchCoScores@i + 1] ] <- 0
-  matchCoScores@x[matchCoScores@x >= thr[matchCoScores@i + 1] ] <- 1
+  matchCoScores@x[matchCoScores@x < thr[matchCoScores@j + 1] &
+                    matchCoScores@x<4] <- 0
+  matchCoScores@x[matchCoScores@x >= thr[matchCoScores@j + 1] &
+                    matchCoScores@x>=4] <- 1
 
   # get mutually exclusive motif scores
   zeroInd <- which(matchSubScores==0, arr.ind = TRUE)
@@ -386,7 +382,6 @@
 #' @importFrom RcppML nmf
 #' @importFrom preprocessCore normalize.quantiles
 #' @importFrom Hmisc cut2
-#' @importFrom DelayedMatrixStats colQuantiles
 #' @importFrom MatrixGenerics colMaxs
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
@@ -549,7 +544,15 @@ tfFeatures <- function(mae,
 
     # select motifs
     matchScoresSub <- matchScores[,!c(colnames(matchScores) %in% tfCols), drop=FALSE]
-    selectedMotifs <- .selectMotifs(matchScoresSub, chIPLabels, nMotifs=nMotifs)
+    colDataMotifs <- colData(experiments(maeTrain)$Motifs)
+    colDataMotifs <- subset(colDataMotifs, motif %in% colnames(matchScoresSub))
+    colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif,
+                                               colnames(matchScoresSub))),,
+                                   drop=FALSE]
+
+    maxScores <- colDataMotifs$max_score
+    selectedMotifs <- .selectMotifs(matchScoresSub, maxScores, chIPLabels,
+                                    nMotifs=nMotifs)
     selectedMotifs <- unique(c(selectedMotifs, tfCols))
   }
 

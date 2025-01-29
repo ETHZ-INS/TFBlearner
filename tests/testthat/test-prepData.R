@@ -50,9 +50,24 @@ test_that("Object construction: Train test assignment", {
   expect_equal(unique(subset(colData(mae),is_training)$context), "K562")
 })
 
+test_that("Object construction: Motif scores in column data", {
+  mae <- suppressMessages({prepData(example_coords,
+                                    motifData=exampleMotif,
+                                    atacData=exampleATAC,
+                                    chIPData=exampleChIP)})
+  expect_contains(colnames(colData(experiments(mae)$Motifs)), "max_score")
+
+  exp <- colMaxs(assays(experiments(mae)$Motifs)$match_scores)
+  cd <-  colData(experiments(mae)$Motifs)
+  cd <- cd[order(match(cd$motif,names(exp))),,drop=FALSE]
+  obs <- cd$max_score
+
+  expect_equivalent(obs, exp)
+})
+
 test_that("Object construction: Saving as hdf5", {
   outDir <-  tempdir()
-  mae <- suppressWarnings({prepData(example_coords,
+  mae <- suppressMessages({prepData(example_coords,
                                     motifData=exampleMotif,
                                     atacData=exampleATAC,
                                     chIPData=exampleChIP,
