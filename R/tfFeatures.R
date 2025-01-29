@@ -1,3 +1,20 @@
+.doOneScan <- function(mo, coords, genome, lowp=1e-02){
+  # low-confidence matches
+  po <- matchMotifs(mo, subject=coords, genome=genome,
+                    out="positions", p.cutoff=lowp)[[1]]
+  # trace back the original DHS behind each
+  po$orig <- to(findOverlaps(po, coords, minoverlap=2L))
+  # keep only the strongest hit per DHS
+  po <- po[order(seqnames(po), -po$score)]
+  po <- po[!duplicated(po$orig)]
+  po$orig <- NULL
+  # find all below the default cutoff
+  po2 <- matchMotifs(mo, subject=coords, genome=genome, out="positions")[[1]]
+  po <- po[!overlapsAny(po,po2)]
+  sort(c(po,po2))
+}
+
+
 .getMotifMatches <- function(coords,
                              tfName,
                              tfCofactors,
@@ -21,16 +38,9 @@
   motifNames[grepl("YY1", motifNames)] <- "YY1"
   names(motifs) <- motifNames
 
-  # get motif matching scores & positions
-  matchRanges <- motifmatchr::matchMotifs(motifs,
-                                          subject=coords,
-                                          out="positions",
-                                          genome=genome)
-
-  matchScores <- motifmatchr::matchMotifs(motifs,
-                                          subject=coords,
-                                          out="scores",
-                                          genome=genome)
+  # get motif matching positions
+  matchRanges <- lapply(motifs, .doOneScan, coords=coords, genome=genome)
+  matchRanges <- as(matchRanges, "GRangesList")
 
   # match seqLevelStyle
   motifCoords <- matchRanges[[tfName]]
@@ -38,13 +48,11 @@
   cofactCoords <- matchRanges[tfCofactors]
 
   # match seqLevelStyle
-  if(!is.null(motifCoords)) seqlevelsStyle(motifCoords) <- seqStyle
-  if(!is.null(cofactCoords)) seqlevelsStyle(cofactCoords) <- seqStyle
-  if(!is.null(matchScores)) seqlevelsStyle(matchScores) <- seqStyle
+  if(length(motifCoords)>0) seqlevelsStyle(motifCoords) <- seqStyle
+  if(length(cofactCoords)>0) seqlevelsStyle(cofactCoords) <- seqStyle
 
   return(list(motifCoords=motifCoords,
-              cofactCoords=cofactCoords,
-              matchScores=matchScores))
+              cofactCoords=cofactCoords))
 }
 
 .binMat <- function(chIPMat, threshold=NULL){
