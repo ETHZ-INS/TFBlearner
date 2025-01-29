@@ -192,6 +192,7 @@
                                                  aggregationFun, threads,
                                                  saveHdf5, hdf5FileName,
                                                  colNames){
+    data.table::setDTthreads(threads)
     name <- unique(names(d))
     motifScore <- lapply(d, .processData, readAll=TRUE, shift=FALSE,
                          seqLevelStyle=seqlevelsStyle(refCoords))
@@ -437,6 +438,8 @@
   chIPPeaks <- BiocParallel::bplapply(data, function(d, refCoords, threads,
                                                      saveHdf5, hdf5FileName,
                                                      colNames){
+
+    data.table::setDTthreads(threads)
 
     comb <- unique(names(d))
     chIPPeaks <- lapply(d, .processData, readAll=TRUE, shift=FALSE,

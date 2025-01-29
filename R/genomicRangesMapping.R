@@ -101,13 +101,22 @@ genomicRangesMapping <- function(refRanges,
                                    c(byCols, scoreCol),
                                    with=FALSE])
 
+  threads <- floor(getDTthreads())/BPPARAM$workers
+
   if(multiTf)
   {
     setkey(overlapTable, V1, col_width)
     if(!is.null(scoreCol)) setnames(overlapTable, scoreCol, "scoreCol")
     overlapTable <- split(overlapTable, by=c("col_depth"))
 
-    overlapTable <- BiocParallel::bplapply(overlapTable, function(table){
+    overlapTable <- BiocParallel::bplapply(overlapTable, function(table,
+                                                                  scoreCol,
+                                                                  aggregationFun,
+                                                                  nRefs,
+                                                                  nColsWidth,
+                                                                  threads){
+
+      data.table::setDTthreads(threads)
 
       if(is.null(scoreCol) | is.null(aggregationFun)){
         table <- table[,.(value=.N),
@@ -118,11 +127,12 @@ genomicRangesMapping <- function(refRanges,
 
       # convert to sparse matrix
       table <- sparseMatrix(i=table$V1,
-                            j=as.integer(table$col_width), # 11.07.2024 as.integer is not needed
+                            j=as.integer(table$col_width),
                             dims=c(nRefs, nColsWidth),
                             x=table$value)
       colnames(table) <- levels
-      return(table)},
+      return(table)}, scoreCol=scoreCol, aggregationFun=aggregationFun,
+                      nRefs=nRefs, nColsWidth=nColsWidth, threads=threads,
       BPPARAM=BPPARAM)
   }
   else

@@ -9,7 +9,9 @@
                                ...){
 
     set.seed(seed)
-    register(BPPARAM)
+    register(BPPARAM) # for usage with chromVAR
+    threads <- floor(getDTthreads())/BPPARAM$workers
+    data.table::setDTthreads(threads)
 
     # Association with motif score
     nonZero <- Matrix::rowSums(atacMat)>0
@@ -133,10 +135,12 @@ contextTfFeatures <- function(mae,
     contexts <- getContexts(maeSub, tfName)
   }
 
+  coords <- rowRanges(experiments(maeSub)$Motifs)
+
   if(!is.null(insertionProfile)){
     insertionProfile <- .processData(insertionProfile, readAll=TRUE,
                                      shift=FALSE,
-                                     seqLevelStyle=seqlevelsStyle(rowRanges(experiments(maeSub)$Motifs)))
+                                     seqLevelStyle=seqlevelsStyle(coords))
   }
 
   features <- match.arg(features, choices=c("Inserts", "Weighted_Inserts",
@@ -145,7 +149,7 @@ contextTfFeatures <- function(mae,
                                             "Cofactor_ChromVAR_Scores"),
                         several.ok=TRUE)
 
-  tfCofactors <- unique(unlist(subset(colData(experiments(mae)$tfFeat),
+  tfCofactors <- unique(unlist(subset(colData(experiments(maeSub)$tfFeat),
                                       tf_name==tfName)$tf_cofactors))
   if(("Cofactor_Inserts" %in% features |
       "Cofactor_ChromVAR_Scores" %in% features) & is.null(tfCofactors)){
@@ -162,8 +166,6 @@ contextTfFeatures <- function(mae,
 
   atacFragPaths <- unlist(subset(colData(experiments(maeSub)$ATAC),
                                  get(annoCol) %in% contexts)$origin)
-
-  coords <- rowRanges(experiments(maeSub)$Motifs)
 
   # get list of motif ranges
   motifRanges <-  names(experiments(maeSub)[grepl("match_ranges",
@@ -187,6 +189,7 @@ contextTfFeatures <- function(mae,
 
   # loop over contexts to get the features
   labels <- labels[contexts] # ensure ordering
+  threads <- floor(getDTthreads())/BPPARAM$workers
   feats <- BiocParallel::bpmapply(function(context,
                                            labels,
                                            coords,
@@ -194,8 +197,11 @@ contextTfFeatures <- function(mae,
                                            motifRanges,
                                            features,
                                            profile,
-                                           tfName=tfName,
-                                           aggregationFun, ...){
+                                           tfName,
+                                           aggregationFun,
+                                           threads, ...){
+    data.table::setDTthreads(threads)
+
     calcProfile <- FALSE
     if("Weighted_Inserts" %in% features & is.null(profile)){
       calcProfile <- TRUE
@@ -240,7 +246,7 @@ contextTfFeatures <- function(mae,
      MoreArgs=list(coords=coords, atacFrag=atacFragPaths,
                    motifRanges=motifRanges[[tfName]], features=features,
                    profile=insertionProfile[[tfName]], tfName=tfName,
-                   aggregationFun=aggregationFun, ...),
+                   threads=threads, aggregationFun=aggregationFun, ...),
      SIMPLIFY=FALSE,
      BPPARAM=BPPARAM)
 
@@ -255,7 +261,9 @@ contextTfFeatures <- function(mae,
                                                motifRanges,
                                                features,
                                                profile,
-                                               aggregationFun, ...){
+                                               aggregationFun,
+                                               threads, ...){
+      data.table::setDTthreads(threads)
 
       calcProfile <- fifelse("Weighted_Inserts" %in% features, TRUE, FALSE)
       scoreCols <- c()
@@ -301,7 +309,7 @@ contextTfFeatures <- function(mae,
     }, coords=coords, atacFrag=atacFragPaths, tfCofactors=tfCofactorsSub,
        motifRanges=motifRanges[tfCofactorsSub], features=features,
        profile=insertionProfile[tfCofactorsSub],
-       aggregationFun=aggregationFun, ...,
+       aggregationFun=aggregationFun, threads=threads, ...,
        BPPARAM=BPPARAM)
     names(coFeats) <- contexts
 
@@ -331,7 +339,8 @@ contextTfFeatures <- function(mae,
     matchScores@x[matchScores@x<thr[matchScores@j + 1] & matchScores@x<4] <- 0
     gcContent <-  assays(experiments(maeSub)$siteFeat)$siteFeat_gc_content[,,drop=TRUE]
     actFeatMats <- .getChromVARScores(atacMat, matchScores, gcContent,
-                                      subSample=subSample, ...)
+                                      subSample=subSample,
+                                      BPPARAM=BPPARAM, ...)
 
     feats <- lapply(contexts, function(context){
       c(feats[[context]], actFeatMats[[context]])

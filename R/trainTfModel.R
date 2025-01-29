@@ -150,6 +150,8 @@
                        posFrac,
                        weights=NULL,
                        seed=42){
+   data.table::setDTthreads(numThreads)
+
    set.seed(42)
    if(!isWeighted){
      weights <- rep(1, length(labels))
@@ -546,7 +548,7 @@ trainBagged <- function(tfName,
   #                                          mlr3::mlr_measures$keys())))
   measure <- msr(measureName)
 
-  setDTthreads(numThreads)
+  data.table::setDTthreads(numThreads)
   nWorker <- BPPARAM$workers
 
   motifName <- paste("motif", tfName, sep="_")
@@ -752,7 +754,7 @@ trainStacked <- function(featMat, modsBagged,
                          subSample=1e5,
                          evalRounds=100,
                          earlyStoppingRounds=10,
-                         numThreads=4,
+                         numThreads=10,
                          BPPARAM=SerialParam()){
 
   stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
@@ -815,7 +817,7 @@ trainStacked <- function(featMat, modsBagged,
                                      preds,
                                      evalRounds=100,
                                      earlyStoppingRounds=10,
-                                     numThreads=4){
+                                     numThreads=10){
   message("Training stacked model")
   mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)
 

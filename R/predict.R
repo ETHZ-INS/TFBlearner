@@ -48,7 +48,7 @@ predictTfBindingBagged <- function(models,
   nWorker <- BPPARAM$workers
 
   preds <- bplapply(models, function(model, data, npDt){
-    setDTthreads(floor(numThreads/nWorker))
+    data.table::setDTthreads(floor(numThreads/nWorker))
 
     allFeats <- listFeatures()
     colsToRemove <- unlist(subset(allFeats,
