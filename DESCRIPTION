@@ -9,8 +9,6 @@ License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
-Remotes:
-    mlr-org/mlr3extralearners@*release
 Depends:
         Matrix,
         MultiAssayExperiment,
@@ -27,7 +25,6 @@ Imports:
         GenomicScores,
         Hmisc,
         mlr3,
-        mlr3extralearners,
         mlr3tuning,
         mlr3mbo,
         mlr3measures,
