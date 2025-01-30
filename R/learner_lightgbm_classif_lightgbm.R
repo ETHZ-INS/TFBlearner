@@ -1,6 +1,6 @@
 ################################################################################
 # COPIED FROM: https://github.com/mlr-org/mlr3extralearners/blob/main/R/learner_lightgbm_classif_lightgbm.R
-# (contains the  package [mlr3extralearners] developped by Raphael Sonabend, Patrick Schratz, Sebastian Fischer.)
+# (The linked repo contains the  package mlr3extralearners developped by Raphael Sonabend, Patrick Schratz, Sebastian Fischer.)
 # Copied to pass [BiocCheck::BiocCheck].
 # LearnerClassifLightGBM is added to mlr3::mlr_learners in order to not have to install from the mlr3extralearners remote
 # which makes BiocCheck::BiocCheck fail.
@@ -9,7 +9,7 @@
 ################################################################################
 
 # NOTE: has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), whichs
-#' contains the remote package [mlr3extralearners] developped by Raphael Sonabend, Patrick Schratz, Sebastian Fischer.
+#' contains the remote package mlr3extralearners developed by Raphael Sonabend, Patrick Schratz, Sebastian Fischer.
 #' @author: Lorenz A. Kapsner
 LearnerClassifLightGBM = R6::R6Class("LearnerClassifLightGBM",
                                  inherit = LearnerClassif,

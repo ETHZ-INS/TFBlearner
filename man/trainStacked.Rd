@@ -47,5 +47,5 @@ or a vector with weights for the models in the provided bag (\code{wMean}).
 Trains a stacked model provided a bag of four tree-based gradient boosting models as obtained by \link{trainBagged}.
 For different stacking strategies can be used.
 The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository \url{https://github.com/mlr-org/mlr3extralearners}, whichs
-contains the remote package \link{mlr3extralearners} developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
+contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
 }
