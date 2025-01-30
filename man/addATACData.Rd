@@ -17,6 +17,9 @@ addATACData(
 )
 }
 \arguments{
+\item{mae}{\link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} as construced by \code{\link[=prepData]{prepData()}} containing Motif, ATAC-, ChIP-seq. If features should be computed
+the object also needs to contain site-specific features as obtained by \code{\link[=siteFeatures]{siteFeatures()}} and transcription factor-specific features as obtained by \code{\link[=tfFeatures]{tfFeatures()}}.}
+
 \item{atacData}{Named list of \link[data.table:data.table]{data.table::data.table}/data.frame/\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges}
 or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
 Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).}

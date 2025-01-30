@@ -178,6 +178,8 @@ getContexts <- function(mae, tfName=NULL){
 #' computes features if required.
 #'
 #' @name addATACData
+#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq. If features should be computed
+#' the object also needs to contain site-specific features as obtained by [TFBlearner::siteFeatures()] and transcription factor-specific features as obtained by [TFBlearner::tfFeatures()].
 #' @param atacData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
 #' or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
 #' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
