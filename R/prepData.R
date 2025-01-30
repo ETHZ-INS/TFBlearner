@@ -83,9 +83,11 @@
       colData(seFeat)[[col]] <- rep(NA, nrow(colData(seFeat)))}
 
     # Avoid duplicate columns - keep newly added columns
+    isDelayed <- unlist(lapply(assays(seOrig), is, "DelayedMatrix"))
+    isDelayed <- fifelse(sum(isDelayed)>0, TRUE, FALSE)
     seFeat <- combineCols(
       seOrig[,!(colnames(seOrig) %in% colnames(seFeat))], seFeat,
-      use.names=FALSE)
+      use.names=FALSE, delayed=isDelayed)
 
     mapOrig <- as.data.table(subset(sampleMap(mae), assay==prefix)[,c("primary",
                                                                       "colname")])

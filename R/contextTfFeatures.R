@@ -182,7 +182,7 @@ contextTfFeatures <- function(mae,
     labelCols <- colDataChIP$combination
     names(labelCols) <- colDataChIP[[annoCol]]
     labels <- lapply(labelCols, function(col){
-      assays(experiments(maeSub)$ChIP)$peaks[,col,drop=TRUE]})
+      as(assays(experiments(maeSub)$ChIP)$peaks[,col,drop=TRUE], "CsparseMatrix")})
   }
   else{
     labels <- vector(mode = "list", length = 2)
@@ -356,13 +356,15 @@ contextTfFeatures <- function(mae,
   for(context in contexts){
     featMats <- lapply(feats[[context]], `colnames<-`, NULL)
     names(featMats) <- paste("contextTfFeat", names(featMats), sep="_")
+
     seTfFeat <- SummarizedExperiment(assays=featMats,
                                      rowRanges=coords)
     colnames(seTfFeat) <- paste(context, tfName, sep="_")
     colData(seTfFeat)$feature_type <- "contextTfFeat"
     colData(seTfFeat)$tf_name <- tfName
     mae <- .addFeatures(mae, seTfFeat, colsToMap=context,
-                        prefix="contextTfFeat")}
+                        prefix="contextTfFeat")
+    }
 
   return(mae)
 }
