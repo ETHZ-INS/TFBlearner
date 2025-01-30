@@ -507,8 +507,6 @@ LearnerClassifLightGBM = R6::R6Class("LearnerClassifLightGBM",
                                  )
 )
 
-mlr3::mlr_learners$add("classif.lightgbm", LearnerClassifLightGBM)
-
 lightgbm_binary_binary_prob = mlr3misc::crate({function(pred, dtrain, measure, ...) {
   # label is a vector of labels (0, 1)
   truth = factor(lightgbm::get_field(dtrain, "label"), levels = c(0, 1))

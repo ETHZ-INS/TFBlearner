@@ -89,6 +89,8 @@
    }
    rs$instantiate(task)
 
+   # In case SnowParam is used, it is safer to add here
+   mlr3::mlr_learners$add("classif.lightgbm", LearnerClassifLightGBM)
    learner <- mlr3::lrn("classif.lightgbm",
                         predict_type="prob",
                         objective="binary",
@@ -754,7 +756,7 @@ trainBagged <- function(tfName,
 #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
 #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
-#' @return Stacked model. Depending on the strategy either a [lightgbm:lightgbm] model (`last`, `wLast`, `boostTree`)
+#' @return Stacked model. Depending on the strategy either a [lightgbm::lightgbm] model (`last`, `wLast`, `boostTree`)
 #' or a vector with weights for the models in the provided bag (`wMean`).
 #' @import mlr3
 #' @import data.table
