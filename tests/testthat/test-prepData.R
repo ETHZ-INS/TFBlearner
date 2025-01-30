@@ -57,7 +57,11 @@ test_that("Object construction: Motif scores in column data", {
                                     chIPData=exampleChIP)})
   expect_contains(colnames(colData(experiments(mae)$Motifs)), "max_score")
 
-  exp <- colMaxs(assays(experiments(mae)$Motifs)$match_scores)
+  motMat <- assays(experiments(mae)$Motifs)$match_scores
+  exp <- lapply(colnames(motMat), function(col) max(motMat[,col,drop=TRUE]))
+  exp <- unlist(exp)
+  names(exp) <- names(colnames(motMat))
+
   cd <-  colData(experiments(mae)$Motifs)
   cd <- cd[order(match(cd$motif,names(exp))),,drop=FALSE]
   obs <- cd$max_score
