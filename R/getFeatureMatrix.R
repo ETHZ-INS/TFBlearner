@@ -144,10 +144,10 @@ getFeatureMatrix <- function(mae,
     # get context & TF-specific features
     featsTfContext <- lapply(assays(seTfContext), function(assayMat){
       assayMat[,paste(context, tfName, sep="_"), drop=FALSE]})
-    names(featsTfContext) <- names(assays(seTfContext))
+    names(featsTfContext) <- featNames <- names(assays(seTfContext))
     if(!addLabels){
       featsTfContext[["contextTfFeat_label"]] <- NULL
-      featNames <- setdiff(names(assays(seTfContext)), "contextTfFeat_label")
+      featNames <- setdiff(featNames, "contextTfFeat_label")
     }
 
     featsTfContext <- Reduce("cbind", featsTfContext[-1], featsTfContext[[1]])
