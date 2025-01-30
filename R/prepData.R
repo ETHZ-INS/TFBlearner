@@ -171,6 +171,18 @@ getContexts <- function(mae, tfName=NULL){
   return(contexts)
 }
 
+#' Example Data: Coordinates
+#'
+#' Example genomic coordinates to construct a custom MultiAssayExperiment object and to compute features for TF-Binding predictions for.
+#' The sample data contains 100 genomic ranges stored in GRanges object.
+#'
+#' @name example_coords
+#' @format [GenomicRanges::GRanges] object
+#' @docType data
+#' @keywords GRanges
+NULL
+
+
 
 #' Add further ATAC-seq datasets to object
 #'

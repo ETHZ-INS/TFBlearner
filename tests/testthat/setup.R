@@ -40,6 +40,7 @@ assayTableSimple2[,end:=start+10]
 #              GRanges(seqnames="chr1", ranges=IRanges(start=1, end=110)))
 
 # Setup for insertionProfiles tests---------------------------------------------
+
 nLarge <- 1e4
 
 motifCoords <- data.table(chr=c("chr1", "chr1"),
@@ -79,9 +80,6 @@ maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
                                          "Cofactor_Inserts"),
                               addLabels=TRUE,
                               BPPARAM=SerialParam())
-# saveRDS(maeTest, "./test_data/maeTest.rds")
-
-# maeTest <- readRDS(test_path("./test_data/maeTest.rds"))
 
 maeTestHdf5 <- suppressMessages({prepData(example_coords,
                                        motifData=exampleMotif,
@@ -97,16 +95,9 @@ maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
                                              "Cofactor_Inserts"),
                                  addLabels=TRUE,
                                  BPPARAM=SerialParam())
-# saveRDS(maeTestHdf5, "./test_data/maeTest_hdf5.rds")
-
-#maeTestHdf5 <- readRDS(test_path("./test_data/maeTest_hdf5.rds"))
 
 # Training & Prediction testing ------------------------------------------------
 
 fm <- getFeatureMatrix(maeTest, tfName="CTCF",
                        addLabels=TRUE,
                        saveHdf5=FALSE)
-# saveRDS(fm, "./test_data/fmTest.rds")
-
-#fmTest <- readRDS(test_path("./test_data/fmTest.rds"))
-
