@@ -28,7 +28,7 @@ Imports:
         mlr3tuning,
         mlr3mbo,
         mlr3measures,
-        MatrixGenerics,
+        sparseMatrixStats,
         MotifDb,
         motifmatchr,
         paradox,

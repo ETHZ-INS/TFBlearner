@@ -40,7 +40,7 @@ are specified as parallel back-ends, \code{floor(numThreads/nWorker)} threads ar
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}}.}
 }
 \value{
-Stacked model. Depending on the strategy either a \link{lightgbm:lightgbm} model (\code{last}, \code{wLast}, \code{boostTree})
+Stacked model. Depending on the strategy either a \link[lightgbm:lightgbm]{lightgbm::lightgbm} model (\code{last}, \code{wLast}, \code{boostTree})
 or a vector with weights for the models in the provided bag (\code{wMean}).
 }
 \description{

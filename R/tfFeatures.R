@@ -213,7 +213,7 @@
                           subSample=10000)
 {
   labels <- .binMat(labels, threshold=0)
-  labels <- rowMaxs(labels)
+  labels <- sparseMatrixStats::rowMaxs(labels)
 
   thr <- maxScores/2
 
@@ -350,8 +350,8 @@
   pearCor <- Matrix::Matrix(pearCor)
 
   # max-scaling
-  atacScalMat1 <- Matrix::t(Matrix::t(atacMat1)/MatrixGenerics::colMaxs(atacMat1))
-  atacScalMat2 <- Matrix::t(Matrix::t(atacMat2)/MatrixGenerics::colMaxs(atacMat2))
+  atacScalMat1 <- Matrix::t(Matrix::t(atacMat1)/sparseMatrixStats::colMaxs(atacMat1))
+  atacScalMat2 <- Matrix::t(Matrix::t(atacMat2)/sparseMatrixStats::colMaxs(atacMat2))
 
   # binarizing
   atacBinMat1 <- .binMat(atacScalMat1, threshold=0.3)
@@ -395,7 +395,7 @@
 #' @importFrom RcppML nmf
 #' @importFrom preprocessCore normalize.quantiles
 #' @importFrom Hmisc cut2
-#' @importFrom MatrixGenerics colMaxs
+#' @importFrom sparseMatrixStats colMaxs rowMaxs
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
 tfFeatures <- function(mae,
