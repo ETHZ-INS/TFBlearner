@@ -2,6 +2,7 @@
 
 export(contextTfFeatures)
 export(genomicRangesMapping)
+export(getContexts)
 export(getFeatureMatrix)
 export(getInsertionProfiles)
 export(listFeatures)

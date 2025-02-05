@@ -1,4 +1,4 @@
-.doOneScan <- function(mo, coords, genome, lowp=1e-02){
+.doOneScan <- function(mo, coords, genome, lowp=5e-05){ #1e-02
   # low-confidence matches
   po <- matchMotifs(mo, subject=coords, genome=genome,
                     out="positions", p.cutoff=lowp)[[1]]
@@ -430,7 +430,14 @@ tfFeatures <- function(mae,
   cols <- lapply(experiments(mae),
                  function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
                                                                         is_training)$colname)]})
-  maeTrain <- subsetByColumn(mae, cols)
+
+  # check if there is testing data
+  if(!identical(unique(unlist(cols)), character(0))){
+    maeTrain <- subsetByColumn(mae, cols)
+  }
+  else{
+    maeTrain <- mae
+  }
 
   # get assays: ChIP & ATAC
   atacMat <- as(assays(experiments(maeTrain)$ATAC)$total_overlaps, "CsparseMatrix")
@@ -483,7 +490,7 @@ tfFeatures <- function(mae,
                                       rowRanges=matchCoords)
       colData(seMatch)$feature_type <- "motif_matches"
       rownames(colData(seMatch)) <- "all"
-      contextsTf <- getContexts(mae, tfName=tfName)
+      contextsTf <- getContexts(mae, tfName=tfName, which="ChIP")
       mae <- .addFeatures(mae, seMatch, colsToMap=contextsTf,
                           prefix=prefix)
       }
@@ -585,7 +592,7 @@ tfFeatures <- function(mae,
   colData(seTfFeat)$feature_type <- "tfFeat"
   colData(seTfFeat)$tf_name <- tfName
 
-  colsToMap <- getContexts(mae, tfName)
+  colsToMap <- getContexts(mae, tfName, which="ChIP")
   mae <- .addFeatures(mae, seTfFeat, colsToMap=colsToMap, prefix="tfFeat")
 
   # add cofactors

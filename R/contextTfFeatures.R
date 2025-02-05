@@ -117,13 +117,14 @@ contextTfFeatures <- function(mae,
   .checkObject(mae, checkFor=c("Site", "TF"))
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
+  whichContexts <- fifelse(addLabels, "Both", "ATAC")
   if(whichCol=="OnlyTrain"){
     cols <- lapply(experiments(mae),
                    function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
                                                                           is_training)$colname)]})
     maeSub <- subsetByColumn(mae, cols)
     # get all cellular contexts covered for that TF
-    contexts <- getContexts(maeSub, tfName)
+    contexts <- getContexts(maeSub, tfName, which=whichContexts)
   }
   else if(whichCol=="Col"){
     if(is.null(colSel)) stop("If features should be computed only for some columns (e.g. cellular contexts,
@@ -134,7 +135,7 @@ contextTfFeatures <- function(mae,
   else{
     maeSub <- mae
     # get all cellular contexts covered for that TF
-    contexts <- getContexts(maeSub, tfName)
+    contexts <- getContexts(maeSub, tfName, which=whichContexts)
   }
 
   coords <- rowRanges(experiments(maeSub)$Motifs)

@@ -1,9 +1,8 @@
 test_that("Feature Matrix: Basic functionality", {
   fm <- getFeatureMatrix(maeTest, tfName="CTCF",
                          addLabels=FALSE,
-                         saveHdf5=FALSE,
-                         BPPARAM=SerialParam())
-  contexts <- getContexts(maeTest, tfName="CTCF")
+                         saveHdf5=FALSE)
+  contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
 
   expect_s4_class(fm, "CsparseMatrix")
   expect_equal(nrow(fm), length(contexts)*length(example_coords))
@@ -12,9 +11,8 @@ test_that("Feature Matrix: Basic functionality", {
 test_that("Feature Matrix: Basic functionality - HDF5", {
   fm <- getFeatureMatrix(maeTestHdf5, tfName="CTCF",
                          addLabels=FALSE,
-                         saveHdf5=FALSE,
-                         BPPARAM=SerialParam())
-  contexts <- getContexts(maeTest, tfName="CTCF")
+                         saveHdf5=FALSE)
+  contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
 
   expect_s4_class(fm, "CsparseMatrix")
   expect_equal(nrow(fm), length(contexts)*length(example_coords))
@@ -38,12 +36,12 @@ test_that("Feature Matrix: Basic functionality - Saving to HDF5", {
 
 test_that("Feature Matrix: Correct context selection - only for training contexts", {
   fm <- getFeatureMatrix(maeTest, tfName="CTCF",
-                         which="OnlyTrain",
+                         whichCol="OnlyTrain",
                          addLabels=FALSE,
                          saveHdf5=FALSE)
 
   testContext <- subset(colData(maeTest), is_testing)$context
-  contexts <- getContexts(maeTest, tfName="CTCF")
+  contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
   trainContexts <- setdiff(contexts, testContext)
 
   expect_equal(nrow(fm), length(trainContexts)*length(example_coords))
@@ -52,7 +50,7 @@ test_that("Feature Matrix: Correct context selection - only for training context
 
 test_that("Feature Matrix: Correct context selection - only for specified context", {
   fm <- getFeatureMatrix(maeTest, tfName="CTCF",
-                         which="Col",
+                         whichCol="Col",
                          colSel="A549",
                          addLabels=FALSE,
                          saveHdf5=FALSE)

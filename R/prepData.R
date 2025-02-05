@@ -159,16 +159,39 @@
   return(mae)
 }
 
-# helper function to get the cellular contexts per TF
-getContexts <- function(mae, tfName=NULL){
+#' Get cellular contexts
+#'
+#' Provides the names of cellular contexts for data of interest, e.g. a TF or modality.
+#'
+#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC- and ChIP-seq data.
+#' @param tfName Name of transcription factor to get cellular contexts for.
+#' If `tfName=NULL` all celullar contexts of the requested modalities (`which`), will be provided.
+#' @param which Which modality to get the cellular contexts names from.
+#' If `which=both` only cellular contexts which have both ATAC and ChIP-seq data (for the specified TF, in case `tfName` is not NULL) will be returned.
+#' @export
+getContexts <- function(mae, tfName=NULL, which=c("ChIP", "ATAC", "Both")){
   .checkObject(mae)
 
-  colsChIP <- colnames(experiments(mae)$ChIP)
-  colsChIP <- as.data.table(tstrsplit(colsChIP, split="_"))
-  if(!is.null(tfName)){
-    contexts <- subset(colsChIP, V2==tfName)$V1}
+  which <- match.arg(which, choices=c("ChIP", "Both", "ATAC"))
+  contextsAtac <- rownames(colData(experiments(mae)$ATAC))
+
+  if(which=="ATAC"){
+    contexts <- contextsAtac
+  }
   else{
-    contexts <- unique(sampleMap(mae)$primary)}
+    colsChIP <- colnames(experiments(mae)$ChIP)
+    colsChIP <- as.data.table(tstrsplit(colsChIP, split="_"))
+    if(!is.null(tfName)){
+      contextsChIP <- subset(colsChIP, V2==tfName)$V1}
+    else{
+      contextsChIP <- colsChIP$V1}
+
+    if(which=="Both"){
+      contexts <- intersect(contextsChIP,contextsAtac)}
+    else{
+      contexts <- contextsChIP
+    }
+  }
 
   return(contexts)
 }

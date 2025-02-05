@@ -82,7 +82,8 @@ getFeatureMatrix <- function(mae,
   noncontextTfFeat <- Reduce("cbind", noncontextTfFeat[-1], noncontextTfFeat[[1]])
 
   message("Attaching cellular context-specific features")
-  contexts <- getContexts(mae, tfName)
+  whichContexts <- fifelse(addLabels, "Both", "ATAC")
+  contexts <- getContexts(mae, tfName, which=whichContexts)
   seTfContext <- experiments(mae)$contextTfFeat[,paste(contexts, tfName, sep="_")]
   seAtac <- experiments(mae)$ATAC[,contexts]
 
