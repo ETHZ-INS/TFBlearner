@@ -42,7 +42,7 @@
 }
 
 .dtToGr <- function(dt, seqCol="seqnames", startCol="start", endCol="end",
-                    strandCol="strand", stranded=FALSE){
+                    strandCol="strand", stranded=FALSE, addMetaCols=FALSE){
   dt <- copy(dt)
   setnames(dt, seqCol, "seqnames", skip_absent = TRUE)
 
@@ -51,12 +51,21 @@
   gr <- GRanges(seqnames=dt[["seqnames"]],
                 strand=strand,
                 ranges=IRanges(start=dt[[startCol]], end=dt[[endCol]]))
+
   if(startCol==endCol)
   {
     gr <- GPos(seqnames=dt[["seqnames"]],
                strand=strand,
                pos=dt[[startCol]])
   }
+
+  if(addMetaCols){
+    metaCols <- dt[,setdiff(colnames(dt),
+                            c(seqCol, startCol, endCol, strandCol,
+                              "seqnames", "chr")),with=FALSE]
+    mcols(gr) <- metaCols
+  }
+
   return(gr)
 }
 
