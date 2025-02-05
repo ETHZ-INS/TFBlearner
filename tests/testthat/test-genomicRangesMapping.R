@@ -298,3 +298,59 @@ test_that("Aggregation checks: Reference implementation no aggregation function 
   expect_equal(as.matrix(mapRes$YY1), as.matrix(refResMats$YY1), ignore_attr=TRUE)
   expect_equal(as.matrix(mapRes$GR), as.matrix(refResMats$GR), ignore_attr=TRUE)
 })
+
+
+test_that("Aggregation checks: Reference implementation no aggregation function provided & chunked - one byCol",{
+  mapRes <- genomicRangesMapping(refCoords, assayTableTest,
+                                 byCols=c("group"),
+                                 scoreCol="score",
+                                 chunk=TRUE)
+
+  assayTableTestRanges <- makeGRangesFromDataFrame(as.data.frame(assayTableTest))
+  ov <- findOverlaps(refCoords, assayTableTestRanges)
+  subAssayTableTest <- assayTableTest[subjectHits(ov), ]
+  subAssayTableTest$ref <- queryHits(ov)
+  subAssayTableTest <- subAssayTableTest[,.(.N), by=.(ref, group)]
+  subAssayTableTest$group <- factor(subAssayTableTest$group,
+                                    levels=c("CTRL", "TRT"), ordered=TRUE)
+  refRes <- sparseMatrix(i=subAssayTableTest$ref,
+                         j=subAssayTableTest$group,
+                         x=subAssayTableTest$N,
+                         dims=c(length(refCoords),
+                                length(unique(assayTableTest$group))))
+  colnames(refRes) <- levels(subAssayTableTest$group)
+
+  expect_equal(as.matrix(mapRes[,colnames(refRes)]), as.matrix(refRes))
+})
+
+test_that("Aggregation checks: Reference implementation no aggregation function provided & chunked - two byCols",{
+
+  mapRes <- genomicRangesMapping(refCoords, assayTableTest,
+                                 byCols=c("tf","group"),
+                                 scoreCol="score",
+                                 chunk=TRUE)
+
+  tfs <- unique(assayTableTest$tf)
+  refResMats <- lapply(tfs, function(tf_i){
+    subAssayTableTest <- subset(assayTableTest, tf==tf_i)
+    assayTableTestRanges <- makeGRangesFromDataFrame(as.data.frame(subAssayTableTest))
+    ov <- findOverlaps(refCoords, assayTableTestRanges)
+    subAssayTableTest <- subAssayTableTest[subjectHits(ov), ]
+    subAssayTableTest$ref <- queryHits(ov)
+    subAssayTableTest <- subAssayTableTest[,.(.N), by=.(ref, group)]
+    subAssayTableTest$group <- factor(subAssayTableTest$group,
+                                      levels=c("CTRL", "TRT"), ordered=TRUE)
+    refRes <- sparseMatrix(i=subAssayTableTest$ref,
+                           j=subAssayTableTest$group,
+                           x=subAssayTableTest$N,
+                           dims=c(length(refCoords),
+                                  length(unique(assayTableTest$group))))
+    colnames(refRes) <- c("CTRL", "TRT")
+    refRes
+  })
+  names(refResMats) <- tfs
+
+  expect_equal(as.matrix(mapRes$JUN), as.matrix(refResMats$JUN), ignore_attr=TRUE)
+  expect_equal(as.matrix(mapRes$YY1), as.matrix(refResMats$YY1), ignore_attr=TRUE)
+  expect_equal(as.matrix(mapRes$GR), as.matrix(refResMats$GR), ignore_attr=TRUE)
+})

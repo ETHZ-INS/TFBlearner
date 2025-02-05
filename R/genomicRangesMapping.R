@@ -14,6 +14,7 @@
 #' @param byCols Variables across which the assays will be aggregated.
 #' Will be the columns of the resulting [Matrix::Matrix-class]. If byCols is a vector with two elements,
 #' the first one will constitute the list elements, the second the columns of the matrices being the list elements.
+#' If they are factors (preferred) aggregation will happen across all levels, otherwise across all unique entries.
 #' @param scoreCol name of the score column (e.g. motif matching scores, atac fragment counts) to be aggregated.
 #' If it is NULL, the number of assay ranges overlapping the reference ranges will be counted.
 #' @param aggregationFun function (e.g. mean, median, sum) used to aggregate.
@@ -21,6 +22,7 @@
 #' @param minoverlap Minimal overlap between refRanges and the assay ranges
 #' Passed to [GenomicRanges::findOverlaps()]
 #' @param shift If Tn5 insertion bias should be considered (only if strand column is provided).
+#' @param chunk If data should be processed in chunks (determined by chromosomes in `refRanges`). Recommended for large data.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @return [Matrix::Matrix-class] or list of Matrices with rows corresponding to the reference ranges and columns (and list elements) to byCols.
 #' @import data.table
@@ -30,6 +32,7 @@
 #' @importFrom BiocParallel bplapply MulticoreParam SerialParam SnowParam
 #' @importFrom GenomicAlignments readGAlignmentPairs start end strand
 #' @importFrom Rsamtools ScanBamParam
+#' @importFrom S4Vectors split
 #' @export
 genomicRangesMapping <- function(refRanges,
                                  assayTable,
@@ -39,11 +42,83 @@ genomicRangesMapping <- function(refRanges,
                                  aggregationFun=NULL,
                                  minoverlap=1,
                                  shift=FALSE,
+                                 chunk=NULL,
                                  BPPARAM=SerialParam()){
 
   # TODO: - add warning for integer overflows - data.table size
-  assayTable <- .processData(copy(assayTable), readAll=TRUE, shift=shift,
+  assayTable <- .processData(assayTable, readAll=TRUE, shift=shift,
                              seqLevelStyle=seqlevelsStyle(refRanges))
+  colsDepth <- unique(assayTable[[byCols[1]]])
+
+  if(is.null(chunk)){
+    chunk <- fifelse(nrow(assayTable)>1e7, TRUE, FALSE)
+  }
+
+  if(chunk){
+    chrLevelsRef <- levels(seqnames(refRanges))
+    assayTable <- subset(assayTable, chr %in% chrLevelsRef)
+    assayTable[,chr:=factor(chr, levels=chrLevelsRef)]
+    assayTable[[byCols[1]]] <- factor(assayTable[[byCols[1]]])
+    if(length(byCols)>1){
+      assayTable[[byCols[2]]] <- factor(assayTable[[byCols[2]]])}
+
+    assayTable <- split(assayTable, by="chr")
+    refRangesList <- S4Vectors::split(refRanges, seqnames(refRanges))
+
+    assayTable <- assayTable[names(refRangesList)]
+    overlapTable <- mapply(genomicRangesMapping,
+                           refRangesList, assayTable,
+                           MoreArgs=list(byCols=byCols, scoreCol=scoreCol,
+                                         aggregationFun=aggregationFun,
+                                         chunk=FALSE, shift=shift,
+                                         BPPARAM=BPPARAM),
+                           SIMPLIFY=FALSE)
+    # retrieve original order
+    refRangesList <- Reduce("c", refRangesList[-1], refRangesList[[1]])
+    ind <- as.data.table(GenomicRanges::findOverlaps(refRangesList,
+                                                     refRanges, type="equal"))
+    setorder(ind, subjectHits)
+
+    rbindFill  <- function(mat1, mat2){
+
+      if(is.null(mat1)) mat1 <- Matrix::Matrix(nrow=0, ncol=0)
+      if(is.null(mat2)) mat2 <- Matrix::Matrix(nrow=0, ncol=0)
+
+      allCols <- union(colnames(mat1), colnames(mat2))
+      diffCols1 <- setdiff(allCols, colnames(mat1))
+      diffCols2 <- setdiff(allCols, colnames(mat2))
+
+      # get missing columns
+      mat1Missing <- Matrix::Matrix(0, nrow=nrow(mat1), ncol=length(diffCols1),
+                                       dimnames=list(NULL, diffCols1))
+      mat1 <- cbind(mat1, mat1Missing)
+
+      mat2Missing <- Matrix::Matrix(0, nrow=nrow(mat2), ncol=length(diffCols2),
+                                       dimnames=list(NULL, diffCols2))
+      mat2 <- cbind(mat2, mat2Missing)
+
+      mat1 <- mat1[,allCols, drop=FALSE]
+      mat2 <- mat2[,allCols, drop=FALSE]
+      rbind(mat1, mat2)
+    }
+
+    if(length(byCols)>1){
+      overlapTable <- lapply(colsDepth, function(col){
+                             tablesChr <- lapply(overlapTable,
+                                                 function(tables) tables[[col]])
+                             tablesChr <- Reduce("rbindFill", tablesChr[-1],
+                                                              tablesChr[[1]])
+                             tablesChr <- tablesChr[ind$queryHits,,drop=FALSE]
+                             tablesChr})
+      names(overlapTable) <- colsDepth
+    }
+    else{
+      overlapTable <- Reduce("rbindFill", overlapTable[-1], overlapTable[[1]])
+      overlapTable <- overlapTable[ind$queryHits,,drop=FALSE]
+    }
+
+    return(overlapTable)
+  }
 
   seqNamesCol <- "chr"
   startCol <- "start"
@@ -69,23 +144,29 @@ genomicRangesMapping <- function(refRanges,
 
   # get dimensions of tables
   nRefs <- length(refRanges)
-  colsWidth <- unique(assayTable$col_width)
-  nColsWidth <- length(colsWidth)
-  colsDepth <- unique(assayTable$col_depth)
 
+  if(is.factor(assayTable$col_width)){
+    colsWidth <- levels(assayTable$col_width)
+  }
+  else{
+    colsWidth <- unique(assayTable$col_width)
+  }
+  nColsWidth <- length(colsWidth)
   # convert to integer for speed-up
-  levels <- unique(assayTable$col_width)
-  assayTable[,col_width:=as.integer(factor(assayTable$col_width, levels=levels))]
+  assayTable[,col_width:=as.integer(factor(assayTable$col_width, levels=colsWidth))]
+
+  if(is.factor(assayTable$col_depth)){
+    colsDepth <- levels(assayTable$col_depth)
+  }
+  else{
+    colsDepth <- unique(assayTable$col_depth)
+  }
 
   # convert to GRanges for faster overlap finding
-  suppressWarnings(assayTable$width <- NULL)
-  suppressWarnings(assayTable$strand <- NULL)
-  assayRanges <- makeGRangesFromDataFrame(as.data.frame(assayTable),
-                                          keep.extra.columns=TRUE,
-                                          seqnames.field=seqNamesCol,
-                                          start.field=startCol,
-                                          end.field=endCol,
-                                          ignore.strand=TRUE)
+  if("width" %in% colnames(assayTable)) assayTable$width <- NULL
+  if("strand" %in% colnames(assayTable)) assayTable$strand <- NULL
+
+  assayRanges <- .dtToGr(assayTable, seqCol="chr", addMetaCols=TRUE)
 
   # find overlaps with ref. coordinates
   overlapTable <- as.data.table(GenomicRanges::findOverlaps(refRanges,
@@ -100,6 +181,7 @@ genomicRangesMapping <- function(refRanges,
                         assayTable[overlapTable$subjectHits,
                                    c(byCols, scoreCol),
                                    with=FALSE])
+  rm(assayTable)
 
   threads <- floor(getDTthreads())/BPPARAM$workers
 
@@ -113,7 +195,7 @@ genomicRangesMapping <- function(refRanges,
                                                                   scoreCol,
                                                                   aggregationFun,
                                                                   nRefs,
-                                                                  nColsWidth,
+                                                                  colsWidth,
                                                                   threads){
 
       data.table::setDTthreads(threads)
@@ -125,14 +207,16 @@ genomicRangesMapping <- function(refRanges,
         table <- table[,.(value=aggregationFun(scoreCol)),
                        by=c("V1", "col_width")]}
 
+      nColsWidth <- length(colsWidth)
+
       # convert to sparse matrix
       table <- sparseMatrix(i=table$V1,
                             j=as.integer(table$col_width),
                             dims=c(nRefs, nColsWidth),
                             x=table$value)
-      colnames(table) <- levels
+      colnames(table) <- colsWidth
       return(table)}, scoreCol=scoreCol, aggregationFun=aggregationFun,
-                      nRefs=nRefs, nColsWidth=nColsWidth, threads=threads,
+                      nRefs=nRefs, colsWidth=colsWidth, threads=threads,
       BPPARAM=BPPARAM)
   }
   else
@@ -156,7 +240,7 @@ genomicRangesMapping <- function(refRanges,
                                          dims=c(nRefs, nColsWidth),
                                          x=overlapTable$scoreCol)
 
-    colnames(overlapTable) <- levels
+    colnames(overlapTable) <- colsWidth
   }
 
   # add combinations with zero overlaps
