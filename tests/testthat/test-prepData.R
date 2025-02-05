@@ -77,9 +77,9 @@ test_that("Object construction: Saving as hdf5", {
                                     chIPData=exampleChIP,
                                     saveHdf5=TRUE,
                                     outDir=outDir)})
-  expect_true(file.exists(file.path(outDir, "ATAC_mapped")))
-  expect_true(file.exists(file.path(outDir, "ChIP_mapped")))
-  expect_true(file.exists(file.path(outDir, "Motifs_mapped")))
+  expect_true(file.exists(file.path(outDir, "ATAC_mapped.h5")))
+  expect_true(file.exists(file.path(outDir, "ChIP_mapped.h5")))
+  expect_true(file.exists(file.path(outDir, "Motif_mapped.h5")))
 
   expect_equal(dim(experiments(mae)$Motifs), c(length(example_coords),
                                                length(exampleMotif)))
@@ -88,9 +88,9 @@ test_that("Object construction: Saving as hdf5", {
   expect_equal(dim(experiments(mae)$ATAC), c(length(example_coords),
                                              length(exampleATAC)))
 
-  file.remove(file.path(outDir, "ATAC_mapped"))
-  file.remove(file.path(outDir, "ChIP_mapped"))
-  file.remove(file.path(outDir, "Motifs_mapped"))
+  file.remove(file.path(outDir, "ATAC_mapped.h5"))
+  file.remove(file.path(outDir, "ChIP_mapped.h5"))
+  file.remove(file.path(outDir, "Motif_mapped.h5"))
 })
 
 

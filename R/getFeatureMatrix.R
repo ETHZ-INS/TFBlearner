@@ -26,11 +26,10 @@
 #' @param outDir Directory to save HDF5 file to.
 #' @param prefix Prefix added to filename of feature matrix in case saved as HDF5 file.
 #' @param annoCol Name of column indicating cellular contexts in colData.
-#' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
 #' @return Feature Matrix either as [Matrix::Matrix-class] or as [HDF5Array::HDF5Array-class] (if `saveHdf5=TRUE`).
 #' @import Matrix
-#' @import HDF5Array
-#' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close
+#' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close H5garbage_collect
+#' @importClassesFrom HDF5Array HDF5Array
 #' @export
 getFeatureMatrix <- function(mae,
                              tfName,
@@ -42,8 +41,7 @@ getFeatureMatrix <- function(mae,
                              saveHdf5=TRUE,
                              outDir=NULL,
                              prefix=NULL,
-                             annoCol="context",
-                             BPPARAM=SerialParam()){
+                             annoCol="context"){
 
   .checkObject(mae, checkFor=c("Site", "TF", "Context"))
 
@@ -122,7 +120,7 @@ getFeatureMatrix <- function(mae,
     h5createDataset(hdf5FileName, "feature_matrix",
                     dims=c(nrow(seAtac)*length(contexts),nFeats),
                     storage.mode=store, # or integer ??
-                    chunk=c(1e5,nFeats))
+                    level=3, chunk=c(min(1e6, nrow(seAtac)),nFeats))
   }
   else{
     saveChunk <- FALSE
@@ -132,14 +130,11 @@ getFeatureMatrix <- function(mae,
   if(convertInteger){
     noncontextTfFeat <- .roundingCompression(noncontextTfFeat, factor=1e5)}
 
-  featMats <- BiocParallel::bplapply(contexts, function(context, seAtac,
-                                                        seTfContext,
-                                                        otherFeatMat,
-                                                        colNorm,
-                                                        saveChunk,
-                                                        hdf5FileName,
-                                                        addLabels,
-                                                        convertInteger){
+  featMats <- lapply(contexts, function(context, seAtac,
+                                        seTfContext, otherFeatMat,
+                                        colNorm, saveChunk,
+                                        hdf5FileName, addLabels,
+                                        convertInteger){
 
     # get context & TF-specific features
     featsTfContext <- lapply(assays(seTfContext), function(assayMat){
@@ -192,15 +187,15 @@ getFeatureMatrix <- function(mae,
               createnewfile=FALSE,
               index=list(((i-1)*nrow(featsMat)+1):(nrow(featsMat)*i),
                          1:ncol(featsMat)))
+      H5garbage_collect()
 
       return(head(featsMat,1))
     }
     else{
       return(featsMat)
     }
-  }, seAtac, seTfContext, noncontextTfFeat,
-  colNorm, saveChunk, hdf5FileName,
-  addLabels, convertInteger, BPPARAM=BPPARAM)
+  }, seAtac, seTfContext, noncontextTfFeat, colNorm, saveChunk, hdf5FileName,
+     addLabels, convertInteger)
 
   contextFact <- as.integer(factor(contexts, levels=contexts))
   contextCol <- Matrix::Matrix(rep(contextFact, each=nrow(featMats[[1]])), ncol=1)

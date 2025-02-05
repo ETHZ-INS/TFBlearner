@@ -280,12 +280,12 @@ addATACData <- function(mae, atacData,
 #' @param outDir Directory to save HDF5 file to.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] with Motif, ATAC- & ChIP-seq experiments.
-#' @import HDF5Array
 #' @import MultiAssayExperiment
-#' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close
+#' @importFrom rhdf5 H5Fcreate h5createDataset h5writeDataset h5delete h5write h5ls H5Fopen H5Fclose H5garbage_collect
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
 #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData cbind assays
 #' @importClassesFrom SummarizedExperiment SummarizedExperiment RangedSummarizedExperiment
+#' @importClassesFrom HDF5Array HDF5Array
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
 prepData <- function(refCoords,
@@ -354,7 +354,10 @@ prepData <- function(refCoords,
   if(!is.null(promoterCoords)){
   message("Processing ATAC-seq promoter data")
     atacPromSe <- .mapSeqData(atacData, promoterCoords, type="ATAC",
-                             annoCol=annoCol, BPPARAM=BPPARAM)
+                              annoCol=annoCol,
+                              saveHdf5=saveHdf5,
+                              fileName="ATAC_promoters_mapped",
+                              outDir=outDir, BPPARAM=BPPARAM)
     atacPromMap <- data.frame(primary=colData(atacPromSe)[[annoCol]],
                               colname=colData(atacPromSe)[[annoCol]],
                               stringsAsFactors=FALSE)

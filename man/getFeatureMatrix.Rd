@@ -15,8 +15,7 @@ getFeatureMatrix(
   saveHdf5 = TRUE,
   outDir = NULL,
   prefix = NULL,
-  annoCol = "context",
-  BPPARAM = SerialParam()
+  annoCol = "context"
 )
 }
 \arguments{
@@ -44,8 +43,6 @@ or only for some specific cellular contexts (\code{"Col"}) specified in \code{co
 \item{prefix}{Prefix added to filename of feature matrix in case saved as HDF5 file.}
 
 \item{annoCol}{Name of column indicating cellular contexts in colData.}
-
-\item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}}.}
 }
 \value{
 Feature Matrix either as \link[Matrix:Matrix-class]{Matrix::Matrix} or as \link[HDF5Array:HDF5Array-class]{HDF5Array::HDF5Array} (if \code{saveHdf5=TRUE}).
