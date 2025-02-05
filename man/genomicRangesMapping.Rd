@@ -13,6 +13,7 @@ genomicRangesMapping(
   aggregationFun = NULL,
   minoverlap = 1,
   shift = FALSE,
+  chunk = NULL,
   BPPARAM = SerialParam()
 )
 }
@@ -25,7 +26,8 @@ Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
 
 \item{byCols}{Variables across which the assays will be aggregated.
 Will be the columns of the resulting \link[Matrix:Matrix-class]{Matrix::Matrix}. If byCols is a vector with two elements,
-the first one will constitute the list elements, the second the columns of the matrices being the list elements.}
+the first one will constitute the list elements, the second the columns of the matrices being the list elements.
+If they are factors (preferred) aggregation will happen across all levels, otherwise across all unique entries.}
 
 \item{scoreCol}{name of the score column (e.g. motif matching scores, atac fragment counts) to be aggregated.
 If it is NULL, the number of assay ranges overlapping the reference ranges will be counted.}
@@ -37,6 +39,8 @@ If it is NULL, the number of assay ranges overlapping the reference ranges will 
 Passed to \code{\link[GenomicRanges:findOverlaps-methods]{GenomicRanges::findOverlaps()}}}
 
 \item{shift}{If Tn5 insertion bias should be considered (only if strand column is provided).}
+
+\item{chunk}{If data should be processed in chunks (determined by chromosomes in \code{refRanges}). Recommended for large data.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}}.}
 }

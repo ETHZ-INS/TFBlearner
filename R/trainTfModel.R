@@ -35,11 +35,13 @@
                              earlyStoppingRounds,
                              evalRounds,
                              numThreads,
+                             seed=42,
                              tuneHyperparams=TRUE,
                              loContext=FALSE,
                              labels=NULL,
                              weights=NULL){
 
+   set.seed(seed)
    data.table::setDTthreads(numThreads)
    mlr3::set_threads(numThreads)
    subIds <- set
@@ -87,17 +89,20 @@
    }
    rs$instantiate(task)
 
-   learner <- mlr3extralearners::lrn("classif.lightgbm",
-                                     predict_type="prob",
-                                     objective="binary",
-                                     verbose=-1,
-                                     max_bin=63,
-                                     min_data_in_leaf=20,
-                                     first_metric_only=TRUE,
-                                     num_iterations=50,
-                                     bagging_fraction=0.7,
-                                     learning_rate=1,
-                                     num_threads=numThreads)
+   # In case SnowParam is used, it is safer to add here
+   mlr3::mlr_learners$add("classif.lightgbm", LearnerClassifLightGBM)
+   learner <- mlr3::lrn("classif.lightgbm",
+                        predict_type="prob",
+                        objective="binary",
+                        verbose=-1,
+                        max_bin=63,
+                        min_data_in_leaf=20,
+                        first_metric_only=TRUE,
+                        num_iterations=50,
+                        bagging_fraction=0.7,
+                        learning_rate=1,
+                        seed=seed,
+                        num_threads=numThreads)
 
    if(nrow(trainTable)<775){
     stop("Too few datapoints for training. A minimum of 775 datapoints is required")
@@ -150,7 +155,9 @@
                        posFrac,
                        weights=NULL,
                        seed=42){
-   set.seed(42)
+   data.table::setDTthreads(numThreads)
+   set.seed(seed)
+
    if(!isWeighted){
      weights <- rep(1, length(labels))
    }
@@ -163,11 +170,12 @@
 
    valSet <- .addUnused(weights, labels, set, valSet,
                         posFrac=posFracMed, nPos=4000,
-                        weighted=isWeighted)
+                        weighted=isWeighted, seed=seed)
 
    # add training datapoints keeping similar weight distributions
    trainSet <- .addUnused(weights, labels, unique(c(set, valSet)),
-                          trainSet, posFrac=0.25, weighted=isWeighted)
+                          trainSet, posFrac=0.25, weighted=isWeighted,
+                          seed=seed)
 
    allFeats <- TFBlearner::listFeatures()
    colsToRemove <- unlist(subset(allFeats,
@@ -241,6 +249,7 @@
                                                 bagging_freq=hyperparams$bagging_freq, # * 10
                                                 first_metric_only=TRUE,
                                                 metric="custom",#c("average_precision","cross_entropy"),
+                                                seed=seed,
                                                 num_threads=numThreads),
                                     early_stopping_rounds=earlyStoppingRounds, # early_stopping_rounds !!
                                     #early_stopping_min_delta=
@@ -278,7 +287,10 @@
                         resizeSet,
                         posFrac,
                         nPos=NULL,
-                        weighted=FALSE){
+                        weighted=FALSE,
+                        seed){
+
+   set.seed(seed)
 
    # weights of selected sets
    usedPos <- usedSet[which(labels[usedSet]==1)]
@@ -390,8 +402,10 @@
                          nModels,
                          motifName="motif_1",
                          countCol="total_overlaps",
-                         posFrac=0.25){
+                         posFrac=0.25,
+                         seed){
 
+   set.seed(seed)
    nTotPos <- sum(labels)
    posIds <-  which(labels==1)
 
@@ -482,6 +496,8 @@
  #'
  #' Trains a bag of four tree-based gradient boosting models of the [lightgbm::lightgbm] library.
  #' Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the [mlr3tuning] library.
+ #' The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), whichs
+ #' contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
  #'
  #' @name trainBagged
  #' @param tfName Name of transcription factor to train model for.
@@ -495,24 +511,26 @@
  #' Negatives will be supsampled to achieve the specified fraction.
  #' @param loContext Should cellular-contexts be used for leave-one-context-out rounds during hyperparameter selection.
  #' Only works if more than one cellular-context is contained within the feature matrix.
- #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
- #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
  #' @param tuneHyperparams If hyperparameters should be tuned with [mlr3mbo::TunerMbo]. Recommend to have this turned on (`tuneHyperparams=TRUE`).
  #' Otherwise (hopefully) sensible defaults are used.
+ #' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
+ #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
+ #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
  #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
  #' @return A list of four [lightgbm::lightgbm] models trained on different strata of the data.
  #' @import mlr3
- #' @import mlr3extralearners
  #' @import data.table
  #' @import Matrix
+ #' @importFrom R6 R6Class
  #' @importFrom mlr3tuning trm ti
  #' @importFrom mlr3mbo TunerMbo
  #' @importFrom mlr3measures logloss
- #' @importFrom paradox ParamSet p_int p_dbl p_int
+ #' @importFrom mlr3misc crate named_list
+ #' @importFrom paradox CondAnyOf CondEqual ParamSet ps p_int p_dbl p_int p_lgl p_uty p_fct
  #' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam register
  #' @importFrom lightgbm lgb.Dataset lightgbm
  #' @importFrom PRROC pr.curve
- #' @importFrom MatrixGenerics colMaxs
+ #' @importFrom sparseMatrixStats colMaxs
  #' @export
 trainBagged <- function(tfName,
                         featMat,
@@ -522,9 +540,11 @@ trainBagged <- function(tfName,
                         earlyStoppingRounds=100,
                         posFrac=0.25,
                         loContext=FALSE,
-                        numThreads=10,
                         tuneHyperparams=TRUE,
+                        seed=42,
+                        numThreads=10,
                         BPPARAM=SerialParam){
+  set.seed(seed)
 
   fmTfName <- attributes(featMat)$transcription_factor
   if(fmTfName!=tfName){
@@ -540,13 +560,9 @@ trainBagged <- function(tfName,
   cellTypeCol <- "context"
   countCol <- "total_overlaps"
 
-  # check inputs ---------------------------------------------------------------
-  #measureName <- match.arg(measureName,
-  #                         choices=unique(c(measureName,
-  #                                          mlr3::mlr_measures$keys())))
   measure <- msr(measureName)
 
-  setDTthreads(numThreads)
+  data.table::setDTthreads(numThreads)
   nWorker <- BPPARAM$workers
 
   motifName <- paste("motif", tfName, sep="_")
@@ -623,14 +639,16 @@ trainBagged <- function(tfName,
                               nModels=3,
                               countCol=countCol,
                               motifName=motifName,
-                              posFrac=posFrac)
+                              posFrac=posFrac,
+                              seed=seed)
   setsUnweighted <- .chooseBags(featMat,
                                 rep(1, length(weights)),
                                 labels,
                                 nModels=1,
                                 countCol=countCol,
                                 motifName=motifName,
-                                posFrac=posFrac)
+                                posFrac=posFrac,
+                                seed=seed)
   sets <- c(setsWeighted, setsUnweighted)
   isWeighted <- c(TRUE,TRUE,TRUE,FALSE)
 
@@ -647,7 +665,8 @@ trainBagged <- function(tfName,
                                               evalRounds=evalRounds,
                                               loContext=loContext,
                                               tuneHyperparams=tuneHyperparams,
-                                              numThreads=floor(numThreads/nWorker)),
+                                              numThreads=floor(numThreads/nWorker),
+                                              seed=seed),
                                   BPPARAM=BPPARAM,
                                   SIMPLIFY=FALSE)
   message(paste("Time elapsed for hyperparameter optimization:", round((proc.time()-ptm)[2],1), "\n"))
@@ -664,7 +683,8 @@ trainBagged <- function(tfName,
                                weights=weights,
                                numThreads=floor(numThreads/nWorker),
                                earlyStoppingRounds=earlyStoppingRounds,
-                               posFrac=0.01),
+                               posFrac=0.01,
+                               seed=seed),
                  SIMPLIFY=FALSE,
                  BPPARAM=BPPARAM)
 
@@ -706,7 +726,7 @@ trainBagged <- function(tfName,
   # median and mean AUC:
   aucs <- res[,grep("AUC",colnames(res)),drop=FALSE]
   res <- as.data.frame(res)
-  res$AUC.cost <- AUPRC.cost.factor*Matrix::rowMeans(aucs)-MatrixGenerics::colMaxs(as.matrix(aucs))
+  res$AUC.cost <- AUPRC.cost.factor*Matrix::rowMeans(aucs)-sparseMatrixStats::colMaxs(as.matrix(aucs))
   res$nonZero.cost <- res$nonZero-min(res$nonZero)
   res$cost <- res$nonZero.cost - res$AUC.cost
   res <- res[order(res$cost),]
@@ -719,6 +739,8 @@ trainBagged <- function(tfName,
 #'
 #' Trains a stacked model provided a bag of four tree-based gradient boosting models as obtained by [TFBlearner::trainBagged].
 #' For different stacking strategies can be used.
+#' The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), whichs
+#' contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
 #'
 #' @name trainStacked
 #' @param featMat Labelled feature matrix as obtained with [TFBlearner::getFeatureMatrix]. Ideally not used for training the bagged models.
@@ -730,21 +752,25 @@ trainBagged <- function(tfName,
 #' @param subSample Number of rows of featMat whoich should be used for computing performance estimates. Only used if `stackingStrat="wMean"`-
 #' @param evalRounds Number of evaluation rounds for the hyperparameter selection rounds. Only used if `stackingStrat="wBoost"`.
 #' @param earlyStoppingRounds Number of early stopping rounds for the hyperparameter selection and training of the [lightgbm::lightgbm] model. Only used if `stackingStrat="wBoost"`.
+#' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
 #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
 #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
-#' @return Stacked model. Depending on the strategy either a [lightgbm:lightgbm] model (`last`, `wLast`, `boostTree`)
+#' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
+#' @return Stacked model. Depending on the strategy either a [lightgbm::lightgbm] model (`last`, `wLast`, `boostTree`)
 #' or a vector with weights for the models in the provided bag (`wMean`).
 #' @import mlr3
-#' @import mlr3extralearners
 #' @import data.table
 #' @import Matrix
+#' @importFrom R6 R6Class
 #' @importFrom mlr3tuning trm ti
 #' @importFrom mlr3mbo TunerMbo
 #' @importFrom mlr3measures logloss
-#' @importFrom paradox ParamSet p_int p_dbl p_int
+#' @importFrom mlr3misc crate named_list
+#' @importFrom paradox CondAnyOf CondEqual ParamSet ps p_int p_dbl p_int p_lgl p_uty p_fct
+#' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam register
 #' @importFrom lightgbm lgb.Dataset lightgbm
 #' @importFrom PRROC pr.curve
-#' @importFrom MatrixGenerics colMaxs
+#' @importFrom sparseMatrixStats colMaxs
 #' @export
 trainStacked <- function(featMat, modsBagged,
                          stackingStrat=c("last", "wLast",
@@ -752,12 +778,13 @@ trainStacked <- function(featMat, modsBagged,
                          subSample=1e5,
                          evalRounds=100,
                          earlyStoppingRounds=10,
-                         numThreads=4,
+                         seed=42,
+                         numThreads=10,
                          BPPARAM=SerialParam()){
 
   stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
                                                       "wMean", "boostTree"))
-  preds <- predictTfBindingBagged(modsBagged, featMat)
+  preds <- predictTfBindingBagged(modsBagged, featMat, BPPARAM=BPPARAM)
 
   if(stackingStrat=="last"){
     stackMod <- modsBagged[[3]]
@@ -769,21 +796,22 @@ trainStacked <- function(featMat, modsBagged,
   }
   else if(stackingStrat=="wMean"){
 
-    stackMod <- .trainWeightedMean(preds, subSample=subSample)
+    stackMod <- .trainWeightedMean(preds, subSample=subSample, seed=seed)
     attr(stackMod, "stacking_strategy") <- "weighted_mean"
   }
   else{
     stackMod <- .trainStackedBoostedTree(featMat, preds, evalRounds=evalRounds,
                              earlyStoppingRounds=earlyStoppingRounds,
-                             numThreads=numThreads)
+                             numThreads=numThreads, seed=seed)
     attr(stackMod, "stacking_strategy") <- "boosted_tree"
   }
 
   return(stackMod)
 }
 
-.trainWeightedMean <- function(preds, subSample=1e5){
+.trainWeightedMean <- function(preds, subSample=1e5, seed=42){
 
+  set.seed(seed)
   contextCol <- "context"
   labelCol <- "contextTfFeat_label"
 
@@ -801,7 +829,7 @@ trainStacked <- function(featMat, modsBagged,
 
   # get weights based on auc-pr
   auprDt <- .getRocs(predsDt, labels="label_bin", scores="value",
-                     models="variable", posClass=1, negClass=0)
+                     models="variable", posClass=1, negClass=0, seed=seed)
   auprDt <- auprDt[,.(auc=data.table::first(auc_pr_mod)), by=variable]
   auprDt[,w:=auc/sum(auc)]
 
@@ -815,7 +843,9 @@ trainStacked <- function(featMat, modsBagged,
                                      preds,
                                      evalRounds=100,
                                      earlyStoppingRounds=10,
-                                     numThreads=4){
+                                     seed=42,
+                                     numThreads=10){
+  set.seed(seed)
   message("Training stacked model")
   mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)
 
@@ -850,7 +880,8 @@ trainStacked <- function(featMat, modsBagged,
                          numThreads=numThreads,
                          measure=msr("classif.aucpr"),
                          contexts=fmStack[,contextCol],
-                         labels=labelsBinStack)
+                         labels=labelsBinStack,
+                         seed=seed)
 
   stackedMod <- .fitModel(hp, set,
                           isWeighted=FALSE,
@@ -858,7 +889,8 @@ trainStacked <- function(featMat, modsBagged,
                           labels=labelsBinStack,
                           earlyStoppingRounds=earlyStoppingRounds,
                           numThreads=numThreads,
-                          posFrac=0.25)
+                          posFrac=0.25,
+                          seed=seed)
 
   return(stackedMod)
 }

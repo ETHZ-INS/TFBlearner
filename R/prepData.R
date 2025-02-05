@@ -83,8 +83,11 @@
       colData(seFeat)[[col]] <- rep(NA, nrow(colData(seFeat)))}
 
     # Avoid duplicate columns - keep newly added columns
-    seFeat <- SummarizedExperiment::cbind(
-      seOrig[,!(colnames(seOrig) %in% colnames(seFeat))], seFeat)
+    isDelayed <- unlist(lapply(assays(seOrig), is, "DelayedMatrix"))
+    isDelayed <- fifelse(sum(isDelayed)>0, TRUE, FALSE)
+    seFeat <- combineCols(
+      seOrig[,!(colnames(seOrig) %in% colnames(seFeat))], seFeat,
+      use.names=FALSE, delayed=isDelayed)
 
     mapOrig <- as.data.table(subset(sampleMap(mae), assay==prefix)[,c("primary",
                                                                       "colname")])
@@ -147,7 +150,6 @@
   .checkObject(mae)
   maeFeat <- .seToMae(mae, seFeat=seFeat, prefix=prefix,
                       colsToMap=colsToMap, annoCol=annoCol)
-
   experiments(mae)[[prefix]] <- NULL
 
   # ensure that motifs still map to every cellular context
@@ -157,19 +159,54 @@
   return(mae)
 }
 
-# helper function to get the cellular contexts per TF
-getContexts <- function(mae, tfName=NULL){
+#' Get cellular contexts
+#'
+#' Provides the names of cellular contexts for data of interest, e.g. a TF or modality.
+#'
+#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC- and ChIP-seq data.
+#' @param tfName Name of transcription factor to get cellular contexts for.
+#' If `tfName=NULL` all celullar contexts of the requested modalities (`which`), will be provided.
+#' @param which Which modality to get the cellular contexts names from.
+#' If `which=both` only cellular contexts which have both ATAC and ChIP-seq data (for the specified TF, in case `tfName` is not NULL) will be returned.
+#' @export
+getContexts <- function(mae, tfName=NULL, which=c("ChIP", "ATAC", "Both")){
   .checkObject(mae)
 
-  colsChIP <- colnames(experiments(mae)$ChIP)
-  colsChIP <- as.data.table(tstrsplit(colsChIP, split="_"))
-  if(!is.null(tfName)){
-    contexts <- subset(colsChIP, V2==tfName)$V1}
+  which <- match.arg(which, choices=c("ChIP", "Both", "ATAC"))
+  contextsAtac <- rownames(colData(experiments(mae)$ATAC))
+
+  if(which=="ATAC"){
+    contexts <- contextsAtac
+  }
   else{
-    contexts <- unique(sampleMap(mae)$primary)}
+    colsChIP <- colnames(experiments(mae)$ChIP)
+    colsChIP <- as.data.table(tstrsplit(colsChIP, split="_"))
+    if(!is.null(tfName)){
+      contextsChIP <- subset(colsChIP, V2==tfName)$V1}
+    else{
+      contextsChIP <- colsChIP$V1}
+
+    if(which=="Both"){
+      contexts <- intersect(contextsChIP,contextsAtac)}
+    else{
+      contexts <- contextsChIP
+    }
+  }
 
   return(contexts)
 }
+
+#' Example Data: Coordinates
+#'
+#' Example genomic coordinates to construct a custom MultiAssayExperiment object and to compute features for TF-Binding predictions for.
+#' The sample data contains 100 genomic ranges stored in GRanges object.
+#'
+#' @name example_coords
+#' @format [GenomicRanges::GRanges] object
+#' @docType data
+#' @keywords GRanges
+NULL
+
 
 
 #' Add further ATAC-seq datasets to object
@@ -178,6 +215,8 @@ getContexts <- function(mae, tfName=NULL){
 #' computes features if required.
 #'
 #' @name addATACData
+#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq. If features should be computed
+#' the object also needs to contain site-specific features as obtained by [TFBlearner::siteFeatures()] and transcription factor-specific features as obtained by [TFBlearner::tfFeatures()].
 #' @param atacData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
 #' or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
 #' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
@@ -191,14 +230,15 @@ getContexts <- function(mae, tfName=NULL){
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] with added ATAC-seq experiments (and cellular context and TF-specific features if `computeFeatures=TRUE`).
 #' @import MultiAssayExperiment
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
-#' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData cbind assays
+#' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData assays
+#' @importFrom S4Vectors combineCols
 #' @importFrom GenomeInfoDb seqlevelsStyle
 addATACData <- function(mae, atacData,
                         testSet=NULL,
-                        computeFeatures=TRUE,
-                        tfName=tfName,
-                        annoCol=annoCol,
-                        shift=shift,
+                        computeFeatures=FALSE,
+                        tfName=NULL,
+                        annoCol="context",
+                        shift=FALSE,
                         BPPARAM=SerialParam(), ...){
   .checkObject(mae)
 
@@ -225,7 +265,7 @@ addATACData <- function(mae, atacData,
   colData(mae)$is_training <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
                                       !colData(mae)$is_testing,TRUE, FALSE)
 
-  if(computeFeature){
+  if(computeFeatures){
     if(is.null(tfName)) stop("Please provide a TF to compute the features for")
     mae <- contextTfFeatures(mae, tfName=tfName, whichCol="Col",
                              colSel=unique(names(atacData)), ...)
@@ -263,12 +303,12 @@ addATACData <- function(mae, atacData,
 #' @param outDir Directory to save HDF5 file to.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] with Motif, ATAC- & ChIP-seq experiments.
-#' @import HDF5Array
 #' @import MultiAssayExperiment
-#' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close
+#' @importFrom rhdf5 H5Fcreate h5createDataset h5writeDataset h5delete h5write h5ls H5Fopen H5Fclose H5garbage_collect
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
 #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData cbind assays
 #' @importClassesFrom SummarizedExperiment SummarizedExperiment RangedSummarizedExperiment
+#' @importClassesFrom HDF5Array HDF5Array
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
 prepData <- function(refCoords,
@@ -337,7 +377,10 @@ prepData <- function(refCoords,
   if(!is.null(promoterCoords)){
   message("Processing ATAC-seq promoter data")
     atacPromSe <- .mapSeqData(atacData, promoterCoords, type="ATAC",
-                             annoCol=annoCol, BPPARAM=BPPARAM)
+                              annoCol=annoCol,
+                              saveHdf5=saveHdf5,
+                              fileName="ATAC_promoters_mapped",
+                              outDir=outDir, BPPARAM=BPPARAM)
     atacPromMap <- data.frame(primary=colData(atacPromSe)[[annoCol]],
                               colname=colData(atacPromSe)[[annoCol]],
                               stringsAsFactors=FALSE)

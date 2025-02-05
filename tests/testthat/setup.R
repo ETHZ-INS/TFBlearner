@@ -40,6 +40,7 @@ assayTableSimple2[,end:=start+10]
 #              GRanges(seqnames="chr1", ranges=IRanges(start=1, end=110)))
 
 # Setup for insertionProfiles tests---------------------------------------------
+
 nLarge <- 1e4
 
 motifCoords <- data.table(chr=c("chr1", "chr1"),
@@ -57,57 +58,46 @@ assayTableTestLarge[, end:=round(start+runif(nLarge, 1,100))]
 
 # example data for mae for feature functions -----------------------------------
 
-load(test_path("../../data/example_coords.rda"))
-exampleMotif <- list(CTCF=test_path("../../inst/extdata/ctcf_motif.tsv"),
-                     JUN=test_path("../../inst/extdata/jun_motif.tsv"))
-exampleMotif <- list(CTCF="../../inst/extdata/ctcf_motif.tsv",
-                     JUN="../../inst/extdata/jun_motif.tsv")
-exampleATAC <-  list(A549="../../inst/extdata/example_atac_A549.bed",
-                     K562="../../inst/extdata/example_atac_K562.bed")
-exampleChIP <-  list(K562_CTCF="../../inst/extdata/example_chIP_K562_ctcf.tsv",
-                     A549_CTCF="../../inst/extdata/example_chIP_A549_ctcf.tsv",
-                     K562_JUN="../../inst/extdata/example_chIP_K562_jun.tsv")
+load(file.path(system.file("data", package="TFBlearner"), "example_coords.rda"))
 
-# maeTest <- suppressMessages({prepData(example_coords,
-#                                        motifData=exampleMotif,
-#                                        atacData=exampleATAC,
-#                                        chIPData=exampleChIP,
-#                                        testSet="A549")})
-# maeTest <- siteFeatures(maeTest)
-# maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN")
-# maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
-#                               features=c("Inserts", "Weighted_Inserts",
-#                                          "Cofactor_Inserts"),
-#                               addLabels=TRUE,
-#                               BPPARAM=SerialParam())
-# saveRDS(maeTest, "./test_data/maeTest.rds")
+exampleMotif <- list(CTCF=system.file("extdata", "ctcf_motif.tsv", package = "TFBlearner"),
+                     JUN=system.file("extdata", "jun_motif.tsv", package = "TFBlearner"))
+exampleATAC <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
+                    K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"))
+exampleChIP <- list(K562_CTCF=system.file("extdata", "example_chIP_K562_ctcf.tsv", package = "TFBlearner"),
+                    A549_CTCF=system.file("extdata", "example_chIP_A549_ctcf.tsv", package = "TFBlearner"),
+                    K562_JUN=system.file("extdata", "example_chIP_K562_jun.tsv", package = "TFBlearner"))
 
-maeTest <- readRDS(test_path("./test_data/maeTest.rds"))
+maeTest <- suppressMessages({prepData(example_coords,
+                                       motifData=exampleMotif,
+                                       atacData=exampleATAC,
+                                       chIPData=exampleChIP,
+                                       testSet="A549")})
+maeTest <- siteFeatures(maeTest)
+maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN")
+maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
+                              features=c("Inserts", "Weighted_Inserts",
+                                         "Cofactor_Inserts"),
+                              addLabels=TRUE,
+                              BPPARAM=SerialParam())
 
-# maeTestHdf5 <- suppressMessages({prepData(example_coords,
-#                                        motifData=exampleMotif,
-#                                        atacData=exampleATAC,
-#                                        chIPData=exampleChIP,
-#                                        testSet="A549",
-#                                        saveHdf5=TRUE,
-#                                        outDir="./test_data")})
-# maeTestHdf5 <- siteFeatures(maeTestHdf5)
-# maeTestHdf5 <- tfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN")
-# maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
-#                                  features=c("Inserts", "Weighted_Inserts",
-#                                              "Cofactor_Inserts"),
-#                                  addLabels=TRUE,
-#                                  BPPARAM=SerialParam())
-# saveRDS(maeTestHdf5, "./test_data/maeTest_hdf5.rds")
-
-maeTestHdf5 <- readRDS(test_path("./test_data/maeTest_hdf5.rds"))
+maeTestHdf5 <- suppressMessages({prepData(example_coords,
+                                       motifData=exampleMotif,
+                                       atacData=exampleATAC,
+                                       chIPData=exampleChIP,
+                                       testSet="A549",
+                                       saveHdf5=TRUE,
+                                       outDir="./test_data")})
+maeTestHdf5 <- siteFeatures(maeTestHdf5)
+maeTestHdf5 <- tfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN")
+maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
+                                 features=c("Inserts", "Weighted_Inserts",
+                                             "Cofactor_Inserts"),
+                                 addLabels=TRUE,
+                                 BPPARAM=SerialParam())
 
 # Training & Prediction testing ------------------------------------------------
 
-# fm <- getFeatureMatrix(maeTest, tfName="CTCF",
-#                        addLabels=TRUE,
-#                        saveHdf5=FALSE)
-# saveRDS(fm, "./test_data/fmTest.rds")
-
-fmTest <- readRDS(test_path("./test_data/fmTest.rds"))
-
+fm <- getFeatureMatrix(maeTest, tfName="CTCF",
+                       addLabels=TRUE,
+                       saveHdf5=FALSE)

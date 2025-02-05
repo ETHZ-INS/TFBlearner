@@ -1,3 +1,121 @@
 # TFBlearner
 
  [![R-CMD-check](https://github.com/ETHZ-INS/TFBlearner/actions/workflows/r_cmd_check.yaml/badge.svg)](https://github.com/ETHZ-INS/TFBlearner/actions/workflows/r_cmd_check.yaml)
+ 
+Package for computing features and training of TF-specific models for TF-binding predictions based on ATAC-seq data.
+<br />
+<br />
+
+![*Package functionality overview*](./schemes/overview_small.png)   
+
+<br />
+<br />
+     
+
+ The package can be installed with: 
+
+``` r
+ devtools::install_github("https://github.com/ETHZ-INS/TFBlearner")
+```
+
+## Input data
+
+As inputs for training a model motif-matches, ATAC-seq data, and ChIP-seq peaks (used as labels) are required.
+
+``` r
+library(TFBlearner)
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(phastCons100way.UCSC.hg38)
+
+# load example data
+# genomic coordinates of sites
+load(file.path(system.file("data", package="TFBlearner"), "example_coords.rda"))
+
+# motif matches
+exampleMotif <- list(CTCF=system.file("extdata", "ctcf_motif.tsv", package = "TFBlearner"),
+                     JUN=system.file("extdata", "jun_motif.tsv", package = "TFBlearner"))
+
+# atac-seq data
+exampleATAC <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
+                    K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"))
+
+# chip-seq data
+exampleChIP <- list(K562_CTCF=system.file("extdata", "example_chIP_K562_ctcf.tsv", package = "TFBlearner"),
+                    A549_CTCF=system.file("extdata", "example_chIP_A549_ctcf.tsv", package = "TFBlearner"),
+                    K562_JUN=system.file("extdata", "example_chIP_K562_jun.tsv", package = "TFBlearner"))
+```
+
+The arguments can be passed as named lists, with names corresponding to the cellular contexts of the data, to `prepData()` which outputs a custom[MultiAssayExperiment](https://www.bioconductor.org/packages/release/bioc/html/MultiAssayExperiment.html) object with the different modalities in the `experiments()`.
+Cellular contexts used for testing / validation can already be defined at this point with the argument `testSet` and the ChIP-seq peaks of these will be excluded from all downstream feature construction steps.
+
+``` r
+mae <- prepData(example_coords,
+                motifData=exampleMotif,
+                atacData=exampleATAC,
+                chIPData=exampleChIP,
+                testSet="A549")
+```
+
+## Feature construction
+
+The features compiled can be split in three categories; site-specific features, TF-specific features and cellular context and TF-specific features. 
+
+An overview of the features can be obtained with: 
+
+``` r
+listFeatures()
+```
+
+Features are added to the provided MultiAssayExperiment objects as features. 
+
+``` r
+# site-specific features
+mae <- siteFeatures(mae, 
+                    phast = phastCons100way.UCSC.hg38,
+                    genome = BSgenome.Hsapiens.UCSC.hg38)
+
+# TF-specific features (JUN used here as unrealistic toy-example of a cofactor of CTCF)
+mae <- tfFeatures(mae, 
+                  tfName="CTCF", 
+                  tfCofactors="JUN")
+
+# cellular context & TF-specific features
+mae <- contextTfFeatures(mae,
+                         tfName="CTCF",
+                         addLabels=TRUE,
+                         features=c("Inserts", "Weighted_Inserts",
+                                             "Cofactor_Inserts"))
+```
+
+## Training TF-specific models
+
+Training is split up in two steps, first training of single gradient-boosted tree models using the [lightgbm library] on different  strata of the data (different stringency on whats included as a ChIP-seq peak), second training of a stacking model combining the predictions of the single models.
+
+``` r
+# get feature matrix for training
+fmTrain <- getFeatureMatrix(mae, tfName="CTCF", whichCol="OnlyTrain")
+
+# Train single-models
+modsBagged <- trainBagged(tfName="CTCF", featMat=fmTrain[1:80,], 
+                          evalRounds=5, BPPARAM=SerialParam())
+
+# predict on training data
+predTrainBagged <- predictTfBindingBagged(modsBagged, fmTrain)
+
+# Train stacked model
+modStacked <- trainStacked(featMat[80:100,], modsBagged, stackingStrat="wMean")
+```
+
+## Predicting binding
+
+``` r
+# get feature matrix on which to predict
+fmVal <- getFeatureMatrix(mae, tfName="CTCF", whichCol="A549")
+
+# predict with single models
+predsValBagged <- predictTfBindingBagged(modsBagged, fmVal)
+
+# predict with stacked model
+predsValStacked <- predictTfBindingStacked(motStacked, fmVal, 
+                                           predsBagged=predsValBagged)
+```

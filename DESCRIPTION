@@ -9,8 +9,6 @@ License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
-Remotes:
-    mlr-org/mlr3extralearners@*release
 Depends:
         Matrix,
         MultiAssayExperiment,
@@ -20,25 +18,30 @@ Depends:
 Imports:
         BiocParallel,
         chromVAR,
-        DelayedMatrixStats,
+        DiceKriging,
         GenomicAlignments,
         GenomeInfoDb,
         GenomicRanges,
         GenomicScores,
         Hmisc,
         mlr3,
-        mlr3extralearners,
+        mlr3misc,
         mlr3tuning,
+        mlr3learners,
         mlr3mbo,
         mlr3measures,
-        MatrixGenerics,
+        sparseMatrixStats,
         MotifDb,
         motifmatchr,
         paradox,
+        R6,
+        ranger,
         RcppML,
+        rgenoud,
         Repitools,
         Rsamtools,
         rhdf5,
+        S4Vectors,
         preprocessCore,
         PRROC,
         SummarizedExperiment,

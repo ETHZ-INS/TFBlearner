@@ -65,6 +65,7 @@
 
   seqDat[, start:=as.integer(start)]
   seqDat[, end:=as.integer(end)]
+  if("width" %in% colnames(seqDat)) seqDat$width <- NULL
 
   return(seqDat)
 }
@@ -83,6 +84,7 @@
   }
   atacFrag[,frag_type:=cut(width, breaks=c(cuts, Inf), labels=labels,
                       right=TRUE, include.lowest=TRUE)]
+  atacFrag$width <- NULL
   return(atacFrag)
 }
 
@@ -95,6 +97,7 @@
                         isUncertainCol=NULL,
                         aggregationFun=max,
                         shift=FALSE,
+                        fileName=NULL,
                         BPPARAM=SerialParam()){
   type <- match.arg(type, choices=c("ATAC", "ChIP", "Motif"))
 
@@ -128,10 +131,14 @@
     }
   }
 
+  if(is.null(fileName)) fileName <- paste(type, "mapped", sep="_")
+
   if(type=="ATAC"){
     mappedSe <- .mapAtacData(data, refCoords,
                              annoCol=annoCol, shift=shift,
-                             saveHdf5=saveHdf5, outDir=outDir,
+                             saveHdf5=saveHdf5,
+                             fileName=fileName,
+                             outDir=outDir,
                              BPPARAM=BPPARAM)
   }
   else if(type=="ChIP"){
@@ -139,13 +146,17 @@
                              weightCol=weightCol,
                              isUncertainCol=isUncertainCol,
                              aggregationFun=aggregationFun,
-                             saveHdf5=saveHdf5, outDir=outDir,
+                             saveHdf5=saveHdf5,
+                             fileName=fileName,
+                             outDir=outDir,
                              BPPARAM=BPPARAM)
   }
   else if(type=="Motif"){
     mappedSe <- .mapMotifData(data, refCoords, scoreCol=scoreCol,
                               aggregationFun=aggregationFun,
-                              saveHdf5=saveHdf5, outDir=outDir,
+                              saveHdf5=saveHdf5,
+                              fileName=fileName,
+                              outDir=outDir,
                               BPPARAM=BPPARAM)
   }
 
@@ -157,6 +168,7 @@
                           scoreCol="score",
                           aggregationFun=max,
                           saveHdf5=FALSE,
+                          fileName=NULL,
                           outDir=NULL,
                           BPPARAM=SerialParam()){
   threads <- floor(getDTthreads())/BPPARAM$workers
@@ -166,32 +178,11 @@
   data <- lapply(colNames, function(name) data[names(data)==name])
   names(data) <- colNames
 
-  if(saveHdf5)
-  {
-    if(is.null(outDir)) outDir <- getwd() # .
-    fileName <- "Motifs_mapped"
-    hdf5FileName <- file.path(outDir, fileName)
-
-    if(file.exists(hdf5FileName)){
-      h5delete(file=hdf5FileName, name="match_scores")
-      file.remove(hdf5FileName)
-    }
-
-    h5createFile(hdf5FileName)
-    h5createDataset(file=hdf5FileName, dataset="match_scores",
-                    dims=c(length(refCoords), length(colNames)),
-                    storage.mode="double",
-                    chunk=c(1e5, length(colNames)))
-  }
-  else{
-    hdf5FileName <- NULL
-  }
-
   motifScores <- BiocParallel::bplapply(data,
                                         function(d, refCoords, scoreCol,
                                                  aggregationFun, threads,
-                                                 saveHdf5, hdf5FileName,
-                                                 colNames){
+                                                 saveHdf5, outDir){
+    data.table::setDTthreads(threads)
     name <- unique(names(d))
     motifScore <- lapply(d, .processData, readAll=TRUE, shift=FALSE,
                          seqLevelStyle=seqlevelsStyle(refCoords))
@@ -204,36 +195,103 @@
                                        byCols="motif_name",
                                        aggregationFun=aggregationFun,
                                        BPPARAM=SerialParam())
+    motifScore <- .roundingCompression(motifScore, factor=1e4)
+    maxScore <- max(motifScore@x)
 
     if(saveHdf5){
-      i <- which(colNames==name)
-      h5write(as.matrix(motifScore),
-              file=hdf5FileName,
-              name="match_scores",
-              createnewfile=FALSE,
-              index=list(1:length(refCoords), i))
+      .writeToHdf5(list("match_scores"=motifScore),
+                   paste0(file.path(outDir, name), ".h5"),
+                   storage="integer")
       motifScore <- head(motifScore, n=1)
     }
 
-    return(motifScore)
+    return(list(motifScore, maxScore))
   }, refCoords=refCoords, scoreCol=scoreCol,
      aggregationFun=aggregationFun, thread=threads,
-     saveHdf5=saveHdf5, hdf5FileName=hdf5FileName, colNames=colNames,
+     saveHdf5=saveHdf5, outDir=outDir,
      BPPARAM=BPPARAM)
 
+  maxScores <- unlist(lapply(motifScores, `[[`, 2))
+  motifScores <- lapply(motifScores, `[[`, 1)
+
   if(saveHdf5){
-    H5close()
-    motifScores <- HDF5Array(filepath=hdf5FileName, name="match_scores")
+    hdf5FilesCollect <- unlist(lapply(colNames, function(f) paste0(file.path(outDir,f), ".h5")))
+    motifScores <- .collectHdf5Files(hdf5FilesCollect,
+                                   hdf5FileName=paste0(file.path(outDir, fileName), ".h5"),
+                                   storage="integer", asSparse=FALSE)
+    motifScores <- motifScores[[1]]
   }
   else{
     motifScores <- Reduce("cbind", motifScores[-1], motifScores[[1]])
   }
 
   colnames(motifScores) <- colNames
-  motifColData <- data.table(motif=colnames(motifScores))
+  motifColData <- data.table(motif=colnames(motifScores),
+                             max_score=maxScores)
   motifSe <- SummarizedExperiment(assays=list(match_scores=motifScores),
                                   rowRanges=refCoords,
                                   colData=motifColData)
+}
+
+.writeToHdf5 <- function(datasets, hdf5FileName, storage="integer"){
+  fid <- H5Fcreate(hdf5FileName)
+  on.exit(H5Fclose(fid))
+
+  mapply(function(d, datasetName, storage, fid){
+    h5createDataset(file=fid, dataset=datasetName,
+                    dims=c(nrow(d), 1), storage.mode=storage,
+                    chunk=c(min(1e6, nrow(d)),1),
+                    level=0)
+    h5writeDataset(as.matrix(d), h5loc=fid, name=datasetName,
+                   level=0)},
+    datasets, names(datasets),
+    MoreArgs=list(storage=storage,
+                  fid=fid))
+  H5garbage_collect()
+  return(TRUE)
+}
+
+# see: https://www.bioconductor.org/packages/devel/bioc/vignettes/rhdf5/inst/doc/practical_tips.html#3_Writing_in_parallel
+.collectHdf5Files <- function(hdf5Files, hdf5FileName,
+                              storage="integer", asSparse=TRUE){
+
+  #TODO:  check requirement that all files have same dimension and datasets
+
+  checkFile <- H5Fopen(hdf5Files[1]) # open first file
+  info <- rhdf5::h5ls(checkFile)
+  datasetNames <- info$name
+  dims <- as.numeric(strsplit(info$dim, " x ")[[1]])
+  H5Fclose(checkFile)
+
+  if(file.exists(hdf5FileName)){
+    file.remove(hdf5FileName)
+  }
+
+  # create combined object
+  fid <- H5Fcreate(name=hdf5FileName)
+  lapply(datasetNames, h5createDataset, file=fid,
+         dims=c(dims[1], length(hdf5Files)), storage.mode=storage,
+         chunk=c(min(1e6, dims[1]), length(hdf5Files)))
+
+  for(i in seq_len(length(hdf5Files))){
+     file <- hdf5Files[i]
+     origFile <- H5Fopen(file)
+     datasets <- rhdf5::h5ls(origFile)$name
+     H5close()
+     for(d in datasets){
+       mat <- h5read(file, name=d)
+       h5write(mat, file=hdf5FileName, name=d, createnewfile=FALSE,
+               index=list(1:dims[1], i))
+       h5delete(file=file, name=d)
+     }
+     file.remove(file)
+     H5garbage_collect()
+  }
+
+  assays <- lapply(datasetNames, HDF5Array, filepath=hdf5FileName, as.sparse=asSparse)
+  names(assays) <- datasetNames
+
+  return(assays)
 }
 
 .mapAtacData <- function(data,
@@ -241,6 +299,7 @@
                          annoCol="context",
                          shift=TRUE,
                          saveHdf5=FALSE,
+                         fileName=NULL,
                          outDir=NULL,
                          BPPARAM=SerialParam())
 {
@@ -251,38 +310,13 @@
   data <- lapply(colNames, function(name) data[names(data)==name])
   names(data) <- colNames
 
-  if(saveHdf5)
-  {
-    if(is.null(outDir)) outDir <- getwd() # .
-    fileName <- "ATAC_mapped"
-    hdf5FileName <- file.path(outDir, fileName)
-
-    datasets <- c("total_overlaps", "nucleosome_free_overlaps",
-                  "dinucleosome_overlaps", "mononucleosome_overlaps",
-                  "multinucleosome_overlaps", "total_inserts",
-                  "nucleosome_free_inserts", "dinucleosome_inserts",
-                  "mononucleosome_inserts", "multinucleosome_inserts")
-
-    if(file.exists(hdf5FileName)){
-      lapply(datasets, h5delete, file=hdf5FileName)
-      file.remove(hdf5FileName)
-    }
-    h5createFile(hdf5FileName)
-    lapply(datasets,h5createDataset, file=hdf5FileName,
-           dims=c(length(refCoords), length(colNames)), storage.mode="integer",
-           chunk=c(1e5, length(colNames)))
-  }
-  else{
-    hdf5FileName <- NULL
-  }
-
   # looped processing of ATAC data
   atacCounts <- BiocParallel::bplapply(data, function(d, refCoords,
                                                       shift, threads,
-                                                      saveHdf5, hdf5FileName,
-                                                      colNames){
+                                                      saveHdf5, outDir){
 
     data.table::setDTthreads(threads)
+
     atacFrag <- lapply(d, .processData, shift=shift,
                        seqLevelStyle=seqlevelsStyle(refCoords))
     atacFrag <- rbindlist(atacFrag)
@@ -290,21 +324,25 @@
 
     # inserts counts
     atacFrag <- split(atacFrag, by="frag_type")
-    atacIns <- suppressMessages(lapply(atacFrag, getInsertionProfiles,
-                                       refCoords, margin=0, calcProfile=FALSE,
-                                       shift=FALSE))
-
-    atacIns <- lapply(atacIns, `[[`, "motifScores")
+    atacIns <- mapply(function(atacFragType, type){
+      ins <- suppressMessages({
+        getInsertionProfiles(atacFragType, refCoords, margin=0,
+                                 calcProfile=FALSE, shift=FALSE)})
+      ins <- ins[["motifScores"]]
+      ins <- ins[,c("chr", "start", "end"),with=FALSE]
+      ins$frag_type <- factor(type)
+      ins
+      }, atacFrag, names(atacFrag), SIMPLIFY=FALSE)
     atacFrag <- rbindlist(atacFrag)
-    atacIns <- rbindlist(atacIns, idcol="frag_type")
+    atacIns <- rbindlist(atacIns)
 
+    message("Gotten Inserts")
+
+    atacFrag$strand <- NULL
     atacTypeOvs <- genomicRangesMapping(refCoords,
-                                         atacFrag[,c("chr", "start",
-                                                     "end", "frag_type"),
-                                                  with=FALSE],
-                                         byCols="frag_type",
-                                         BPPARAM=SerialParam())
-
+                                        atacFrag,
+                                        byCols="frag_type",
+                                        BPPARAM=SerialParam())
     atacTotalOvs <- Matrix::Matrix(Matrix::rowSums(atacTypeOvs), ncol=1)
     colnames(atacTotalOvs) <- "total_overlaps"
     typeNames <- colnames(atacTypeOvs)
@@ -312,47 +350,42 @@
                            function(col) atacTypeOvs[,col, drop=FALSE])
     names(atacTypeOvs) <- paste(typeNames, "overlaps", sep="_")
 
+    message("Mapped total overlaps")
+
     atacTypeIns <- genomicRangesMapping(refCoords,
-                                         atacIns[,c("chr", "start",
-                                                    "end", "frag_type"),
-                                                 with=FALSE],
-                                         byCols="frag_type",
-                                         BPPARAM=SerialParam())
+                                        atacIns,
+                                        byCols="frag_type",
+                                        BPPARAM=SerialParam())
     atacTotalIns <- Matrix::Matrix(Matrix::rowSums(atacTypeIns), ncol=1)
     colnames(atacTotalIns) <- "total_inserts"
     atacTypeIns <- lapply(typeNames,
                           function(col) atacTypeIns[,col, drop=FALSE])
     names(atacTypeIns) <- paste(typeNames, "inserts", sep="_")
 
+    message("Mapped inserts")
+
     atacAssays <- c(list("total_overlaps"=atacTotalOvs),
                     atacTypeOvs,
                     list("total_inserts"=atacTotalIns),
                     atacTypeIns)
     if(saveHdf5){
-      i <- which(colNames==unique(names(d)))
-      lapply(names(atacAssays), function(assay){
-        h5write(as.matrix(atacAssays[[assay]]),
-                file=hdf5FileName,
-                name=assay,
-                createnewfile=FALSE,
-                index=list(1:length(refCoords), i))
-
-      })
+      .writeToHdf5(atacAssays, paste0(file.path(outDir, unique(names(d))), ".h5"),
+                   storage="integer")
       atacAssays <- lapply(atacAssays, head, n=1)
     }
 
     return(atacAssays)},
-    refCoords, shift, threads, saveHdf5, hdf5FileName=hdf5FileName,
-    colNames=names(data), BPPARAM=BPPARAM)
+    refCoords, shift, threads, saveHdf5, outDir=outDir,
+    BPPARAM=BPPARAM)
 
   typeCountNames <- names(atacCounts[[1]])
 
   if(saveHdf5){
-    H5close()
-    atacAssays <- lapply(typeCountNames, HDF5Array, filepath=hdf5FileName,
-                         as.sparse=TRUE)
+    hdf5FilesCollect <- unlist(lapply(colNames, function(f) paste0(file.path(outDir,f), ".h5")))
+    atacAssays <- .collectHdf5Files(hdf5FilesCollect,
+                                    hdf5FileName=paste0(file.path(outDir, fileName), ".h5"),
+                                    storage="integer", asSparse=TRUE)
     atacAssays <- lapply(atacAssays, `colnames<-`, colNames)
-    names(atacAssays) <- typeCountNames
   }
   else{
     # convert to assay matrices
@@ -377,7 +410,6 @@
     else return(NULL)})
   names(dataOrigin) <- colNames
 
-
   atacColData[,origin:=lapply(get(annoCol), function(x){
     ds <- unlist(data[names(data)==x])
     names(ds) <- unlist(tstrsplit(names(ds), split=".", keep=2, fixed=TRUE))
@@ -398,6 +430,7 @@
                          weightCol=NULL,
                          isUncertainCol=NULL,
                          saveHdf5=FALSE,
+                         fileName=NULL,
                          outDir=NULL,
                          BPPARAM=SerialParam()){
 
@@ -408,30 +441,10 @@
   data <- lapply(colNames, function(name) data[names(data)==name])
   names(data) <- colNames
 
-  if(saveHdf5)
-  {
-    if(is.null(outDir)) outDir <- getwd() # .
-    fileName <- "ChIP_mapped"
-    hdf5FileName <- file.path(outDir, fileName)
-
-    if(file.exists(hdf5FileName)){
-      h5delete(file=hdf5FileName, name="peaks")
-      file.remove(hdf5FileName)
-    }
-
-    h5createFile(hdf5FileName)
-    h5createDataset(file=hdf5FileName, dataset="peaks",
-                    dims=c(length(refCoords), length(colNames)),
-                    storage.mode="double",
-                    chunk=c(1e5, length(colNames)))
-  }
-  else{
-    hdf5FileName <- NULL
-  }
-
   chIPPeaks <- BiocParallel::bplapply(data, function(d, refCoords, threads,
-                                                     saveHdf5, hdf5FileName,
-                                                     colNames){
+                                                     saveHdf5, outDir){
+
+    data.table::setDTthreads(threads)
 
     comb <- unique(names(d))
     chIPPeaks <- lapply(d, .processData, readAll=TRUE, shift=FALSE,
@@ -479,23 +492,24 @@
                                   ncol=1)}
 
     colnames(chIPPeaks) <- comb
+
     if(saveHdf5){
-      i <- which(colNames==comb)
-      h5write(as.matrix(chIPPeaks),
-                file=hdf5FileName,
-                name="peaks",
-                createnewfile=FALSE,
-                index=list(1:length(refCoords), i))
+      .writeToHdf5(list("peaks"=chIPPeaks),
+                   paste0(file.path(outDir, unique(names(d))), ".h5"),
+                   storage="double")
       chIPPeaks <- head(chIPPeaks, n=1)
     }
 
     return(chIPPeaks)
   }, refCoords=refCoords, threads=threads, saveHdf5=saveHdf5,
-     hdf5FileName=hdf5FileName, colNames=names(data), BPPARAM=BPPARAM)
+     outDir=outDir, BPPARAM=BPPARAM)
 
   if(saveHdf5){
-    H5close()
-    chIPPeaks <- HDF5Array(filepath=hdf5FileName, name="peaks")
+    hdf5FilesCollect <- unlist(lapply(colNames, function(f) paste0(file.path(outDir,f), ".h5")))
+    chIPPeaks <- .collectHdf5Files(hdf5FilesCollect,
+                                   hdf5FileName=paste0(file.path(outDir, fileName), ".h5"),
+                                   storage="double", asSparse=TRUE)
+    chIPPeaks <- chIPPeaks[[1]]
   }
   else{
     chIPPeaks <- Reduce("cbind", chIPPeaks[-1], chIPPeaks[[1]])

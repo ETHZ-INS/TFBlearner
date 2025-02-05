@@ -101,7 +101,7 @@ siteFeatures <- function(mae,
   names(featMats) <- paste("siteFeat", names(featMats), sep="_")
   seSiteFeat <- SummarizedExperiment(assays=featMats, rowRanges=coords)
   colnames(seSiteFeat) <- "all"
-  colData(seSiteFeat)$feature_type <- "c"
+  colData(seSiteFeat)$feature_type <- "siteFeature"
   colsToMap <- unique(sampleMap(mae)$primary)
   mae <- .addFeatures(mae, seSiteFeat, colsToMap=colsToMap, prefix="siteFeat")
 

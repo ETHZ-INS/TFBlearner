@@ -1,3 +1,20 @@
+.doOneScan <- function(mo, coords, genome, lowp=5e-05){ #1e-02
+  # low-confidence matches
+  po <- matchMotifs(mo, subject=coords, genome=genome,
+                    out="positions", p.cutoff=lowp)[[1]]
+  # trace back the original DHS behind each
+  po$orig <- to(findOverlaps(po, coords, minoverlap=2L))
+  # keep only the strongest hit per DHS
+  po <- po[order(seqnames(po), -po$score)]
+  po <- po[!duplicated(po$orig)]
+  po$orig <- NULL
+  # find all below the default cutoff
+  po2 <- matchMotifs(mo, subject=coords, genome=genome, out="positions")[[1]]
+  po <- po[!overlapsAny(po,po2)]
+  sort(c(po,po2))
+}
+
+
 .getMotifMatches <- function(coords,
                              tfName,
                              tfCofactors,
@@ -21,16 +38,9 @@
   motifNames[grepl("YY1", motifNames)] <- "YY1"
   names(motifs) <- motifNames
 
-  # get motif matching scores & positions
-  matchRanges <- motifmatchr::matchMotifs(motifs,
-                                          subject=coords,
-                                          out="positions",
-                                          genome=genome)
-
-  matchScores <- motifmatchr::matchMotifs(motifs,
-                                          subject=coords,
-                                          out="scores",
-                                          genome=genome)
+  # get motif matching positions
+  matchRanges <- lapply(motifs, .doOneScan, coords=coords, genome=genome)
+  matchRanges <- as(matchRanges, "GRangesList")
 
   # match seqLevelStyle
   motifCoords <- matchRanges[[tfName]]
@@ -38,13 +48,11 @@
   cofactCoords <- matchRanges[tfCofactors]
 
   # match seqLevelStyle
-  if(!is.null(motifCoords)) seqlevelsStyle(motifCoords) <- seqStyle
-  if(!is.null(cofactCoords)) seqlevelsStyle(cofactCoords) <- seqStyle
-  if(!is.null(matchScores)) seqlevelsStyle(matchScores) <- seqStyle
+  if(length(motifCoords)>0) seqlevelsStyle(motifCoords) <- seqStyle
+  if(length(cofactCoords)>0) seqlevelsStyle(cofactCoords) <- seqStyle
 
   return(list(motifCoords=motifCoords,
-              cofactCoords=cofactCoords,
-              matchScores=matchScores))
+              cofactCoords=cofactCoords))
 }
 
 .binMat <- function(chIPMat, threshold=NULL){
@@ -106,7 +114,9 @@
                                 tfCofactors,
                                 nPatterns=10,
                                 aggregate=TRUE,
-                                L1=c(0.5,0.5)){
+                                L1=c(0.5,0.5),
+                                seed=42){
+    set.seed(seed)
 
     # Take out TF of interest
     cn <- colnames(chIPMat)
@@ -117,10 +127,12 @@
 
     if(aggregate){
       aggTf <- .aggregate(cm, aggVar="tf")
-      nmfTfRes <- suppressMessages(RcppML::nmf(aggTf, k=nPatterns, L1=L1))
+      nmfTfRes <- suppressMessages(RcppML::nmf(aggTf, k=nPatterns, L1=L1,
+                                               seed=seed))
 
       aggCon <- .aggregate(cm, aggVar="context")
-      nmfConRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1))
+      nmfConRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1,
+                                                seed=seed))
 
       wTf <- nmfTfRes$w
       colnames(wTf) <- paste("pattern", "tf", 1:ncol(wTf), sep="_")
@@ -136,7 +148,7 @@
 
     }
     else{
-      nmfRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1))
+      nmfRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1, seed=seed))
       fm <- nmfRes$w
     }
 
@@ -197,29 +209,25 @@
   return(nb)
 }
 
-.selectMotifs <- function(matchScores, labels, nMotifs=10, subSample=10000)
+.selectMotifs <- function(matchScores, maxScores, labels, nMotifs=10,
+                          subSample=10000)
 {
   labels <- .binMat(labels, threshold=0)
-  labels <- rowMaxs(labels)
+  labels <- sparseMatrixStats::rowMaxs(labels)
 
-  # per motif threshold: checkout H5sparseMarix
-  #thr <- vapply(colnames(matchScores), function(col){
-  #  thr <- quantile(matchScores[,col], prob=0.9)
-  #})
+  thr <- maxScores/2
 
-  subRows <- sample(1:nrow(matchScores), min(subSample*10, nrow(matchScores)))
+  subRows <- sample(1:nrow(matchScores), min(subSample, nrow(matchScores)))
   matchSubScores <- matchScores[subRows,,drop=FALSE]
-  thr <- DelayedMatrixStats::colQuantiles(matchSubScores, probs=0.9)
-
-  subRows <- sample(1:nrow(matchSubScores), min(subSample, nrow(matchScores)))
-  matchSubScores <- matchSubScores[subRows,,drop=FALSE]
   matchSubScores <- as(as.matrix(matchSubScores), "TsparseMatrix")
   labels <- labels[subRows]
 
   # top motif scores
   matchCoScores <- matchSubScores
-  matchCoScores@x[matchCoScores@x < thr[matchCoScores@i + 1] ] <- 0
-  matchCoScores@x[matchCoScores@x >= thr[matchCoScores@i + 1] ] <- 1
+  matchCoScores@x[matchCoScores@x < thr[matchCoScores@j + 1] &
+                    matchCoScores@x<4] <- 0
+  matchCoScores@x[matchCoScores@x >= thr[matchCoScores@j + 1] &
+                    matchCoScores@x>=4] <- 1
 
   # get mutually exclusive motif scores
   zeroInd <- which(matchSubScores==0, arr.ind = TRUE)
@@ -342,8 +350,8 @@
   pearCor <- Matrix::Matrix(pearCor)
 
   # max-scaling
-  atacScalMat1 <- Matrix::t(Matrix::t(atacMat1)/MatrixGenerics::colMaxs(atacMat1))
-  atacScalMat2 <- Matrix::t(Matrix::t(atacMat2)/MatrixGenerics::colMaxs(atacMat2))
+  atacScalMat1 <- Matrix::t(Matrix::t(atacMat1)/sparseMatrixStats::colMaxs(atacMat1))
+  atacScalMat2 <- Matrix::t(Matrix::t(atacMat2)/sparseMatrixStats::colMaxs(atacMat2))
 
   # binarizing
   atacBinMat1 <- .binMat(atacScalMat1, threshold=0.3)
@@ -374,10 +382,11 @@
 #' Passed to [RcppML::nmf].
 #' @param L1 LASSO penalties for lower rank matrices w and h resulting from NMF. Vector with two elements for w and h.
 #' Passed to [RcppML::nmf]
+#' @param nMotifs Number of associated motifs to select. Chooses `nMotifs` co-occuring and `nMotifs` mutually exclusive motifs.
+#' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
 #' @param genome [BSgenome::BSgenome-class] to be used.
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] object with an experiment containing transcription factor-specific features added to [MultiAssayExperiment::experiments].
 #' If already an experiment with transcription factor-specific features exists in the object, columns for the specified transcription factor are added to it.
-#' @param nMotifs Number of associated motifs to select. Chooses `nMotifs` co-occuring and `nMotifs` mutually exclusive motifs.
 #' @import MultiAssayExperiment
 #' @importFrom motifmatchr matchMotifs
 #' @importFrom universalmotif convert_motifs
@@ -386,8 +395,7 @@
 #' @importFrom RcppML nmf
 #' @importFrom preprocessCore normalize.quantiles
 #' @importFrom Hmisc cut2
-#' @importFrom DelayedMatrixStats colQuantiles
-#' @importFrom MatrixGenerics colMaxs
+#' @importFrom sparseMatrixStats colMaxs rowMaxs
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
 tfFeatures <- function(mae,
@@ -399,7 +407,9 @@ tfFeatures <- function(mae,
                        nPatterns=10,
                        L1=c(0.5,0.5),
                        nMotifs=10,
+                       seed=42,
                        genome=BSgenome.Hsapiens.UCSC.hg38){
+  set.seed(seed)
 
   features <- match.arg(features, choices=c("Binding_Patterns",
                                             "Promoter_Association",
@@ -420,7 +430,14 @@ tfFeatures <- function(mae,
   cols <- lapply(experiments(mae),
                  function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
                                                                         is_training)$colname)]})
-  maeTrain <- subsetByColumn(mae, cols)
+
+  # check if there is testing data
+  if(!identical(unique(unlist(cols)), character(0))){
+    maeTrain <- subsetByColumn(mae, cols)
+  }
+  else{
+    maeTrain <- mae
+  }
 
   # get assays: ChIP & ATAC
   atacMat <- as(assays(experiments(maeTrain)$ATAC)$total_overlaps, "CsparseMatrix")
@@ -473,7 +490,7 @@ tfFeatures <- function(mae,
                                       rowRanges=matchCoords)
       colData(seMatch)$feature_type <- "motif_matches"
       rownames(colData(seMatch)) <- "all"
-      contextsTf <- getContexts(mae, tfName=tfName)
+      contextsTf <- getContexts(mae, tfName=tfName, which="ChIP")
       mae <- .addFeatures(mae, seMatch, colsToMap=contextsTf,
                           prefix=prefix)
       }
@@ -483,7 +500,8 @@ tfFeatures <- function(mae,
   if("Binding_Patterns" %in% features){
     message("Binding pattern Features")
     bindPattern <- .getBindingPatterns(chIPMat, tfName=tfName,
-                                       nPatterns=nPatterns, L1=L1)
+                                       nPatterns=nPatterns, L1=L1,
+                                       seed=seed)
     namesBindPattern <- colnames(bindPattern)
     bindPattern <- lapply(namesBindPattern,
                           function(col) bindPattern[,col,drop=FALSE])
@@ -549,7 +567,15 @@ tfFeatures <- function(mae,
 
     # select motifs
     matchScoresSub <- matchScores[,!c(colnames(matchScores) %in% tfCols), drop=FALSE]
-    selectedMotifs <- .selectMotifs(matchScoresSub, chIPLabels, nMotifs=nMotifs)
+    colDataMotifs <- colData(experiments(maeTrain)$Motifs)
+    colDataMotifs <- subset(colDataMotifs, motif %in% colnames(matchScoresSub))
+    colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif,
+                                               colnames(matchScoresSub))),,
+                                   drop=FALSE]
+
+    maxScores <- colDataMotifs$max_score
+    selectedMotifs <- .selectMotifs(matchScoresSub, maxScores, chIPLabels,
+                                    nMotifs=nMotifs)
     selectedMotifs <- unique(c(selectedMotifs, tfCols))
   }
 
@@ -566,7 +592,7 @@ tfFeatures <- function(mae,
   colData(seTfFeat)$feature_type <- "tfFeat"
   colData(seTfFeat)$tf_name <- tfName
 
-  colsToMap <- getContexts(mae, tfName)
+  colsToMap <- getContexts(mae, tfName, which="ChIP")
   mae <- .addFeatures(mae, seTfFeat, colsToMap=colsToMap, prefix="tfFeat")
 
   # add cofactors
