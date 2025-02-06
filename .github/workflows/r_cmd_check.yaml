@@ -36,7 +36,14 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
+      - name: Re-Install preprocessCore
+        run: |
+          git clone https://github.com/bmbolstad/preprocessCore.git
+          cd preprocessCore
+          R CMD INSTALL --configure-args="--disable-threading"  .
+
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual")'
+          error-on: '"warning"'
