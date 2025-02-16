@@ -231,6 +231,9 @@
   motifSe <- SummarizedExperiment(assays=list(match_scores=motifScores),
                                   rowRanges=refCoords,
                                   colData=motifColData)
+
+  return(motifSe)
+
 }
 
 .writeToHdf5 <- function(datasets, hdf5FileName, storage="integer"){
@@ -271,22 +274,24 @@
   fid <- H5Fcreate(name=hdf5FileName)
   lapply(datasetNames, h5createDataset, file=fid,
          dims=c(dims[1], length(hdf5Files)), storage.mode=storage,
-         chunk=c(min(1e6, dims[1]), length(hdf5Files)))
+         level=6, chunk=c(min(1e6, dims[1]), 1))
+  toFile <- H5Fopen(hdf5FileName)
 
   for(i in seq_len(length(hdf5Files))){
      file <- hdf5Files[i]
      origFile <- H5Fopen(file)
      datasets <- rhdf5::h5ls(origFile)$name
-     H5close()
+     H5Fclose(origFile)
      for(d in datasets){
        mat <- h5read(file, name=d)
-       h5write(mat, file=hdf5FileName, name=d, createnewfile=FALSE,
-               index=list(1:dims[1], i))
-       h5delete(file=file, name=d)
+       h5writeDataset(mat, h5loc=toFile, name=d,
+                      index=list(1:dims[1], i), level=6)
      }
      file.remove(file)
-     H5garbage_collect()
   }
+  H5Fclose(toFile)
+  h5closeAll()
+  H5garbage_collect()
 
   assays <- lapply(datasetNames, HDF5Array, filepath=hdf5FileName, as.sparse=asSparse)
   names(assays) <- datasetNames
@@ -327,7 +332,7 @@
     atacIns <- mapply(function(atacFragType, type){
       ins <- suppressMessages({
         getInsertionProfiles(atacFragType, refCoords, margin=0,
-                                 calcProfile=FALSE, shift=FALSE)})
+                             calcProfile=FALSE, shift=FALSE)})
       ins <- ins[["motifScores"]]
       ins <- ins[,c("chr", "start", "end"),with=FALSE]
       ins$frag_type <- factor(type)
@@ -335,8 +340,6 @@
       }, atacFrag, names(atacFrag), SIMPLIFY=FALSE)
     atacFrag <- rbindlist(atacFrag)
     atacIns <- rbindlist(atacIns)
-
-    message("Gotten Inserts")
 
     atacFrag$strand <- NULL
     atacTypeOvs <- genomicRangesMapping(refCoords,
@@ -350,8 +353,6 @@
                            function(col) atacTypeOvs[,col, drop=FALSE])
     names(atacTypeOvs) <- paste(typeNames, "overlaps", sep="_")
 
-    message("Mapped total overlaps")
-
     atacTypeIns <- genomicRangesMapping(refCoords,
                                         atacIns,
                                         byCols="frag_type",
@@ -361,8 +362,6 @@
     atacTypeIns <- lapply(typeNames,
                           function(col) atacTypeIns[,col, drop=FALSE])
     names(atacTypeIns) <- paste(typeNames, "inserts", sep="_")
-
-    message("Mapped inserts")
 
     atacAssays <- c(list("total_overlaps"=atacTotalOvs),
                     atacTypeOvs,
@@ -419,6 +418,7 @@
   atacSe <- SummarizedExperiment(assays=atacAssays,
                                  rowRanges=refCoords,
                                  colData=atacColData)
+
   return(atacSe)
 }
 

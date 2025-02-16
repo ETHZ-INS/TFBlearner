@@ -134,7 +134,9 @@ getFeatureMatrix <- function(mae,
   featMats <- lapply(contexts, function(context, seAtac,
                                         seTfContext, otherFeatMat,
                                         colNorm, saveChunk,
-                                        hdf5FileName, addLabels,
+                                        hdf5FileName,
+                                        annoCol,
+                                        addLabels,
                                         convertInteger){
 
     # get context & TF-specific features
@@ -179,10 +181,12 @@ getFeatureMatrix <- function(mae,
 
     featsMat <- cbind(featsContextMat, otherFeatMat)
 
+    i <- which(colnames(seAtac)==context)
+    contextCol <-  Matrix(i, nrow=nrow(featsMat), ncol=1)
+    colnames(contextCol) <- annoCol
+    featsMat <- cbind(featsMat, contextCol)
+
     if(saveChunk){
-      i <- which(colnames(seAtac)==context)
-      featsMat <- cbind(featsMat,
-                        Matrix(i, nrow=nrow(featsMat), ncol=1))
       h5write(as.matrix(featsMat), file=hdf5FileName,
               name="feature_matrix",
               createnewfile=FALSE,
@@ -196,13 +200,10 @@ getFeatureMatrix <- function(mae,
       return(featsMat)
     }
   }, seAtac, seTfContext, noncontextTfFeat, colNorm, saveChunk, hdf5FileName,
+     annoCol,
      addLabels, convertInteger)
 
-  contextFact <- as.integer(factor(contexts, levels=contexts))
-  contextCol <- Matrix::Matrix(rep(contextFact, each=nrow(featMats[[1]])), ncol=1)
-  colnames(contextCol) <- annoCol
   featMats <- Reduce("rbind", featMats[-1], featMats[[1]])
-  featMats <- cbind(featMats, contextCol)
 
   if(saveHdf5){
     featNames <- colnames(featMats)
