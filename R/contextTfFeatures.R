@@ -323,7 +323,24 @@ contextTfFeatures <- function(mae,
   }
 
   if("ChromVAR_Scores" %in% features){
-    atacMat <- as(assays(experiments(maeSub)$ATAC)$total_overlaps, "CsparseMatrix")
+    message("Get chromVAR features")
+
+    if(whichCol=="Col"){
+      cols <- lapply(experiments(mae),
+                     function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
+                                                                            is_training)$colname)]})
+      maeTrain <- subsetByColumn(mae, cols)
+      rdCol <- sample(colnames(experiments(maeTrain)$ATAC), 9)
+      contexts <- getContexts(maeTrain, tfName, which="Both")
+
+      atacMat <- as(assays(experiments(maeTrain)$ATAC)$total_overlaps[,c(colSel,contexts, rdCol),drop=FALSE],
+                    "CsparseMatrix")
+    }
+    else{
+      rdCol <- sample(colnames(experiments(maeSub)$ATAC), 10)
+      atacMat <- as(assays(experiments(maeSub)$ATAC)$total_overlaps[,c(contexts, rdCol), drop=FALSE],
+                    "CsparseMatrix")
+    }
 
     if("Cofactor_ChromVAR_Scores" %in% features){
       tfCols <- c(tfName, tfCofactors)}
