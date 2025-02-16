@@ -75,9 +75,10 @@ genomicRangesMapping <- function(refRanges,
                            SIMPLIFY=FALSE)
     # retrieve original order
     refRangesList <- Reduce("c", refRangesList[-1], refRangesList[[1]])
-    ind <- as.data.table(GenomicRanges::findOverlaps(refRangesList,
-                                                     refRanges, type="equal"))
-    setorder(ind, subjectHits)
+    ind <- GenomicRanges::findOverlaps(refRangesList,
+                                                     refRanges,
+                                                     select="first",
+                                                     type="equal")
 
     rbindFill  <- function(mat1, mat2){
 
@@ -108,13 +109,13 @@ genomicRangesMapping <- function(refRanges,
                                                  function(tables) tables[[col]])
                              tablesChr <- Reduce("rbindFill", tablesChr[-1],
                                                               tablesChr[[1]])
-                             tablesChr <- tablesChr[ind$queryHits,,drop=FALSE]
+                             tablesChr <- tablesChr[ind,,drop=FALSE]
                              tablesChr})
       names(overlapTable) <- colsDepth
     }
     else{
       overlapTable <- Reduce("rbindFill", overlapTable[-1], overlapTable[[1]])
-      overlapTable <- overlapTable[ind$queryHits,,drop=FALSE]
+      overlapTable <- overlapTable[ind,,drop=FALSE]
     }
 
     return(overlapTable)
