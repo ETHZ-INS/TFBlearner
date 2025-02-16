@@ -302,7 +302,7 @@ contextTfFeatures <- function(mae,
          insFeats <- Reduce("cbind", insFeats[-1], insFeats[[1]])
       })
 
-      insCoFeats <- Reduce(insCoFeats, insCoFeats[-1], insCoFeats[[1]])
+      insCoFeats <- Reduce("cbind", insCoFeats[-1], insCoFeats[[1]])
       namesFeats <- colnames(insCoFeats)
       insCoFeats <- lapply(namesFeats,
                            function(col) insCoFeats[,col,drop=FALSE])
