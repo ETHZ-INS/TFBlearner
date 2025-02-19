@@ -56,7 +56,14 @@ getFeatureMatrix <- function(mae,
     if(is.null(colSel)) stop("If features should be computed only for some columns (e.g. cellular contexts,
                               (whichCol=Col), please do provide the names via colSel.")
     mae <- mae[,colSel,]
+    contexts <- colSel
   }
+
+  if(whichCol!="Col"){
+    whichContexts <- fifelse(addLabels, "Both", "ATAC")
+    contexts <- getContexts(mae, tfName, which=whichContexts)
+  }
+
 
   sampleMapDt <- as.data.table(sampleMap(mae))
 
@@ -82,8 +89,6 @@ getFeatureMatrix <- function(mae,
   noncontextTfFeat <- Reduce("cbind", noncontextTfFeat[-1], noncontextTfFeat[[1]])
 
   message("Attaching cellular context-specific features")
-  whichContexts <- fifelse(addLabels, "Both", "ATAC")
-  contexts <- getContexts(mae, tfName, which=whichContexts)
   seTfContext <- experiments(mae)$contextTfFeat[,paste(contexts, tfName, sep="_")]
   seAtac <- experiments(mae)$ATAC[,contexts]
 
@@ -98,7 +103,6 @@ getFeatureMatrix <- function(mae,
      "contextTfFeat_label" %in% names(assays(experiments(mae)$contextTfFeat))){
     nFeats <- nFeats-1}
 
-  #TODO: check better heueristic for this
   if(saveHdf5)
   {
     saveChunk <- fifelse(length(contexts)>3, TRUE, FALSE)
