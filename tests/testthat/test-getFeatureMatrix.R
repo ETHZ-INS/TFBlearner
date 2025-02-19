@@ -59,6 +59,17 @@ test_that("Feature Matrix: Correct context selection - only for specified contex
   expect_equal(attributes(fm)$cellular_contexts, "A549")
 })
 
+test_that("Feature Matrix: Column names corresponding to R conventions", {
+  fm <- getFeatureMatrix(maeTest, tfName="CTCF",
+                         whichCol="Col",
+                         colSel="A549",
+                         addLabels=FALSE,
+                         saveHdf5=FALSE)
+
+  # should pass anyways given current setup script, for later
+  expect_equal(colnames(fm), make.names(colnames(fm), unique=TRUE))
+})
+
 test_that("Feature Matrix: Correct context selection - no context provided", {
   expect_error(getFeatureMatrix(maeTest, tfName="CTCF",
                                 which="Col",

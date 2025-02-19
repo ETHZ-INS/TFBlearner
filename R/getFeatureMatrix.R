@@ -223,6 +223,8 @@ getFeatureMatrix <- function(mae,
     colnames(featMats) <- featNames
   }
 
+  colnames(featMats) <- make.names(colnames(featMats), unique=TRUE)
+
   # add attributes of feature matrix
   tfCofactors <- unique(unlist(subset(colData(experiments(mae)$ChIP),
                                       tf_name==tfName)$tf_cofactors))
