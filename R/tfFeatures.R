@@ -1,4 +1,4 @@
-.doOneScan <- function(mo, coords, genome, lowp=5e-05){ #1e-02
+.doOneScan <- function(mo, coords, genome, lowp=1e-03){ #1e-02
   # low-confidence matches
   po <- matchMotifs(mo, subject=coords, genome=genome,
                     out="positions", p.cutoff=lowp)[[1]]
