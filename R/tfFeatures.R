@@ -344,6 +344,11 @@
 
 .getAssociation <- function(atacMat1, atacMat2){
 
+  # subset to common contexts
+  commonContexts <- intersect(colnames(atacMat1), colnames(atacMat2))
+  atacMat1 <- atacMat1[,commonContexts,drop=FALSE]
+  atacMat2 <- atacMat2[,commonContexts,drop=FALSE]
+  
   pearCor <- cor(Matrix::t(as.matrix(atacMat1)), Matrix::t(as.matrix(atacMat2)))
   colnames(pearCor) <- paste("Pearson", 1:ncol(pearCor),
                              sep="_")
