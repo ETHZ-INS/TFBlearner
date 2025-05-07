@@ -415,7 +415,14 @@ tfFeatures <- function(mae,
                        seed=42,
                        genome=BSgenome.Hsapiens.UCSC.hg38){
   set.seed(seed)
-
+  
+  allTfs <- unique(colData(mae[["ChIP"]])$tf_name)
+  if(!(tfName %in% allTfs)){
+    stop(paste("Transcription factor provided -", tfName, 
+               "- has no corresponding experiments in the provided MultiAssayExperiment object.\n", 
+               "Tfs are named in the following way:", paste(head(allTfs), collapse=","), "..."))
+  }
+  
   features <- match.arg(features, choices=c("Binding_Patterns",
                                             "Promoter_Association",
                                             "C_Score",
