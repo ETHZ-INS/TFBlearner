@@ -280,37 +280,25 @@
   }
 }
 
-
-.GCSmoothQuantile <- function(gc,
-                              counts,
-                              g=20,
-                              round=FALSE) {
-  gcg <- Hmisc::cut2(gc, g=g)
-  countsGCSQ <- .gcqn_qsmooth(counts, gcg, round=round)
-
-  countsGCSQ <- Matrix::Matrix(countsGCSQ, sparse = TRUE)
-
-  return(countsGCSQ)
-}
-
-.gcqn_qsmooth <- function(counts, gcg, round=FALSE){
-
-  gcn <- matrix(NA, nrow=nrow(counts), ncol=ncol(counts),
-                dimnames=list(rownames(counts), colnames(counts)))
-
-  for(ii in 1:nlevels(gcg)){
-    id <- which(gcg==levels(gcg)[ii])
-    countBin <- counts[id,,drop=FALSE]
-    # auantile norm
-    normCountBin <- preprocessCore::normalize.quantiles(as.matrix(countBin), copy=FALSE)
-
+.GCSmoothQuantile <- function(gc, counts, nBins=20, round=FALSE) {
+  gcBins <- cut(gc, breaks=bins)
+  counts <- as.matrix(counts)
+  
+  # loop over the bins
+  for(b in 1:nlevels(gcBins)){
+    binId <- which(gcBins==levels(gcBins)[b])
+    countBin <- counts[binId,,drop=FALSE]
+    
+    # auantile normalize
+    normCountBin <- preprocessCore::normalize.quantiles(countBin, copy=FALSE)
     if(round) normCountBin <- round(normCountBin)
     normCountBin[normCountBin<0L] <- 0L
-    gcn[id,] <- as.matrix(normCountBin)
+    counts[binId,] <- normCountBin
   }
-
-  return(gcn)
+  normCounts <- Matrix::Matrix(counts)
+  return(normCounts)
 }
+
 
 .matrixKappa <- function(mat1, mat2, adjust=TRUE) {
     stopifnot(ncol(mat1)==ncol(mat2))
@@ -432,51 +420,35 @@ tfFeatures <- function(mae,
                         several.ok=TRUE)
   featMats <- list()
 
-  # object validator
+  # check object
   .checkObject(mae, checkFor="Site")
 
   # reference coordinates
   coords <- rowRanges(experiments(mae)$Motifs)
 
-  # subset to training data
-  cols <- lapply(experiments(mae),
-                 function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
-                                                                        is_training)$colname)]})
-
-  # check if there is testing data
-  if(!identical(unique(unlist(cols)), character(0))){
-    maeTrain <- subsetByColumn(mae, cols)
-  }
-  else{
-    maeTrain <- mae
-  }
-
-  # get assays: ChIP & ATAC
-  atacMat <- as(assays(experiments(maeTrain)$ATAC)$total_overlaps, "CsparseMatrix")
-  chIPMat <- as(assays(experiments(maeTrain)$ChIP)$peaks, "CsparseMatrix")
+  # assay-matrices
+  atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps, 
+                            ncol=ncol(mae[["ATAC"]]))
+  chIPMat <- as(assays(mae[["ChIP"]])$peaks[,mae[["ChIP"]]$tf_name!=tfName], 
+                "CsparseMatrix")
 
   # Normalize ATAC-seq data
-  message("GC Normalization") # relevant for the computation of other features
-  siteFeatName <- "siteFeat" #names(experiments(mae))[[length(experiments(mae))]] # get the experiment added the last
-  #gcFeatName <- paste(siteFeatName, "gc_content", sep="_")
-  gc <- assays(experiments(maeTrain)[[siteFeatName]])[[paste("siteFeat",
-                                                             "gc_content",
-                                                             sep="_")]][,,drop=TRUE]
+  message("GC Normalization") 
+  gc <- assays(mae[["siteFeat"]])$siteFeat_gc_content[,,drop=TRUE]
+  
+  atacMat <- .GCSmoothQuantile(gc, atacMat, nBins=20, round=TRUE)
+  assays(experiments(mae)$ATAC)$norm_total_overlaps <- atacMat
 
-  atacNormMat <- .GCSmoothQuantile(gc, atacMat, g=20, round=TRUE)
-  assays(experiments(maeTrain)$ATAC)$norm_total_overlaps <- atacNormMat
-
-  if("ATAC_promoters" %in% names(experiments(maeTrain))){
+  if("ATAC_promoters" %in% names(experiments(mae))){
     # prune to standard chromosomes
-    promCoords <- rowRanges(experiments(maeTrain)$ATAC_promoters)
-    experiments(maeTrain)$ATAC_promoters <-
-       keepStandardChromosomes(experiments(maeTrain)$ATAC_promoters,
-                               pruning.mode="coarse")
+    promCoords <- rowRanges(mae[["ATAC_promoters"]])
+    mae[["ATAC_promoters"]] <- keepStandardChromosomes(mae[["ATAC_promoters"]],
+                                                       pruning.mode="coarse")
 
     gc <- Repitools::gcContentCalc(promCoords, genome)
-    atacPromMat <- assays(experiments(maeTrain)$ATAC_promoters)$total_overlaps
-    atacNormPromMat <- .GCSmoothQuantile(gc, atacPromMat, g=20, round=TRUE)
-    assays(experiments(maeTrain)$ATAC_promoters)$norm_total_overlaps <- atacNormPromMat
+    atacPromMat <- assays(experiments(mae)$ATAC_promoters)$total_overlaps
+    atacPromMat <- .GCSmoothQuantile(gc, atacPromMat, nBins=20, round=TRUE)
+    assays(experiments(mae)$ATAC_promoters)$norm_total_overlaps <- atacPromMat
   }
 
   message("Get motif match coordinates")
