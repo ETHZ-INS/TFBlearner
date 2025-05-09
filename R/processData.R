@@ -1,8 +1,5 @@
-# TODO: could define generic to also accept data.table / data.frame / GRanges as list elements of input
-# Could be useful for ChIP-data. / motif-data
-
-# simplified import function => define generic
-.processData <- function(data, readAll=FALSE, shift=FALSE, seqLevelStyle="UCSC"){
+.processData <- function(data, readAll=FALSE, shift=FALSE,
+                         subSample=FALSE, seqLevelStyle="UCSC"){
   if(is.character(data)){
     if(grepl(".bam", basename(data), fixed=TRUE))
     {
@@ -42,6 +39,11 @@
   else{
     seqDat <- as.data.table(data)
     if("seqnames" %in% colnames(seqDat)) setnames(seqDat, "seqnames", "chr")
+  }
+
+  if(subSample & nrow(seqDat)>1e8){
+    message("Subsampling file")
+    seqDat <- seqDat[sample(1:nrow(seqDat), min(nrow(seqDat), 1e8)),]
   }
 
   # Match seqlevelstyle to reference
