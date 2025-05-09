@@ -58,8 +58,8 @@
   # Insert ATAC shift
   if(shift & "strand" %in% colnames(seqDat))
   {
-    seqDat[, start:=fifelse(strand=="+", start+4, start)]
-    seqDat[, end:=fifelse(strand=="-", end-5, end)]
+    seqDat[, start:=start-4]
+    seqDat[, end:=end-4]
   }
   else if(shift){
     warning("Did not shift as no column named strand was not found")
