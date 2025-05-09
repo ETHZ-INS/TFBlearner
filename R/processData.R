@@ -345,14 +345,19 @@
     # inserts counts
     atacFrag <- split(atacFrag, by="frag_type")
     atacIns <- mapply(function(atacFragType, type){
-      ins <- suppressMessages({
-        getInsertionProfiles(atacFragType, refCoords, margin=0,
-                             calcProfile=FALSE, shift=FALSE)})
-      ins <- ins[["motifScores"]]
-      ins <- ins[,c("chr", "start", "end"),with=FALSE]
+      if(nrow(atacFragType)>0){
+        ins <- suppressMessages({
+          getInsertionProfiles(atacFragType, refCoords, margin=0,
+                               calcProfile=FALSE, shift=FALSE)})
+        ins <- ins[["motifScores"]]
+        ins <- ins[,c("chr", "start", "end", "insert_counts"),with=FALSE]}
+      else{
+        ins <- data.table(chr=character(), start=numeric(), end=numeric(),
+                          insert_counts=numeric())
+      }
       ins$frag_type <- factor(type)
       ins
-      }, atacFrag, names(atacFrag), SIMPLIFY=FALSE)
+    }, atacFrag, names(atacFrag), SIMPLIFY=FALSE)
     atacFrag <- rbindlist(atacFrag)
     atacIns <- rbindlist(atacIns)
 
@@ -365,19 +370,20 @@
     colnames(atacTotalOvs) <- "total_overlaps"
     typeNames <- colnames(atacTypeOvs)
     atacTypeOvs <- lapply(typeNames,
-                           function(col) atacTypeOvs[,col, drop=FALSE])
+                          function(col) atacTypeOvs[,col, drop=FALSE])
     names(atacTypeOvs) <- paste(typeNames, "overlaps", sep="_")
 
     atacTypeIns <- genomicRangesMapping(refCoords,
                                         atacIns,
+                                        scoreCol="insert_counts",
                                         byCols="frag_type",
+                                        aggregationFun=sum,
                                         BPPARAM=SerialParam())
     atacTotalIns <- Matrix::Matrix(Matrix::rowSums(atacTypeIns), ncol=1)
     colnames(atacTotalIns) <- "total_inserts"
     atacTypeIns <- lapply(typeNames,
                           function(col) atacTypeIns[,col, drop=FALSE])
     names(atacTypeIns) <- paste(typeNames, "inserts", sep="_")
-
     atacAssays <- c(list("total_overlaps"=atacTotalOvs),
                     atacTypeOvs,
                     list("total_inserts"=atacTotalIns),
