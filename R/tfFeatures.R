@@ -14,7 +14,6 @@
   sort(c(po,po2))
 }
 
-
 .getMotifMatches <- function(coords,
                              tfName,
                              tfCofactors,
@@ -34,9 +33,6 @@
   }
 
   motifs <- .getNonRedundantMotifs(c(tfName, tfCofactors), species=species)
-  motifNames <- names(motifs)
-  motifNames[grepl("YY1", motifNames)] <- "YY1"
-  names(motifs) <- motifNames
 
   # get motif matching positions
   matchRanges <- lapply(motifs, .doOneScan, coords=coords, genome=genome)
@@ -55,101 +51,115 @@
               cofactCoords=cofactCoords))
 }
 
-.binMat <- function(chIPMat, threshold=NULL){
-  cn <- colnames(chIPMat)
-  chIPMat <- as(chIPMat, "TsparseMatrix")
+.binMat <- function(mat, threshold=NULL){
+  cn <- colnames(mat)
+  mat <- as(mat, "TsparseMatrix")
 
-  if(!is.null(threshold)){
-    #maxV <- max(chIPMat@x)
-    #trueL <- which(chIPMat@x==maxV)
+  if(is.null(threshold)) threshold <- 0
+  ind <- which(mat@x>threshold)
+  mat <- sparseMatrix(i=mat@i[ind]+1,
+                      j=mat@j[ind]+1,
+                      x=rep(1, length(ind)),
+                      dims=c(nrow(mat), ncol(mat)))
+  mat <- Matrix::Matrix(mat)
+  colnames(mat) <- cn
 
-    trueL <- which(chIPMat@x>threshold)
-    i <- chIPMat@i[trueL]
-    j <- chIPMat@i[trueL]
-
-    chIPMat <- sparseMatrix(i=chIPMat@i[trueL]+1,
-                            j=chIPMat@j[trueL]+1,
-                            x=rep(1, length(trueL)),
-                            dims=c(nrow(chIPMat),
-                                   ncol(chIPMat)))}
-  else{
-    chIPMat <- sparseMatrix(i=chIPMat@i+1,
-                            j=chIPMat@j+1,
-                            x=rep(1, length(chIPMat@x)),
-                            dims=c(nrow(chIPMat),
-                                   ncol(chIPMat)))
-  }
-  colnames(chIPMat) <- cn
-
-  return(chIPMat)
+  return(mat)
 }
 
-.aggregate <- function(chIPMat, aggVar=c("tf", "context")){
+.toSparseMatrix <- function(mat, threshold=NULL, binarize=TRUE){
+  if(is.null(threshold)) threshold <- 0
+  inds <- DelayedArray::blockApply(mat, function(block, binarize, threshold){
+    ind <- which(as.logical(block>threshold))
+    if(binarize){
+      x <- rep(1, length(ind))}
+    else{
+      x <- block[ind]}
+    indDt <- data.table(i=ind, x=x)
+  }, grid=colAutoGrid(mat, ncol=1),
+  binarize=binarize,
+  threshold=threshold)
 
-  aggVar <- match.arg(aggVar, choices=c("tf", "context"))
+  indDt <- rbindlist(inds, idcol="j")
+  mat <- Matrix::sparseMatrix(i=indDt$i, j=indDt$j, x=indDt$x)
 
-  cn <- colnames(chIPMat)
-  chIPMat <- as(chIPMat, "TsparseMatrix")
+  gc()
 
-  cmDt <- data.table(i=chIPMat@i,
-                     j=chIPMat@j,
-                     x=chIPMat@x,
-                     name=cn[chIPMat@j+1])
-  cmDt[,c("context", "tf"):=tstrsplit(name, split="_", keep=1:2)]
+  return(mat)
+}
 
-  aggDt <- cmDt[,.(value=sum(x>0)),by=c("i", aggVar)]
-  cols <- unique(aggDt[[aggVar]])
-  cols <- cols[order(cols)]
-  aggDt[,j:=as.integer(factor(get(aggVar), levels=cols, ordered=TRUE))]
-  aggMat <- sparseMatrix(i=aggDt$i+1,
-                         j=aggDt$j,
-                         x=aggDt$value,
-                         dims=c(nrow(chIPMat),
-                                length(cols)))
-  aggMat
+.aggregate <- function(chIPMat,
+                       threshold=NULL,
+                       aggFun=function(x){sum(x)/length(x)},
+                       aggVar=c("tf", "context")){
+
+   chIPMat <- as(chIPMat, "TsparseMatrix")
+   cn <- as.factor(colnames(chIPMat))
+   aggVar <- match.arg(aggVar, choices=c("tf", "context"))
+   var <- factor(unlist(tstrsplit(cn, split="_",
+                                  keep=fifelse(aggVar=="tf", 2, 1))))
+
+   if(is.null(threshold)) threshold <- 0
+
+   toKeep <- which(chIPMat@x>threshold)
+   colsInd <- chIPMat@j[toKeep]+1
+   chIPIndDt <- data.table(i=chIPMat@i[toKeep]+1,
+                           j=colsInd,
+                           x=chIPMat@x[toKeep],
+                           aggVar=var[colsInd])
+
+   aggDt <- chIPIndDt[,.(value=aggFun(x)), by=.(i, aggVar)]
+   rm(chIPIndDt)
+
+   aggCols <- unique(aggDt$aggVar)
+   aggDt[,j:=as.integer(factor(aggVar, levels=aggCols, ordered=TRUE))]
+   aggMat <- sparseMatrix(i=aggDt$i,
+                          j=aggDt$j,
+                          x=aggDt$value,
+                          dims=c(nrow(chIPMat),
+                                 length(aggCols)))
+   aggMat <- Matrix::Matrix(aggMat)
+   colnames(aggMat) <- aggCols
+   aggMat
 }
 
 .getBindingPatterns <- function(chIPMat,
-                                tfName,
-                                tfCofactors,
                                 nPatterns=50,
-                                aggregate=TRUE,
+                                aggFun=max,
+                                binarize=FALSE,
                                 L1=c(0.5,0.5),
                                 seed=42){
     set.seed(seed)
 
-    # Take out TF of interest
-    cn <- colnames(chIPMat)
-    chIPMat <- chIPMat[, tstrsplit(cn, split="_", keep=2)[[1]]!=tfName, drop=FALSE]
-    cn <- colnames(chIPMat)
+    if(binarize){
+      chIPMat <- .binMat(chIPMat, threshold=0)
+    }
 
-    cm <- .binMat(chIPMat, threshold=0)
-
-    if(aggregate){
-      aggTf <- .aggregate(cm, aggVar="tf")
-      nmfTfRes <- suppressMessages(RcppML::nmf(aggTf, k=nPatterns, L1=L1,
+    if(is.null(aggFun)){
+      nmfRes <- suppressMessages(RcppML::nmf(chIPMat, k=nPatterns,
+                                             L1=L1, seed=seed))
+      fm <- nmfRes$w
+      colnames(fm) <- paste("pattern", "tf", 1:ncol(fm), sep="_")
+    }
+    else{
+      aggMatTf <- .aggregate(chIPMat, aggVar="tf", aggFun=aggFun)
+      nmfTfRes <- suppressMessages(RcppML::nmf(aggMatTf, k=nPatterns, L1=L1,
                                                seed=seed))
+      gc()
 
-      aggCon <- .aggregate(cm, aggVar="context")
-      nmfConRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1,
+      aggMatCon <- .aggregate(chIPMat, aggVar="context", aggFun=aggFun)
+      nmfConRes <- suppressMessages(RcppML::nmf(aggMatCon, k=nPatterns, L1=L1,
                                                 seed=seed))
+      gc()
 
       wTf <- nmfTfRes$w
       colnames(wTf) <- paste("pattern", "tf", 1:ncol(wTf), sep="_")
       wCon <- nmfConRes$w
       colnames(wCon) <- paste("pattern", "context", 1:ncol(wCon), sep="_")
       weights <- list(wTf, wCon)
-      #sim <- .jaccard(wTf, aggCon)
-      #wTf <- wTf[,]
-      #sim <- .jaccard(wCon, aggTf)
 
       #eventually add coefficients H
       fm <- Reduce(cbind, weights[-1], weights[[1]])
-
-    }
-    else{
-      nmfRes <- suppressMessages(RcppML::nmf(cm, k=nPatterns, L1=L1, seed=seed))
-      fm <- nmfRes$w
     }
 
     fm <- Matrix::Matrix(fm)
@@ -164,24 +174,25 @@
 
   set1Dt <- data.table(i=set1@i,
                        set1_col=set1@j,
-                       set1_label=set1@x) #w@x>0
+                       set1_label=set1@x)
+
   # get the number of single matches
   set1Dt[,n_set1:=.N, by=set1_col]
 
   set2Dt <- data.table(i=set2@i,
                        set2_col=set2@j,
-                       set2_label=set2@x) # ms@x!=0 !=0
+                       set2_label=set2@x)
+
   # get the number of single matches
   set2Dt[,n_set2:=.N, by=set2_col]
 
   # get the matching
-  indDt <- merge(set1Dt, set2Dt, by=c("i"), allow.cartesian=TRUE) # => still needs to be all=TRUE, in case of no matches => then its just zero (alt. all=TRUE, indDt[is.na(indDt)] <- FALSE)
-  # indDt[,is_match:=topic_load==tf_match] # it will be always a binary case
+  indDt <- merge(set1Dt, set2Dt, by=c("i"), allow.cartesian=TRUE)
 
   # jaccard index
-  cont <- indDt[,.(cont=.N/(data.table::first(n_set1)+data.table::first(n_set2)-.N)), by=c("set1_col", "set2_col")]
-  #cont <- indDt[,.(cont=sum(is_match)/(first(n_tf)+first(n_topic))), by=c("tf", "topic")]
-
+  cont <- indDt[,.(cont=.N/(data.table::first(n_set1)+
+                            data.table::first(n_set2)-.N)),
+                by=c("set1_col", "set2_col")]
   # get names
   cont[,set2_col:=colnames(set2)[set2_col+1]]
   cont[,set1_col:=colnames(set1)[set1_col+1]]
@@ -189,30 +200,20 @@
   return(cont)
 }
 
+# pass mae non-test in here => in all the functions it makes it much more readible
+.getCrowdedness <- function(chIPMat){
+  aggMat <- .aggregate(chIPMat, aggVar="tf")
+  cScoreMat <- Matrix::Matrix(Matrix::rowSums(aggMat), ncol=1)
+  colnames(cScoreMat) <- "c_score"
 
-.getNBindings <- function(chIPMat, tfName){
-
-  chIPMat <- chIPMat[,unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))!=tfName,
-                     drop=FALSE]
-  chIPMat <- .binMat(chIPMat)
-
-  tfs <- tstrsplit(colnames(chIPMat), split="_", keep=2)[[1]]
-  colnames(chIPMat) <- tfs
-
-  # get per TF means
-  rm <- sapply(tfs, \(tf){
-    Matrix::rowMeans(chIPMat[,colnames(chIPMat)==tf, drop=FALSE])})
-  nb <- Matrix::rowSums(rm)
-  nb <- Matrix::Matrix(nb, ncol=1)
-  colnames(nb) <- "n_chIP_peaks"
-
-  return(nb)
+  return(cScoreMat)
 }
 
 .selectMotifs <- function(matchScores, maxScores, labels, nMotifs=10,
                           subSample=10000)
 {
   labels <- .binMat(labels, threshold=0)
+  labels <- as(labels, "CsparseMatrix")
   labels <- sparseMatrixStats::rowMaxs(labels)
 
   thr <- maxScores/2
@@ -225,9 +226,9 @@
   # top motif scores
   matchCoScores <- matchSubScores
   matchCoScores@x[matchCoScores@x < thr[matchCoScores@j + 1] &
-                    matchCoScores@x<4] <- 0
+                    matchCoScores@x<4e4] <- 0
   matchCoScores@x[matchCoScores@x >= thr[matchCoScores@j + 1] &
-                    matchCoScores@x>=4] <- 1
+                    matchCoScores@x>=4e4] <- 1
 
   # get mutually exclusive motif scores
   zeroInd <- which(matchSubScores==0, arr.ind = TRUE)
@@ -257,41 +258,35 @@
   return(selectedMotifs)
 }
 
-.getCofactorBindings <- function(chIPMat,
-                                 tfName,
-                                 tfCofactors){
-
-  tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
-  chIPMat <- chIPMat[,tfCols!=tfName, drop=FALSE]
+.getCofactorBindings <- function(chIPMat, tfCofactors){
   tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
   tfCofactors <- intersect(tfCols, tfCofactors)
 
   if(length(tfCofactors)>0){
     cofactBindings <- lapply(tfCofactors, function(tfCol){
-      cofactBinding <- Matrix(rowMeans(chIPMat[,tfCols==tfCol, drop=FALSE]),
-                              ncol=1)
-      colnames(cofactBinding) <- paste("Cofactor_binding", tfCol, sep="_")
+      cofactBinding <- Matrix::Matrix(
+        Matrix::rowMeans(chIPMat[,tfCols==tfCol, drop=FALSE]), ncol=1)
+      colnames(cofactBinding) <- paste("cofactor_binding", tfCol, sep="_")
       cofactBinding})
-    names(cofactBindings) <- paste("Cofactor_binding", tfCofactors, sep="_")
-      return(cofactBindings)
-    }
+    names(cofactBindings) <- paste("cofactor_binding", tfCofactors, sep="_")
+    return(cofactBindings)}
   else{
     return(NULL)
   }
 }
 
 .GCSmoothQuantile <- function(gc, counts, nBins=20, round=FALSE) {
-  gcBins <- cut(gc, breaks=bins)
+  gcBins <- cut(gc, breaks=nBins)
   counts <- as.matrix(counts)
-  
+
   # loop over the bins
   for(b in 1:nlevels(gcBins)){
     binId <- which(gcBins==levels(gcBins)[b])
     countBin <- counts[binId,,drop=FALSE]
-    
+
     # auantile normalize
     normCountBin <- preprocessCore::normalize.quantiles(countBin, copy=FALSE)
-    if(round) normCountBin <- round(normCountBin)
+    if(round) normCountBin <- as.integer(round(normCountBin))
     normCountBin[normCountBin<0L] <- 0L
     counts[binId,] <- normCountBin
   }
@@ -336,10 +331,12 @@
   commonContexts <- intersect(colnames(atacMat1), colnames(atacMat2))
   atacMat1 <- atacMat1[,commonContexts,drop=FALSE]
   atacMat2 <- atacMat2[,commonContexts,drop=FALSE]
-  
+
+  atacMat1 <- as(atacMat1, "CsparseMatrix")
+  atacMat2 <- as(atacMat2, "CsparseMatrix")
+
   pearCor <- cor(Matrix::t(as.matrix(atacMat1)), Matrix::t(as.matrix(atacMat2)))
-  colnames(pearCor) <- paste("Pearson", 1:ncol(pearCor),
-                             sep="_")
+  colnames(pearCor) <- paste("Pearson", 1:ncol(pearCor), sep="_")
   pearCor <- Matrix::Matrix(pearCor)
 
   # max-scaling
@@ -351,10 +348,10 @@
   atacBinMat2 <- .binMat(atacScalMat2, threshold=0.3)
 
   cohKappa <- .matrixKappa(atacBinMat1, atacBinMat2)
-  colnames(cohKappa) <- paste("Cohen_Kappa", 1:ncol(cohKappa),
-                              sep="_")
+  colnames(cohKappa) <- paste("Cohen_Kappa", 1:ncol(cohKappa), sep="_")
 
   promMat <- cbind(pearCor, cohKappa)
+  promMat <- Matrix::Matrix(promMat)
   promMat
 }
 
@@ -373,7 +370,7 @@
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param nPatterns Number of non-negative matrix factorization (NMF) components to consider for the decomposition of the ChIP-seq peaks matrix.
 #' Passed to [RcppML::nmf].
-#' @param L1 LASSO penalties for lower rank matrices w and h resulting from NMF. Vector with two elements for w and h.
+#' @param L1 LASSO penalties for lower rank matrices w and h resulting from the NMF decomposition. Vector with two elements for w and h.
 #' Passed to [RcppML::nmf]
 #' @param nMotifs Number of associated motifs to select. Chooses `nMotifs` co-occuring and `nMotifs` mutually exclusive motifs.
 #' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
@@ -387,7 +384,6 @@
 #' @importFrom MotifDb MotifDb
 #' @importFrom RcppML nmf
 #' @importFrom preprocessCore normalize.quantiles
-#' @importFrom Hmisc cut2
 #' @importFrom sparseMatrixStats colMaxs rowMaxs
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
@@ -403,14 +399,15 @@ tfFeatures <- function(mae,
                        seed=42,
                        genome=BSgenome.Hsapiens.UCSC.hg38){
   set.seed(seed)
-  
+
   allTfs <- unique(colData(mae[["ChIP"]])$tf_name)
   if(!(tfName %in% allTfs)){
-    stop(paste("Transcription factor provided -", tfName, 
-               "- has no corresponding experiments in the provided MultiAssayExperiment object.\n", 
-               "Tfs are named in the following way:", paste(head(allTfs), collapse=","), "..."))
+    stop(paste("Transcription factor provided -", tfName,
+    "- has no corresponding experiments in the provided MultiAssayExperiment
+    object.\n Tfs are named in the following way:",
+    paste(head(allTfs), collapse=","), "..."))
   }
-  
+
   features <- match.arg(features, choices=c("Binding_Patterns",
                                             "Promoter_Association",
                                             "C_Score",
@@ -420,24 +417,28 @@ tfFeatures <- function(mae,
                         several.ok=TRUE)
   featMats <- list()
 
-  # check object
+  # validate MultiAssayExperiment object
   .checkObject(mae, checkFor="Site")
 
   # reference coordinates
   coords <- rowRanges(experiments(mae)$Motifs)
 
   # assay-matrices
-  atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps, 
+  atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
                             ncol=ncol(mae[["ATAC"]]))
-  chIPMat <- as(assays(mae[["ChIP"]])$peaks[,mae[["ChIP"]]$tf_name!=tfName], 
-                "CsparseMatrix")
+  colnames(atacMat) <- colnames(mae[["ATAC"]])
+  whichCol <- which(mae[["ChIP"]]$tf_name!=tfName)
+  chIPMat <- as(assays(mae[["ChIP"]])$peaks[,whichCol],"CsparseMatrix")
+  colnames(chIPMat) <- paste(colData(mae[["ChIP"]])[whichCol,c("context")],
+                             colData(mae[["ChIP"]])[whichCol,c("tf_name")],
+                             sep="_")
 
   # Normalize ATAC-seq data
-  message("GC Normalization") 
+  message("GC Normalization")
   gc <- assays(mae[["siteFeat"]])$siteFeat_gc_content[,,drop=TRUE]
-  
+
   atacMat <- .GCSmoothQuantile(gc, atacMat, nBins=20, round=TRUE)
-  assays(experiments(mae)$ATAC)$norm_total_overlaps <- atacMat
+  assays(mae[["ATAC"]], withDimnames=FALSE)$norm_total_overlaps <- atacMat
 
   if("ATAC_promoters" %in% names(experiments(mae))){
     # prune to standard chromosomes
@@ -446,9 +447,9 @@ tfFeatures <- function(mae,
                                                        pruning.mode="coarse")
 
     gc <- Repitools::gcContentCalc(promCoords, genome)
-    atacPromMat <- assays(experiments(mae)$ATAC_promoters)$total_overlaps
+    atacPromMat <- assays(mae[["ATAC_promoters"]])$total_overlaps
     atacPromMat <- .GCSmoothQuantile(gc, atacPromMat, nBins=20, round=TRUE)
-    assays(experiments(mae)$ATAC_promoters)$norm_total_overlaps <- atacPromMat
+    assays(mae[["ATAC_promoters"]])$norm_total_overlaps <- atacPromMat
   }
 
   message("Get motif match coordinates")
@@ -461,7 +462,7 @@ tfFeatures <- function(mae,
                         matchData$cofactCoords, after=1)
   names(motifCoords) <- c(tfName, names(matchData$cofactCoords))
 
-  # If not present yet add motif matching ranges to object
+  # Add motif matching ranges to object
   for(tf in names(motifCoords)){
     matchCoords <- motifCoords[[tf]]
     scoreMat <- Matrix::Matrix(matchCoords$score, ncol=1)
@@ -470,51 +471,47 @@ tfFeatures <- function(mae,
     names(scoreMat) <- paste("match_score", tf, sep="_")
     prefix <- paste("match_ranges", tf, sep="_")
     if(!(prefix) %in% names(experiments(mae))){
-      seMatch <- SummarizedExperiment(assays=scoreMat,
-                                      rowRanges=matchCoords)
+      seMatch <- SummarizedExperiment(assays=scoreMat, rowRanges=matchCoords)
       colData(seMatch)$feature_type <- "motif_matches"
       rownames(colData(seMatch)) <- "all"
       contextsTf <- getContexts(mae, tfName=tfName, which="ChIP")
-      mae <- .addFeatures(mae, seMatch, colsToMap=contextsTf,
-                          prefix=prefix)
-      }
+      mae <- .addFeatures(mae, seMatch, colsToMap=contextsTf, prefix=prefix)
+    }
   }
 
   # NMF decomposition Binding Patterns
   if("Binding_Patterns" %in% features){
     message("Binding pattern Features")
-    bindPattern <- .getBindingPatterns(chIPMat, tfName=tfName,
-                                       nPatterns=nPatterns, L1=L1,
-                                       seed=seed)
-    namesBindPattern <- colnames(bindPattern)
-    bindPattern <- lapply(namesBindPattern,
-                          function(col) bindPattern[,col,drop=FALSE])
-    names(bindPattern) <- namesBindPattern
-    featMats <- append(featMats, bindPattern)
+    bindPatterns <- .getBindingPatterns(chIPMat, nPatterns=nPatterns,
+                                        L1=L1, seed=seed)
+    colNamesPatterns <- colnames(bindPatterns)
+    bindPatterns <- lapply(colNamesPatterns,
+                           function(col){ bindPatterns[,col,drop=FALSE]})
+    names(bindPatterns) <- colNamesPatterns
+    featMats <- append(featMats, bindPatterns)
   }
 
   if("Promoter_Association" %in% features &
-     "ATAC_promoters" %in% names(experiments(maeTrain))){
+     "ATAC_promoters" %in% names(experiments(mae))){
     message("Promoter association Features")
 
-    isProm <- which(rowData(experiments(mae)$ATAC_promoters)$tf_name==tfName)
-    atacSubPromMat <- atacNormPromMat[isProm,,drop=FALSE]
+    isProm <- which(rowData(mae[["ATAC_promoters"]])$tf_name==tfName)
+    atacPromMat <- atacPromMat[isProm,,drop=FALSE]
 
-    promAssoc <- .getAssociation(atacNormMat, atacSubPromMat)
-    colnames(promAssoc) <- paste("Promoter", colnames(promAssoc), sep="_")
-    namesPromAssoc <- colnames(promAssoc)
+    promAsc <- .getAssociation(atacMat, atacPromMat)
+    colnames(promAsc) <- paste("promoter", colnames(promAsc), sep="_")
+    colNamesPromAsc <- colnames(promAsc)
 
-    promAssoc <- lapply(namesPromAssoc,
-                        function(col) promAssoc[,col,drop=FALSE])
-    names(promAssoc) <- namesPromAssoc
-    featMats <- append(featMats, promAssoc)
+    promAsc <- lapply(colNamesPromAsc, function(col) promAsc[,col,drop=FALSE])
+    names(promAsc) <- colNamesPromAsc
+    featMats <- append(featMats, promAsc)
   }
 
   if("Cofactor_Binding" %in% features){
     message("Cofactor Bindings")
     if(is.null(tfCofactors)){
       stop("Please provide cofactor names (`tfCofactors`) if Cofactor_Bindings should be computed.")}
-    cofactBindings <- .getCofactorBindings(chIPMat, tfName, tfCofactors)
+    cofactBindings <- .getCofactorBindings(chIPMat, tfCofactors)
     if(!is.null(cofactBindings)){
       featMats <- append(featMats, cofactBindings)
     }
@@ -522,7 +519,8 @@ tfFeatures <- function(mae,
 
   if("C_Score" %in% features){
     message("Crowdedness Scores")
-    cScore <- list(.getNBindings(chIPMat, tfName=tfName))
+    cScore <- list(.getCrowdedness(chIPMat))
+
     names(cScore) <- colnames(cScore[[1]])
     featMats <- append(featMats, cScore)
   }
@@ -533,8 +531,7 @@ tfFeatures <- function(mae,
     coCounts <- .getCoOccuringMotifs(motifCoords, coords)
     namesCoCounts <- colnames(coCounts)
 
-    coCounts <- lapply(namesCoCounts,
-                       function(col) coCounts[,col,drop=FALSE])
+    coCounts <- lapply(namesCoCounts, function(col) coCounts[,col,drop=FALSE])
     names(coCounts) <- namesCoCounts
     featMats <- append(featMats, coCounts)
   }
@@ -542,36 +539,49 @@ tfFeatures <- function(mae,
   if("Associated_Motifs" %in% features){
     message("Select motifs")
 
-    isTf <- colData(experiments(maeTrain)$ChIP)$tf_name==tfName
-    chIPLabels <- chIPMat[,isTf, drop=FALSE]
+    # get (except from test experiments) ChIP-labels of TF
+    chIPCols <- colnames(mae[["ChIP"]])
+    tfCols <- chIPCols[colData(mae[["ChIP"]])$tf_name==tfName]
+    isTesting <- subset(sampleMap(mae), assay=="ChIP" & is_testing)$colname
+    tfCols <- intersect(chIPCols[!(chIPCols %in% isTesting)], tfCols)
 
-    matchScores <- assays(experiments(maeTrain)$Motifs)$match_scores
-    tfCols <- grep(paste(c(tfName, tfCofactors),collapse="|"),
-                   colnames(matchScores), value=TRUE) # these will be included anyways
+    if(length(tfCols)>0){
+      labels <- Matrix::Matrix(assays(mae[["ChIP"]])$peaks[,tfCols,drop=FALSE],
+                               ncol=length(tfCols))
+    }
+    else{
+      # TODO: motif naming
+      tfCol <- paste(tfName, "motif", sep="_")
+      labels <- Matrix::Matrix(
+        assays(mae[["Motifs"]])$match_scores[,tfCol,drop=FALSE], ncol=1)
+    }
 
-    # select motifs
-    matchScoresSub <- matchScores[,!c(colnames(matchScores) %in% tfCols), drop=FALSE]
-    colDataMotifs <- colData(experiments(maeTrain)$Motifs)
-    colDataMotifs <- subset(colDataMotifs, motif %in% colnames(matchScoresSub))
+    matchScores <- assays(mae[["Motifs"]])$match_scores
+    tfMotifCols <- grep(paste(c(tfName, tfCofactors),collapse="|"),
+                        colnames(matchScores), value=TRUE)
+
+    # select motifs co-occuring around ChIP-peaks or motif matches of TF of interest
+    matchScores <- matchScores[,!c(colnames(matchScores) %in% tfMotifCols), drop=FALSE]
+    colDataMotifs <- colData(mae[["Motifs"]])
+    colDataMotifs <- subset(colDataMotifs, motif %in% colnames(matchScores))
     colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif,
-                                               colnames(matchScoresSub))),,
+                                               colnames(matchScores))),,
                                    drop=FALSE]
 
     maxScores <- colDataMotifs$max_score
-    selectedMotifs <- .selectMotifs(matchScoresSub, maxScores, chIPLabels,
-                                    nMotifs=nMotifs)
-    selectedMotifs <- unique(c(selectedMotifs, tfCols))
+    selMotifs <- .selectMotifs(matchScores, maxScores, labels, nMotifs=nMotifs)
+    selMotifs <- unique(c(selMotifs, tfMotifCols))
+  }
+  else{
+    matchScores <- assays(mae[["Motifs"]])$match_scores
+    selMotifs <- unique(grep(paste(c(tfName, tfCofactors),collapse="|"),
+                        colnames(matchScores), value=TRUE))
   }
 
-  # TODO: Normalize by width
-  # normalize full mat by width => have the width normalized features too
-  # how to do this => check how this was done earlier
-
-  # add features full mae object: Features are only computed on training data
+  # add features full mae object
   featMats <- lapply(featMats, `colnames<-`, NULL)
   names(featMats) <- paste("tfFeat", names(featMats), sep="_")
-  seTfFeat <- SummarizedExperiment(assays=featMats,
-                                   rowRanges=coords)
+  seTfFeat <- SummarizedExperiment(assays=featMats, rowRanges=coords)
   colnames(seTfFeat) <- tfName
   colData(seTfFeat)$feature_type <- "tfFeat"
   colData(seTfFeat)$tf_name <- tfName
@@ -579,7 +589,7 @@ tfFeatures <- function(mae,
   colsToMap <- getContexts(mae, tfName, which="ChIP")
   mae <- .addFeatures(mae, seTfFeat, colsToMap=colsToMap, prefix="tfFeat")
 
-  # add cofactors
+  # add cofactors for later use
   colDataTf <- colData(experiments(mae)$tfFeat)
   if(is.null(colDataTf$tf_cofactors)){
       colDataTf$tf_cofactors <- replicate(nrow(colDataTf), list)}
@@ -588,17 +598,12 @@ tfFeatures <- function(mae,
     fifelse(colDataTf$tf_name==tfName, list(tfCofactors),
             colDataTf$tf_cofactors)
 
-
   # add associated motifs to colData
-  if("Associated_Motifs" %in% features){
-    # might actually not be needed as long as its just done on the training matrix
-    if(is.null(colDataTf$preselected_motifs)){
+  if(is.null(colDataTf$preselected_motifs)){
       colDataTf$preselected_motifs <- replicate(nrow(colDataTf), list)}
 
-    colData(experiments(mae)$tfFeat)$preselected_motifs <-
-      fifelse(colDataTf$tf_name==tfName, list(selectedMotifs),
-              colDataTf$preselected_motifs)
-  }
+  colData(experiments(mae)$tfFeat)$preselected_motifs <-
+  fifelse(colDataTf$tf_name==tfName, list(selMotifs), colDataTf$preselected_motifs)
 
   return(mae)
 }

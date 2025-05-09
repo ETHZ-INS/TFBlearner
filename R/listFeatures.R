@@ -68,7 +68,7 @@ listFeatures <- function(){
                                                      "",
                                                      ".getBindingPatterns",
                                                      ".getAssociation",
-                                                     ".getNBindings",
+                                                     ".getCrowdedness",
                                                      ".getCofactorBindings",
                                                      ".getCoOccuringMotifs",
                                                      ".selectMotifs",

@@ -10,7 +10,7 @@ tfFeatures(
   tfCofactors = NULL,
   features = c("Binding_Patterns", "Promoter_Association", "C_Score",
     "Cooccuring_Motifs", "Associated_Motifs", "Cofactor_Binding"),
-  nPatterns = 10,
+  nPatterns = 50,
   L1 = c(0.5, 0.5),
   nMotifs = 10,
   seed = 42,
@@ -33,7 +33,7 @@ See \link{listFeatures} for an overview of the features.}
 \item{nPatterns}{Number of non-negative matrix factorization (NMF) components to consider for the decomposition of the ChIP-seq peaks matrix.
 Passed to \link[RcppML:nmf]{RcppML::nmf}.}
 
-\item{L1}{LASSO penalties for lower rank matrices w and h resulting from NMF. Vector with two elements for w and h.
+\item{L1}{LASSO penalties for lower rank matrices w and h resulting from the NMF decomposition. Vector with two elements for w and h.
 Passed to \link[RcppML:nmf]{RcppML::nmf}}
 
 \item{nMotifs}{Number of associated motifs to select. Chooses \code{nMotifs} co-occuring and \code{nMotifs} mutually exclusive motifs.}
