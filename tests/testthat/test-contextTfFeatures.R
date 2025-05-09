@@ -30,4 +30,19 @@ test_that("Context-TF-features: Correct training context selection", {
                "K562_CTCF")
 })
 
+test_that("Context-TF-features: save pre-computed ChromVAR parameters in colData of siteFeat", {
+  experiments(maeTest)$contextTfFeat <- NULL
+  colData(experiments(maeTest)$siteFeat)$ChromVAR_expectations <- NULL
+  colData(experiments(maeTest)$siteFeat)$ChromVAR_sub_ind <- NULL
+  colData(experiments(maeTest)$siteFeat)$ChromVAR_background_peaks <- NULL
+  maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
+                               whichCol="OnlyTrain",
+                               features=c("Inserts", "ChromVAR_Scores"))
+
+  expect_contains(colnames(colData(experiments(maeTest)$siteFeat)),
+                  c("ChromVAR_sub_ind", "ChromVAR_expectations",
+                    "ChromVAR_background_peaks"))
+})
+
+
 # add dimensionality checks and mapping checks

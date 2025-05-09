@@ -76,6 +76,7 @@
                     posClass="pos",
                     negClass="neg",
                     subSample=FALSE,
+                    aggregate=FALSE,
                     seed=seed){
 
   set.seed(seed)
@@ -85,7 +86,7 @@
   setorder(dt, -scores)
   if(subSample)
   {
-    dt <- dt[,.SD[sample(.N, min(3,.N))], by=c(models)]
+    dt <- dt[,.SD[sample(.N, min(1e5,.N))], by=c(models)]
   }
 
 
@@ -115,6 +116,10 @@
 
 
     setnames(dt, c("labels"), c(labels))
+
+    if(aggregate){
+      dt <- dt[,.(auc_pr_mod=data.table::first(auc_pr_mod)), by=c(models)]
+    }
 
     return(dt)
   }

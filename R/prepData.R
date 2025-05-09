@@ -337,6 +337,19 @@ prepData <- function(refCoords,
                                           ignore.strand=TRUE)
   }
 
+  # Preparing ChIP-seq data -----------------------------------------------------
+  message("Processing ChIP-seq data")
+  chIPSe <- .mapSeqData(chIPData, refCoords, type="ChIP",
+                        weightCol=weightCol,
+                        aggregationFun=aggregationFun,
+                        isUncertainCol=isUncertainCol,
+                        saveHdf5=saveHdf5, outDir=outDir,
+                        BPPARAM=BPPARAM)
+  covTfs <- unique(colData(chIPSe)$tf_name)
+  chIPMap <- data.frame(primary=colData(chIPSe)[[annoCol]],
+                        colname=colData(chIPSe)[["combination"]],
+                        stringsAsFactors=FALSE)
+
   # Preparing ATAC-seq data ----------------------------------------------------
   message("Processing ATAC-seq data")
   atacSe <- .mapSeqData(atacData, refCoords, type="ATAC", annoCol=annoCol,
@@ -346,27 +359,15 @@ prepData <- function(refCoords,
                         colname=colData(atacSe)[[annoCol]],
                         stringsAsFactors=FALSE)
 
-  # Preparing ChIP-seq data -----------------------------------------------------
-  message("Processing ChIP-seq data")
-  chIPSe <- .mapSeqData(chIPData, refCoords, type="ChIP",
-                       weightCol=weightCol,
-                       aggregationFun=aggregationFun,
-                       isUncertainCol=isUncertainCol,
-                       saveHdf5=saveHdf5, outDir=outDir,
-                       BPPARAM=BPPARAM)
-  covTfs <- unique(colData(chIPSe)$tf_name)
-  chIPMap <- data.frame(primary=colData(chIPSe)[[annoCol]],
-                        colname=colData(chIPSe)[["combination"]],
-                        stringsAsFactors=FALSE)
   allContexts <- union(colData(chIPSe)[[annoCol]], colData(atacSe)[[annoCol]])
   matchedContexts <- intersect(colData(chIPSe)[[annoCol]], colData(atacSe)[[annoCol]])
 
   # Preparing motif data --------------------------------------------------------
   message("Processing Motif matching scores")
   motifSe <- .mapSeqData(motifData, refCoords, type="Motif",
-                        aggregationFun=aggregationFun,
-                        saveHdf5=saveHdf5, outDir=outDir,
-                        scoreCol=scoreCol, BPPARAM=BPPARAM)
+                         aggregationFun=aggregationFun,
+                         saveHdf5=saveHdf5, outDir=outDir,
+                         scoreCol=scoreCol, BPPARAM=BPPARAM)
 
   motifMap <- data.frame(primary=rep(allContexts, ncol(motifSe)),
                          colname=rep(colnames(motifSe),

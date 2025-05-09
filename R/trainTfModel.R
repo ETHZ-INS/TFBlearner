@@ -543,7 +543,7 @@ trainBagged <- function(tfName,
                         tuneHyperparams=TRUE,
                         seed=42,
                         numThreads=10,
-                        BPPARAM=SerialParam){
+                        BPPARAM=SerialParam()){
   set.seed(seed)
 
   fmTfName <- attributes(featMat)$transcription_factor
