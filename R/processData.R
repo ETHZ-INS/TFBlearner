@@ -20,9 +20,22 @@
     else if(grepl(".bed", basename(data), fixed=TRUE)){
       if(readAll) seqDat <- fread(data)
       else{
-        seqDat <- fread(data, select=c(1:3,6),
-                        col.names=c("chr", "start", "end", "strand"),
-                        stringsAsFactors=TRUE)}
+
+        readBed <- function(data){
+          tryCatch(
+            {
+              seqDat <- fread(data, select=c(1:3,6),
+                              col.names=c("chr", "start", "end", "strand"),
+                              stringsAsFactors=TRUE)
+              return(seqDat)},
+            error = function(cond){
+              seqDat <- fread(data, select=c(1:3),
+                              col.names=c("chr", "start", "end"),
+                              stringsAsFactors=TRUE)
+              return(seqDat)
+            })}
+        seqDat <- readBed(data)
+      }
     }
     else if(grepl(".tsv", basename(data), fixed=TRUE)){
       if(readAll) seqDat <- fread(data)
@@ -56,7 +69,7 @@
     setnames(seqDat, "seqnames", "chr")}
 
   # Insert ATAC shift
-  if(shift & "strand" %in% colnames(seqDat))
+  if(shift)
   {
     seqDat[, start:=start-4]
     seqDat[, end:=end-4]
