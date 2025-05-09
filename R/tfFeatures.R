@@ -366,7 +366,7 @@
 #' Provided MultiAssayExperiment object needs to contain ChIP-seq data for the specified transcription factor (check `colData(experiments(mae)$ChIP`).
 #' @param tfCofactors Names of cofactors (other transcription factors) of the specified transcription factor.
 #' @param features Names of features to be added. Can be all or some of "Binding_Patterns", "Promoter_Association",
-#' "C_Score", "Cooccuring_Motifs", "Associated_Motifs". Features are stored in the assays of the added experiment.
+#' "C_Score", "Cofactor_Binding", "CTCF_Signal", "Cooccuring_Motifs", "Associated_Motifs". Features are stored in the assays of the added experiment.
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param nPatterns Number of non-negative matrix factorization (NMF) components to consider for the decomposition of the ChIP-seq peaks matrix.
 #' Passed to [RcppML::nmf].
@@ -392,7 +392,8 @@ tfFeatures <- function(mae,
                        tfCofactors=NULL,
                        features=c("Binding_Patterns", "Promoter_Association",
                                   "C_Score", "Cooccuring_Motifs",
-                                  "Associated_Motifs", "Cofactor_Binding"),
+                                  "Cofactor_Binding", "CTCF_Signal",
+                                  "Associated_Motifs"),
                        nPatterns=50,
                        L1=c(0.5,0.5),
                        nMotifs=10,
@@ -411,9 +412,10 @@ tfFeatures <- function(mae,
   features <- match.arg(features, choices=c("Binding_Patterns",
                                             "Promoter_Association",
                                             "C_Score",
+                                            "Cofactor_Binding",
+                                            "CTCF_Signal",
                                             "Cooccuring_Motifs",
-                                            "Associated_Motifs",
-                                            "Cofactor_Binding"),
+                                            "Associated_Motifs"),
                         several.ok=TRUE)
   featMats <- list()
 
@@ -576,6 +578,26 @@ tfFeatures <- function(mae,
     matchScores <- assays(mae[["Motifs"]])$match_scores
     selMotifs <- unique(grep(paste(c(tfName, tfCofactors),collapse="|"),
                         colnames(matchScores), value=TRUE))
+  }
+
+  # Add CTCF-Features()
+  if("CTCF_Signal" %in% features & tf!="CTCF"){
+    message("CTCF Signal")
+
+    # add the motif to selected motifs
+    matchScores <- assays(mae[["Motifs"]])$match_scores
+    motifCols <- grep("CTCF", colnames(matchScores), value=TRUE)
+    selMotifs <- unique(selMotifs, motifCols)
+
+    tfCols <- colnames(chIPMat)[grepl("CTCF", colnames(chIPMat))]
+    sig <- sparseMatrixStats::rowMaxs(chIPMat[,tfCols, drop=FALSE])
+    sig <- Matrix::Matrix(sig, ncol=1)
+
+    colnames(sig) <- "CTCF_signal"
+    ctcfFeat <- list(sig)
+    names(ctcfFeat) <- "CTCF_signal"
+
+    featMats <- append(featMats, ctcfFeat)
   }
 
   # add features full mae object
