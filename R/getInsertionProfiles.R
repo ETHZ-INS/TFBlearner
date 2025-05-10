@@ -230,7 +230,7 @@ getInsertionProfiles <- function(atacData,
                                  by=.(motif_match_id, motif_id, sample, 
                                       rel_pos, type)]
       atacInserts <- merge(atacInserts,
-                           atacProfiles[, c("rel_pos", "motif_id", "w"),with=FALSE],
+                           profiles[, c("rel_pos", "motif_id", "w"),with=FALSE],
                            by.x=c("motif_id","rel_pos"),
                            by.y=c("motif_id","rel_pos"), all.x=TRUE, all.y=FALSE)
       atacInserts[,score:=w*pos_count]
