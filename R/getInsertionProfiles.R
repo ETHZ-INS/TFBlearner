@@ -72,7 +72,7 @@
 #' @name getInsertionProfiles
 #' @param atacData Named list of [GenomicRanges::GRanges-class], [data.table::data.table], data.frames or paths to .bed /. bam files
 #' containing ATAC-seq fragment coordinates (i.e. chr/seqnames, start, end and optionally a strand column). List names will be used as sample names.
-#' If a single object is provided and it contains a column named "sample", insertion counts and profiles will be computed for each sample.
+#' If a single object is provided and it contains a column named "sample", insertion counts will be computed for each sample separately.
 #' @param motifRanges [GenomicRanges::GRanges-class] object containing coordinates of motif-matches.
 #' @param margin Margin around motif-matches to consider for computing Tn5 insertion events
 #' @param shift If Tn5 insertion bias should be considered (only if strand column is provided).
@@ -172,7 +172,7 @@ getInsertionProfiles <- function(atacData,
    atacProfiles <- BiocParallel::bpmapply(function(md, af, stranded, shiftLeft){
       atacInserts <- .getInsertsPos(af, md, stranded, shiftLeft)
       atacProfile <- atacInserts[,.(pos_count_global=.N),
-                                 by=.(ml, rel_pos, sample, motif_id, type)]
+                                 by=.(ml, rel_pos, motif_id, type)]
       return(atacProfile)}, 
     motifData, atacFrag, MoreArgs=list(stranded=stranded, shiftLeft=shiftLeft), 
     SIMPLIFY=FALSE, BPPARAM=BPPARAM)
