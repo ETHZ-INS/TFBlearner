@@ -123,7 +123,7 @@ getInsertionProfiles <- function(atacData,
   # prep ATAC fragment data
   if(is.data.table(atacData)) atacData <- list(atacData)
   atacFrag <- lapply(atacData, .processData, shift=shift, subSample=subSample)
-  if(!("sample" %in% colnames(atacFrag))){
+  if(!("sample" %in% colnames(atacFrag[[1]]))){
     names(atacFrag) <- names(atacData)
     atacFrag <- rbindlist(atacFrag, idcol="sample") 
   }
