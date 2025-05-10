@@ -85,7 +85,8 @@
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
 #' @return [data.table::data.table] containing insertion counts within and in margins around motif matches and weighted insertion counts in case
 #' an insertion profile is provided or if `calcProfile=TRUE`.
-# If `calcProfile=TRUE` also a footprint profile around the motif matches is returned.
+# If `calcProfile=TRUE` also a footprint profile around the motif matches is returned, containing a weight ("w") column corresponding to relative insertion
+# frequency at the respective position relative to the motif center ("rel_pos").
 #' @import data.table
 #' @importFrom GenomicRanges findOverlaps GPos resize GRanges
 #' @importClassesFrom GenomicRanges GRanges
@@ -197,7 +198,7 @@ getInsertionProfiles <- function(atacData,
     allPos$motif_id <- factor(allPos$motif_id, levels=motifLevels, ordered=TRUE)
     allPos$pos_count_global <- 0
 
-    colsProfile <- c("rel_pos", "motif_id", "pos_count_global") #type
+    colsProfile <- c("rel_pos", "motif_id", "pos_count_global")
     atacProfiles[,rel_pos:=as.integer(rel_pos)]
 
     atacProfiles <- rbind(atacProfiles[, colsProfile, with=FALSE],
@@ -208,6 +209,8 @@ getInsertionProfiles <- function(atacData,
     atacProfiles[,w:=smooth(pos_count_global, twiceit=TRUE), by=motif_id]
     if(symmetric) atacProfiles[,w:=rev(w)+w, by=motif_id]
     atacProfiles[,w:=length(w)*w/sum(w), by=motif_id]
+    atacProfiles[,w_count:=pos_count_global/max(pos_count_global), by=motif_id]
+    atacProfiles[,w_count_smooth:=smooth(w_count), by=motif_id]
   }
   else{
     atacProfiles <- profiles
@@ -223,7 +226,8 @@ getInsertionProfiles <- function(atacData,
 
     if(!is.null(profiles)){
       atacInserts <- atacInserts[,.(pos_count=.N),
-                                 by=.(motif_match_id, motif_id, sample, rel_pos, type)]
+                                 by=.(motif_match_id, motif_id, sample, 
+                                      rel_pos, type)]
       atacInserts <- merge(atacInserts,
                            atacProfiles[, c("rel_pos", "motif_id", "w"),with=FALSE],
                            by.x=c("motif_id","rel_pos"),
@@ -246,13 +250,6 @@ getInsertionProfiles <- function(atacData,
   BPPARAM=BPPARAM)
 
   motifScores <- rbindlist(motifScores)
-
-  #if(libNorm)
-  #{
-  #  motifScores[,tot_lib_count:=sum(tot_count), by=.(sample)]
-  #  motifScores[,score:=as.numeric(score)/tot_lib_count]
-  #  motifScores[,norm_count:=tot_count/tot_lib_count]
-  #}
 
   motifData <- rbindlist(motifData)
   motifData[,chr:=chrLevels[chr]]
