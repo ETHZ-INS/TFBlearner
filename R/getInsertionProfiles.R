@@ -70,9 +70,9 @@
 #' If requested also computes insertion footprint profiles and weighted insertion counts.
 #'
 #' @name getInsertionProfiles
-#' @param atacData [GenomicRanges::GRanges-class], [data.table::data.table], data.frames or paths to .bed /. bam files
-#' containing ATAC-seq fragment coordinates (i.e. chr/seqnames, start, end and optionally a strand column).
-#' If it contains a column named "sample" insertion counts and profiles will be computed for each sample.
+#' @param atacData Named list of [GenomicRanges::GRanges-class], [data.table::data.table], data.frames or paths to .bed /. bam files
+#' containing ATAC-seq fragment coordinates (i.e. chr/seqnames, start, end and optionally a strand column). List names will be used as sample names.
+#' If a single object is provided and it contains a column named "sample", insertion counts and profiles will be computed for each sample.
 #' @param motifRanges [GenomicRanges::GRanges-class] object containing coordinates of motif-matches.
 #' @param margin Margin around motif-matches to consider for computing Tn5 insertion events
 #' @param shift If Tn5 insertion bias should be considered (only if strand column is provided).
@@ -123,11 +123,12 @@ getInsertionProfiles <- function(atacData,
   # prep ATAC fragment data
   if(is.data.table(atacData)) atacData <- list(atacData)
   atacFrag <- lapply(atacData, .processData, shift=shift, subSample=subSample)
-  atacFrag <- rbindlist(atacFrag, idcol="sample")
-
   if(!("sample" %in% colnames(atacFrag))){
-    message("Assuming all ATAC fragments originate from the same sample")
-    atacFrag[,sample:=1L]
+    names(atacFrag) <- names(atacData)
+    atacFrag <- rbindlist(atacFrag, idcol="sample") 
+  }
+  else{
+    atacFrag <- rbindlist(atacFrag)
   }
 
   commonChr <- intersect(unique(motifData$chr),unique(atacFrag$chr))
