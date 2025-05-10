@@ -32,6 +32,26 @@ test_that("Correct insertion counting checks: Without insertion profile calculat
   expect_identical(insCounts$insert_counts, c(4L,4L))
 })
 
+test_that("Correct relative insertion counts: Insertion profile calculation", {
+  margin <- 100
+  insRes <- getInsertionProfiles(assayTableSimple1, motifCoords, 
+                                 margin=margin, calcProfile=TRUE)
+  profile <- insRes$profile
+  motifMarginRanges <- as.data.table(GenomicRanges::resize(motifCoords,
+                                                           width=2*margin,
+                                                           fix="center"))
+  motifData <- as.data.table(motifCoords)
+  motifData[,motif_center:=floor((end-start)/2)+start]
+  motifData <- cbind(motifData, motifMarginRanges)
+  
+  relPos <- c(assayTableSimple1$start, assayTableSimple1$end)-motifData$motif_center
+  relPos <- unique(relPos[which(abs(relPos)<=margin)])
+  
+  expect_equal(sum(profile$pos_count_global), 4L)
+  expect_equal(subset(profile, rel_pos %in% relPos)$pos_count_global, c(2L,2L))
+  expect_equal(insRes$motifScores$chi2, c(0L,0L))
+})
+
 test_that("Symmetric profile calculation check", {
   insRes <- getInsertionProfiles(assayTableTestLarge, motifCoords,
                                  calcProfile=TRUE, symmetric=TRUE,
