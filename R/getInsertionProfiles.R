@@ -81,6 +81,7 @@
 #' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
 #' @param symmetric If transcription factor footprint profiles should be symmetric around the motif matches. Only used if `calcProfile=TRUE`.
 #' @param stranded If insertion footprint profiles should be computed taking strandedness of fragments into account.
+#' @param subSample If fragments should be sub-sampled (to a total of 1e8 fragments per sample) for speed-up.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
 #' @return [data.table::data.table] containing insertion counts within and in margins around motif matches and weighted insertion counts in case
 #' an insertion profile is provided or if `calcProfile=TRUE`.
@@ -97,6 +98,7 @@ getInsertionProfiles <- function(atacData,
                                  profiles=NULL,
                                  symmetric=FALSE,
                                  stranded=FALSE,
+                                 subSample=FALSE,
                                  BPPARAM=SerialParam()){
 
   # prep motif data
@@ -119,7 +121,7 @@ getInsertionProfiles <- function(atacData,
 
   # prep ATAC fragment data
   if(is.data.table(atacData)) atacData <- list(atacData)
-  atacFrag <- lapply(atacData, .processData, shift=shift)
+  atacFrag <- lapply(atacData, .processData, shift=shift, subSample=subSample)
   atacFrag <- rbindlist(atacFrag, idcol="sample")
 
   if(!("sample" %in% colnames(atacFrag))){
