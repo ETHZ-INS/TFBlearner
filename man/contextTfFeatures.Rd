@@ -10,7 +10,7 @@ contextTfFeatures(
   addLabels = FALSE,
   whichCol = c("All", "OnlyTrain", "Col"),
   colSel = NULL,
-  features = c("Inserts", "Weighted_Inserts", "Cofactor_Inserts", "ChromVAR_Scores",
+  features = c("Inserts", "Weighted_Inserts", "ChromVAR_Scores",
     "Cofactor_ChromVAR_Scores"),
   annoCol = "context",
   insertionProfile = NULL,
@@ -27,14 +27,15 @@ site-specific features as obtained by \code{\link[=siteFeatures]{siteFeatures()}
 
 \item{tfName}{Name of transcription factor to compute features for.}
 
-\item{addLabels}{Should ChIP-seq peak labels be added to the features}
+\item{addLabels}{Should ChIP-seq peak labels be added to the features.
+If TRUE features will only be computed for cellular contexts with both, ATAC- and ChIP-seq data.}
 
 \item{whichCol}{Should features be calculated for all cellular contexts (\code{"All"}), only the training data (\code{"OnlyTrain"})
 or only for some specific cellular contexts (\code{"Col"}) specified in \code{colSel}.}
 
 \item{colSel}{If \code{whichCol="colSel"}, name of the cellular context to compute the features for.}
 
-\item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "Cofactor_Inserts".
+\item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores".
 See \link{listFeatures} for an overview of the features.}
 
 \item{annoCol}{Name of column indicating cellular contexts in colData.}

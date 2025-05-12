@@ -12,13 +12,15 @@ getInsertionProfiles(
   calcProfile = TRUE,
   profiles = NULL,
   symmetric = FALSE,
-  stranded = FALSE
+  stranded = FALSE,
+  subSample = FALSE,
+  BPPARAM = SerialParam()
 )
 }
 \arguments{
-\item{atacData}{\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges}, \link[data.table:data.table]{data.table::data.table}, data.frames or paths to .bed /. bam files
-containing ATAC-seq fragment coordinates (i.e. chr/seqnames, start, end and optionally a strand column).
-If it contains a column named "sample" insertion counts and profiles will be computed for each sample.}
+\item{atacData}{Named list of \link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges}, \link[data.table:data.table]{data.table::data.table}, data.frames or paths to .bed /. bam files
+containing ATAC-seq fragment coordinates (i.e. chr/seqnames, start, end and optionally a strand column). List names will be used as sample names.
+If a single object is provided and it contains a column named "sample", insertion counts will be computed for each sample separately.}
 
 \item{motifRanges}{\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges} object containing coordinates of motif-matches.}
 
@@ -33,7 +35,11 @@ Needs to contain coordinate (chr/seqnames, start, end) columns and weight column
 
 \item{symmetric}{If transcription factor footprint profiles should be symmetric around the motif matches. Only used if \code{calcProfile=TRUE}.}
 
-\item{stranded}{If insertion footprint profiles should be computed strand-specific.}
+\item{stranded}{If insertion footprint profiles should be computed taking strandedness of fragments into account.}
+
+\item{subSample}{If fragments should be sub-sampled (to a total of 1e8 fragments per sample) for speed-up.}
+
+\item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}}.}
 }
 \value{
 \link[data.table:data.table]{data.table::data.table} containing insertion counts within and in margins around motif matches and weighted insertion counts in case

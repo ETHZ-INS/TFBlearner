@@ -90,11 +90,13 @@
 #' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq,
 #' site-specific features as obtained by [TFBlearner::siteFeatures()] and transcription factor-specific features as obtained by [TFBlearner::tfFeatures()].
 #' @param tfName Name of transcription factor to compute features for.
-#' @param addLabels Should ChIP-seq peak labels be added to the features
+#' @param addLabels Should ChIP-seq peak labels be added to the features.
+#' If TRUE features will only be computed for cellular contexts with both, ATAC- and ChIP-seq data.
 #' @param whichCol Should features be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
 #' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
 #' @param colSel If `whichCol="colSel"`, name of the cellular context to compute the features for.
-#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "Cofactor_Inserts".
+#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores".
+#' "Insert" features will always be computed.
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param annoCol Name of column indicating cellular contexts in colData.
 #' @param insertionProfile Pre-computed insertion footprint profile for the specified transcription factor.
@@ -117,7 +119,7 @@ contextTfFeatures <- function(mae,
                               whichCol=c("All", "OnlyTrain", "Col"), # evt. rename these arguments
                               colSel=NULL,
                               features=c("Inserts", "Weighted_Inserts",
-                                         "Cofactor_Inserts", "ChromVAR_Scores",
+                                         "ChromVAR_Scores",
                                          "Cofactor_ChromVAR_Scores"),
                               annoCol="context",
                               insertionProfile=NULL,
@@ -132,50 +134,42 @@ contextTfFeatures <- function(mae,
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   whichContexts <- fifelse(addLabels, "Both", "ATAC")
   if(whichCol=="OnlyTrain"){
+    trainCols <- unique(subset(sampleMap(mae), is_training)$colname)
     cols <- lapply(experiments(mae),
-                   function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
-                                                                          is_training)$colname)]})
+                   function(n){colnames(n)[colnames(n) %in% trainCols]})
     maeSub <- subsetByColumn(mae, cols)
-    # get all cellular contexts covered for that TF
     contexts <- getContexts(maeSub, tfName, which=whichContexts)
   }
   else if(whichCol=="Col"){
     if(is.null(colSel)) stop("If features should be computed only for some columns (e.g. cellular contexts,
                               (whichCol=Col), please do provide the names via colSel.")
-    maeSub <- mae[,colSel,]
-    contexts <- colSel
+    maeSub <- mae
+    if(addLabels){
+      contexts <- getContexts(maeSub, tfName, which=whichContexts)
+      contexts <- intersect(colSel, contexts)
+    }
+    else{
+      contexts <- colSel
+    }
   }
   else{
     maeSub <- mae
-    # get all cellular contexts covered for that TF
     contexts <- getContexts(maeSub, tfName, which=whichContexts)
   }
 
   coords <- rowRanges(experiments(maeSub)$Motifs)
-
-  if(!is.null(insertionProfile)){
-    insertionProfile <- .processData(insertionProfile, readAll=TRUE,
-                                     shift=FALSE,
-                                     seqLevelStyle=seqlevelsStyle(coords))
-  }
-
   features <- match.arg(features, choices=c("Inserts", "Weighted_Inserts",
-                                            "Cofactor_Inserts",
                                             "ChromVAR_Scores",
                                             "Cofactor_ChromVAR_Scores"),
                         several.ok=TRUE)
+  features <- unique(c(features, "Inserts"))
 
-  tfCofactors <- unique(unlist(subset(colData(experiments(maeSub)$tfFeat),
+  tfCofactors <- unique(unlist(subset(colData(maeSub[["tfFeat"]]),
                                       tf_name==tfName)$tf_cofactors))
-  if(("Cofactor_Inserts" %in% features |
-      "Cofactor_ChromVAR_Scores" %in% features) & is.null(tfCofactors)){
-    msg <- c("No cofactors have been specified when computing transcription ",
-             "factor-specific features for ", tfName, ". ", "\n",
-             "Cofactor_Inserts will not be computed. ", "\n",
-             "Re-compute transcription factor-specific features (tfFeatures()) ",
-             "for ", tfName, " with argument `tfCofactors` specified ", "\n",
-             "if Cofactor_Insert features are required. ")
 
+  if(("Cofactor_ChromVAR_Scores" %in% features) & is.null(tfCofactors)){
+    msg <- c("No cofactors have been specified when computing transcription ",
+             "factor-specific features for ", tfName, ". ")
     msg <- paste0(msg)
     warning(msg)
   }
@@ -191,12 +185,12 @@ contextTfFeatures <- function(mae,
   motifRanges <- motifRanges[c(tfName, tfCofactors)]
 
   if(addLabels){
-    colDataChIP <- colData(experiments(maeSub)$ChIP)
+    colDataChIP <- colData(mae[["ChIP"]])
     colDataChIP <- subset(colDataChIP, tf_name==tfName)
     labelCols <- colDataChIP$combination
     names(labelCols) <- colDataChIP[[annoCol]]
     labels <- lapply(labelCols, function(col){
-      as(assays(experiments(maeSub)$ChIP)$peaks[,col,drop=TRUE], "CsparseMatrix")})
+      as(assays(mae[["ChIP"]])$peaks[,col,drop=TRUE], "CsparseMatrix")})
   }
   else{
     labels <- vector(mode = "list", length = 2)
@@ -204,36 +198,38 @@ contextTfFeatures <- function(mae,
   }
 
   # loop over contexts to get the features
+  message("Get insert features")
   labels <- labels[contexts] # ensure ordering
   threads <- floor(getDTthreads())/BPPARAM$workers
-  feats <- BiocParallel::bpmapply(function(context,
-                                           labels,
-                                           coords,
-                                           atacFrag,
-                                           motifRanges,
-                                           features,
-                                           profile,
-                                           tfName,
-                                           aggregationFun,
-                                           threads, ...){
+  feats <- mapply(function(context, labels, coords, atacFrag, motifRanges,
+                           features, profile, tfName, aggregationFun,
+                           threads, BPPARAM, ...){
     data.table::setDTthreads(threads)
 
     calcProfile <- FALSE
     if("Weighted_Inserts" %in% features & is.null(profile)){
       calcProfile <- TRUE
     }
+    else if("Weighted_Inserts" %in% features & !is.null(profile)){
+      message("Using pre-computed insertion-profiles")
+    }
 
     atacFrag <- atacFrag[names(atacFrag)==context]
 
     addArgs <- list(...)
-    addArgs <- addArgs[names(addArgs) %in% c("margin", "shift", "symmetric", "stranded")]
+    addArgs <- addArgs[names(addArgs) %in% c("margin", "shift",
+                                             "symmetric", "stranded")]
     args <- c(list(atacData=atacFrag, motifRanges=motifRanges,
-                   profiles=profile, calcProfile=calcProfile), addArgs)
-    insRes <- suppressMessages(do.call(getInsertionProfiles, args))
+                   profiles=profile, calcProfile=calcProfile,
+                   subSample=TRUE, BPPARAM=BPPARAM),
+              addArgs)
+    insRes <- suppressWarnings(suppressMessages(do.call(getInsertionProfiles,
+                                                        args)))
 
     scoreCols <- c()
     if("Weighted_Inserts" %in% features) scoreCols <- c(scoreCols,
-                                                        "weighted_insert_counts")
+                                                        "weighted_insert_counts",
+                                                        "chi2")
     if("Inserts" %in% features) scoreCols <- c(scoreCols, "insert_counts")
 
     # aggregate features across ranges of interest
@@ -242,10 +238,15 @@ contextTfFeatures <- function(mae,
                                     insRes$motifScores,
                                     scoreCol=scoreCol,
                                     byCols="type",
-                                    aggregationFun=aggregationFun)
+                                    aggregationFun=aggregationFun,
+                                    BPPARAM=BPPARAM)
       colnames(feats) <- fifelse(colnames(feats)=="0",
                                  paste(tfName, scoreCol, "margin", sep="_"),
                                  paste(tfName, scoreCol, "within", sep="_"))
+      if(scoreCol=="chi2"){
+        feats <- Matrix::Matrix(rowSums(feats), ncol=1)
+        colnames(feats) <- "chi2_dev_profile"
+      }
       feats
     })
     insFeats <- Reduce("cbind", insFeats[-1], insFeats[[1]])
@@ -262,78 +263,10 @@ contextTfFeatures <- function(mae,
      MoreArgs=list(coords=coords, atacFrag=atacFragPaths,
                    motifRanges=motifRanges[[tfName]], features=features,
                    profile=insertionProfile[[tfName]], tfName=tfName,
-                   threads=threads, aggregationFun=aggregationFun, ...),
-     SIMPLIFY=FALSE,
-     BPPARAM=BPPARAM)
-
-  tfCofactorsSub <- intersect(tfCofactors, names(motifRanges))
-  if("Cofactor_Inserts" %in% features & length(tfCofactorsSub)>0){
-
-    coFeats <- BiocParallel::bplapply(contexts,
-                                      function(context,
-                                               coords,
-                                               atacFrag,
-                                               tfCofactors,
-                                               motifRanges,
-                                               features,
-                                               profile,
-                                               aggregationFun,
-                                               threads, ...){
-      data.table::setDTthreads(threads)
-
-      calcProfile <- fifelse("Weighted_Inserts" %in% features, TRUE, FALSE)
-      scoreCols <- c()
-      if("Weighted_Inserts" %in% features){
-        scoreCols <- c(scoreCols, "weighted_insert_counts")}
-      if("Inserts" %in% features) scoreCols <- c(scoreCols, "insert_counts")
-
-      atacFrag <- atacFrag[names(atacFrag)==context]
-
-      insCoFeats <- lapply(1:length(tfCofactors), function(i){
-          coFact <- tfCofactors[[i]]
-          cofactRanges <- motifRanges[[coFact]]
-          profile <- insertionProfile[[coFact]]
-          if(!is.null(profile)) calcProfile <- FALSE
-
-          addArgs <- list(...)
-          addArgs <- addArgs[names(addArgs) %in% c("margin", "shift", "symmetric", "stranded")]
-          args <- c(list(atacData=atacFrag, motifRanges=cofactRanges,
-                         profiles=profile, calcProfile=calcProfile), addArgs)
-          insResCo <- suppressMessages(do.call(getInsertionProfiles, args))
-
-          insFeats <- lapply(scoreCols, function(scoreCol){
-            feats <- genomicRangesMapping(coords,
-                                           insResCo$motifScores,
-                                           scoreCol=scoreCol,
-                                           byCols="type",
-                                           aggregationFun=aggregationFun)
-            colnames(feats) <- fifelse(colnames(feats)=="0",
-                                       paste(coFact, i, scoreCol, "margin", sep="_"),
-                                       paste(coFact, i, scoreCol, "within", sep="_"))
-            feats
-          })
-         insFeats <- Reduce("cbind", insFeats[-1], insFeats[[1]])
-      })
-
-      insCoFeats <- Reduce("cbind", insCoFeats[-1], insCoFeats[[1]])
-      namesFeats <- colnames(insCoFeats)
-      insCoFeats <- lapply(namesFeats,
-                           function(col) insCoFeats[,col,drop=FALSE])
-      names(insCoFeats) <- namesFeats
-
-      return(insCoFeats)
-    }, coords=coords, atacFrag=atacFragPaths, tfCofactors=tfCofactorsSub,
-       motifRanges=motifRanges[tfCofactorsSub], features=features,
-       profile=insertionProfile[tfCofactorsSub],
-       aggregationFun=aggregationFun, threads=threads, ...,
-       BPPARAM=BPPARAM)
-    names(coFeats) <- contexts
-
-    feats <- lapply(contexts, function(context){
-      c(coFeats[[context]], feats[[context]])
-    })
-    names(feats) <- contexts
-  }
+                   threads=threads, aggregationFun=aggregationFun,
+                   BPPARAM=BPPARAM, ...),
+     SIMPLIFY=FALSE)
+  names(feats) <- contexts
 
   if("ChromVAR_Scores" %in% features){
     message("Get chromVAR features")
