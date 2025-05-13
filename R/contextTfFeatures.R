@@ -128,7 +128,7 @@ contextTfFeatures <- function(mae,
       contexts <- intersect(colSel, contexts)
     }
     else{
-      contexts <- colSel
+      contexts <- intersect(colSel, colnames(mae[["ATAC"]]))
     }
   }
   else{
