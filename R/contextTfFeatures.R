@@ -4,81 +4,62 @@
                                subInd=NULL,
                                expectations=NULL,
                                backgroundPeaks=NULL,
+                               assocMat=NULL,
                                seed=42,
                                BPPARAM=SerialParam(),
                                ...){
 
-    set.seed(seed)
-    register(BPPARAM) # for usage with chromVAR
-    threads <- floor(getDTthreads())/BPPARAM$workers
-    data.table::setDTthreads(threads)
-    nPeaks <- nrow(atacMat)
-    atacFullMat <- atacMat
+  set.seed(seed)
+  register(SerialParam()) # for usage with chromVAR
+  threads <- floor(getDTthreads())/BPPARAM$workers
+  data.table::setDTthreads(threads)
+  nPeaks <- nrow(atacMat)
+  atacFullMat <- atacMat
 
-    # Association with motif score
-    if(is.null(subInd))
-    {
-      nonZero <- which(Matrix::rowSums(atacMat)>0)
+  # Association with motif score
+  if(is.null(subInd))
+  {
+    nonZero <- which(Matrix::rowSums(atacMat)>0)
 
-      nSub <- min(5e5, length(nonZero))
-      subInd <- sample(nonZero, nSub)
-    }
+    nSub <- min(1e4, length(nonZero))
+    subInd <- sample(nonZero, nSub)
+  }
 
-    atacMat <- atacMat[subInd,,drop=FALSE]
-    matchScores <- matchScores[subInd,,drop=FALSE]
-    gcContent <- gcContent[subInd]
+  atacMat <- atacMat[subInd,,drop=FALSE]
+  matchScores <- matchScores[subInd,,drop=FALSE]
+  gcContent <- gcContent[subInd]
 
-    addArgs <- list(...)
-    addArgs <- addArgs[names(addArgs) %in% c("niterations", "w", "bs")]
-    args <- c(list(object=atacMat, bias=gcContent), addArgs)
+  addArgs <- list(...)
+  addArgs <- addArgs[names(addArgs) %in% c("niterations", "w", "bs")]
+  args <- c(list(object=atacMat, bias=gcContent), addArgs)
 
-    if(is.null(expectations) | is.null(backgroundPeaks)){
-      # compute chromVAR deviations
-      expectations <- chromVAR::computeExpectations(atacMat)
-      backgroundPeaks <- do.call(chromVAR::getBackgroundPeaks,args)
-    }
+  if(is.null(expectations) | is.null(backgroundPeaks)){
+    # compute chromVAR deviations
+    expectations <- chromVAR::computeExpectations(atacMat)
+    backgroundPeaks <- do.call(chromVAR::getBackgroundPeaks,args)
+  }
 
-    # compute deviatons
-    motExp <- (t(matchScores) %*% expectations)@x
-    y <- ((t(matchScores) %*% atacMat) - motExp)/motExp
-    yp <- sapply(1:ncol(backgroundPeaks), function(i){
-        B <- sparseMatrix(i=1:nrow(backgroundPeaks), j=backgroundPeaks[,i], x=1,
-                          dims=c(nrow(backgroundPeaks), nrow(backgroundPeaks)))
-        yp <- ((t(matchScores) %*% B) %*% atacMat - ((t(matchScores) %*% B) %*% expectations)@x)/motExp
-        yp@x
-      }, simplify=TRUE)
-    scoreMat <- as((y-mean(yp))/sd(yp), "CsparseMatrix")
+  # compute deviatons
+  motExp <- (t(matchScores) %*% expectations)
+  y <- sweep((t(matchScores) %*% atacMat),1,motExp, FUN="-")
+  y <- sweep(y,1,motExp, FUN="/")
+  yps <- sapply(1:ncol(backgroundPeaks), function(i){
+    B <- sparseMatrix(i=1:nrow(backgroundPeaks), j=backgroundPeaks[,i], x=1,
+                      dims=c(nrow(backgroundPeaks), nrow(backgroundPeaks)))
+    yp <- ((t(matchScores) %*% B) %*% atacMat - ((t(matchScores) %*% B) %*% expectations)@x)
+    yp <- as.matrix(sweep(yp,1,motExp, FUN="/"))
+  }, simplify=FALSE)
 
-    # get association between chromVAR-scores and ATAC-signal
-    atacFullMat <- as(atacFullMat, "CsparseMatrix")
-    assocMat <- .getAssociation(atacFullMat, scoreMat)
-    colnames(assocMat) <- paste("ChromVAR_ATAC",
-                                gsub('_[0-9]+',"", colnames(assocMat)),
-                                rownames(scoreMat), sep="_")
+  yp <- array(unlist(yps), dim = c(ncol(matchScores),
+                                   ncol(atacMat), length(yps)))
+  ypMean <- apply(yp, c(1, 2), mean)
+  ypSd <- apply(yp, c(1, 2), sd)
+  scoreMat <- as((y-ypMean)/ypSd, "CsparseMatrix")
 
-    # reformat Activity-scores
-    colNamesScores <- paste(rownames(scoreMat), rep(colnames(scoreMat),
-                                                each=nrow(scoreMat)), sep="_")
-    colNamesScores <- paste("ChromVAR_Score", colNamesScores, sep="_")
-    activityMats <- lapply(colnames(scoreMat), function(col){
-      activityMat <- matrix(scoreMat[,col], nrow=nPeaks,
-                                            ncol=nrow(scoreMat),
-                                byrow=TRUE)
-      colnames(activityMat) <- paste("ChromVAR_score", rownames(scoreMat), sep="_")
-      activityMat <- cbind(assocMat, activityMat)
-      featNames <- colnames(activityMat)
-      activityMat <- lapply(colnames(activityMat), function(featCol){
-                                              activityMat[,featCol,drop=FALSE]})
-      names(activityMat) <- featNames
-
-      activityMat
-    })
-    names(activityMats) <- colnames(scoreMat)
-
-    return(list("activity_matrix"=activityMats,
-                "sub_ind"=subInd,
-                "expectations"=expectations,
-                "background_peaks"=backgroundPeaks))
+  return(list("activity_matrix"=scoreMat,
+              "sub_ind"=subInd,
+              "expectations"=expectations,
+              "background_peaks"=backgroundPeaks))
 }
 
 #' Cellular context and transcription factor-specific features
@@ -101,7 +82,6 @@
 #' @param annoCol Name of column indicating cellular contexts in colData.
 #' @param insertionProfile Pre-computed insertion footprint profile for the specified transcription factor.
 #' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
-#' @param subSample If "ChromVAR_Scores" amongst features, the number of sites to subsample for computing the scores. If `NULL` no subsampling performed.
 #' @param aggregationFun function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 #' provided [MultiAssayExperiment::MultiAssayExperiment-class] object.
 #' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
@@ -123,7 +103,6 @@ contextTfFeatures <- function(mae,
                                          "Cofactor_ChromVAR_Scores"),
                               annoCol="context",
                               insertionProfile=NULL,
-                              subSample=1e4,
                               aggregationFun=sum,
                               seed=42,
                               BPPARAM=SerialParam(),
@@ -174,7 +153,7 @@ contextTfFeatures <- function(mae,
     warning(msg)
   }
 
-  atacFragPaths <- unlist(subset(colData(experiments(maeSub)$ATAC),
+  atacFragPaths <- unlist(subset(colData(maeSub[["ATAC"]]),
                                  get(annoCol) %in% contexts)$origin)
 
   # get list of motif ranges
@@ -255,7 +234,7 @@ contextTfFeatures <- function(mae,
     names(insFeats) <- namesFeats
 
     if(!is.null(labels)){
-      insFeats <- append(insFeats, list("label"=Matrix::Matrix(labels, ncol=1)))
+      insFeats <- append(insFeats, list("label"=Matrix::Matrix(labels)))
     }
 
     return(insFeats)
@@ -271,82 +250,131 @@ contextTfFeatures <- function(mae,
   if("ChromVAR_Scores" %in% features){
     message("Get chromVAR features")
 
-    if(!is.null(colData(experiments(maeSub)$siteFeat)$ChromVAR_sub_ind) &
-       !is.null(colData(experiments(maeSub)$siteFeat)$ChromVAR_expectations) &
-       !is.null(colData(experiments(maeSub)$siteFeat)$ChromVAR_background_peaks)){
+    subInd <- unlist(colData(maeSub[["siteFeat"]])$ChromVAR_sub_ind)
+    expectations <- unlist(colData(maeSub[["siteFeat"]])$ChromVAR_expectations)
+    bgPeaks <- colData(maeSub[["siteFeat"]])$ChromVAR_background_peaks[[1]]
 
-      subInd <- unlist(colData(experiments(maeSub)$siteFeat)$ChromVAR_sub_ind)
-      expectations <- unlist(colData(experiments(maeSub)$siteFeat)$ChromVAR_expectations)
-      backgroundPeaks <- colData(experiments(maeSub)$siteFeat)$ChromVAR_background_peaks[[1]]
-
-      atacMat <- as(assays(experiments(maeSub)$ATAC)$total_overlaps[,contexts,drop=FALSE],
-                    "CsparseMatrix")
+    if(!is.null(subInd) & !is.null(expectations) & !is.null(bgPeaks)){
+      message("ChromVAR features have been pre-computed")
+      atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps[,contexts],
+                                ncol=length(contexts))
+      colnames(atacMat) <- contexts
     }
     else{
-      if(whichCol=="Col"){
-        cols <- lapply(experiments(mae),
-                     function(n){colnames(n)[colnames(n) %in% unique(subset(sampleMap(mae),
-                                                                            is_training)$colname)]})
-        maeTrain <- subsetByColumn(mae, cols)}
-      else{
-        maeTrain <- maeSub
-      }
-      atacMat <- as(assays(experiments(maeTrain)$ATAC)$total_overlaps,"CsparseMatrix")
-      rm(maeTrain)
-
-      subInd <- expectations <- backgroundPeaks <- NULL
+      # full matrix needed for expectation & background calculation
+      atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
+                                ncol=ncol(mae[["ATAC"]]))
+      colnames(atacMat) <- colnames(mae[["ATAC"]])
     }
 
-
+    # get relevant motif columns
     if("Cofactor_ChromVAR_Scores" %in% features){
-      tfCols <- c(tfName, tfCofactors)}
-    else{
-      tfCols <- tfName}
+      tfCols <- c(tfName, tfCofactors)
+    }else{
+      tfCols <- tfName
+    }
 
-    cols <- grep(paste(tfCols,collapse="|"),
-                 colnames(experiments(maeSub)$Motifs), value=TRUE)
-    matchScores <- as(as(assays(experiments(maeSub)$Motif)$match_scores[,cols,drop=FALSE],
-                      "CsparseMatrix"), "TsparseMatrix")
-    colDataMotifs <- subset(colData(experiments(maeSub)$Motifs), motif %in% cols)
-    colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif, cols)),,
-                                   drop=FALSE]
+    tfReg <- paste0("(^|[^A-Za-z])([.:/_]?(",
+                    paste(tfCols, collapse = "|"), "))([^A-Za-z]|$)")
+    tfCols <- grep(tfReg, colnames(maeSub[["Motifs"]]), value=TRUE)
+    tfCols <- unique(tfCols)
+
+    matchScores <- assays(maeSub[["Motifs"]])$match_scores[,tfCols,drop=FALSE]
+    matchScores <- as(as(matchScores, "CsparseMatrix"), "TsparseMatrix")
+
+    colDataMotifs <- subset(colData(maeSub[["Motifs"]]), motif %in% tfCols)
+    colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif, tfCols)),]
+
+    # subset motif matches
     thr <- colDataMotifs$max_score/2
-
     matchScores@x[matchScores@x<thr[matchScores@j + 1] & matchScores@x<4e4] <- 0
-    gcContent <-  assays(experiments(maeSub)$siteFeat)$siteFeat_gc_content[,,drop=TRUE]
+
+    # retrieve GC-content
+    gcContent <- c(assays(experiments(maeSub)$siteFeat)$siteFeat_gc_content[,1])
+
     res <- .getChromVARScores(atacMat, matchScores, gcContent,
-                              subInd=subInd, expectations=expectations,
-                              backgroundPeaks=backgroundPeaks,
+                              colsSel=contexts,
+                              subInd=subInd,
+                              expectations=expectations,
+                              backgroundPeaks=bgPeaks,
                               seed=seed, BPPARAM=BPPARAM, ...)
-    actFeatMats <- res$activity_matrix
 
-    feats <- lapply(contexts, function(context){
-      c(feats[[context]], actFeatMats[[context]])
-    })
-  }
+    chromDevMat <- res$activity_matrix
 
-  names(feats) <- contexts
+    assocFeatNames <- paste("ChromVAR_ATAC",
+                            gsub('_[0-9]+',"",c("Pearson","Cohen_Kappa")),
+                            tfName, sep="_")
+    # compute or retrieve association between accessibility and activation across contexts
+    if(!all(assocFeatNames %in% colnames(rowData(mae[["tfFeat"]])))){
 
-  # add features back to the full object
-  for(context in contexts){
-    featMats <- lapply(feats[[context]], `colnames<-`, NULL)
-    names(featMats) <- paste("contextTfFeat", names(featMats), sep="_")
+      # full atac matrix required
+      if(ncol(atacMat)!=ncol(experiments(maeSub)$ATAC)){
+        atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
+                                  ncol=ncol(mae[["ATAC"]]))
+        colnames(atacMat) <- colnames(mae[["ATAC"]])
+      }
 
-    seTfFeat <- SummarizedExperiment(assays=featMats,
-                                     rowRanges=coords)
-    colnames(seTfFeat) <- paste(context, tfName, sep="_")
-    colData(seTfFeat)$feature_type <- "contextTfFeat"
-    colData(seTfFeat)$tf_name <- tfName
-    mae <- .addFeatures(mae, seTfFeat, colsToMap=context,
-                        prefix="contextTfFeat")
-  }
+      # TODO: Fix this when defining naming conventions
+      # motifName <- paste(tfName, "motif", sep="_")
+      assocMat <- .getAssociation(atacMat,
+                                  chromDevMat[rownames(chromDevMat)==tfName,,
+                                              drop=FALSE])
+      colnames(assocMat) <- assocFeatNames}
+    else{
+      message("ChromVAR-Activity ATAC associations have been pre-computed")
 
-  if("ChromVAR_Scores" %in% features |
-     "Cofactor_ChromVAR_Scores" %in% features){
-    # add chromVAR parameters to object
-    colData(experiments(mae)$siteFeat)$ChromVAR_sub_ind <- list(res$sub_ind)
-    colData(experiments(mae)$siteFeat)$ChromVAR_expectations <- list(res$expectations)
-    colData(experiments(mae)$siteFeat)$ChromVAR_background_peaks <- list(res$background_peaks)}
+      # association features have been pre-computed
+      assocMat <- as.matrix(rowData(mae[["tfFeat"]])[,assocFeatNames])
+      assocMat <- Matrix::Matrix(assocMat)
+      colnames(assocMat) <- assocFeatNames
+    }
+
+      actFeats <- lapply(contexts,function(col){
+        scoreMat <- chromDevMat[,col, drop=FALSE]
+        activityMat <- matrix(scoreMat, nrow=nrow(atacMat), ncol=nrow(scoreMat),
+                              byrow=TRUE)
+        colnames(activityMat) <- paste("ChromVAR_score",
+                                       rownames(scoreMat), sep="_")
+        activityMat <- cbind(activityMat, assocMat)
+        featNames <- colnames(activityMat)
+        activityMat <- lapply(colnames(activityMat), function(featCol){
+          activityMat[,featCol,drop=FALSE]})
+        names(activityMat) <- featNames
+        activityMat
+      })
+      names(actFeats) <- contexts
+
+      feats <- lapply(contexts, function(context){
+        c(feats[[context]], actFeats[[context]])
+      })
+      names(feats) <- contexts
+    }
+
+    # add features back to the full object
+    for(context in contexts){
+      featMats <- lapply(feats[[context]], `colnames<-`, NULL)
+      names(featMats) <- paste("contextTfFeat", names(featMats), sep="_")
+
+      seTfFeat <- SummarizedExperiment(assays=featMats,
+                                       rowRanges=coords)
+      colnames(seTfFeat) <- paste(context, tfName, sep="_")
+      colData(seTfFeat)$feature_type <- "contextTfFeat"
+      colData(seTfFeat)$tf_name <- tfName
+      mae <- .addFeatures(mae, seTfFeat, colsToMap=context,
+                          prefix="contextTfFeat")
+    }
+
+    if("ChromVAR_Scores" %in% features |
+       "Cofactor_ChromVAR_Scores" %in% features){
+
+      # add chromVAR parameters to object
+      colData(mae[["siteFeat"]])$ChromVAR_sub_ind <- list(res$sub_ind)
+      colData(mae[["siteFeat"]])$ChromVAR_expectations <- list(res$expectations)
+      colData(mae[["siteFeat"]])$ChromVAR_background_peaks <- list(res$background_peaks)
+
+      rowData(mae[["tfFeat"]]) <- cbind(rowData(mae[["tfFeat"]]),
+                                        as.data.frame(as.matrix(assocMat)))
+    }
 
   return(mae)
 }

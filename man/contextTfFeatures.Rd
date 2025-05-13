@@ -14,7 +14,6 @@ contextTfFeatures(
     "Cofactor_ChromVAR_Scores"),
   annoCol = "context",
   insertionProfile = NULL,
-  subSample = 10000,
   aggregationFun = sum,
   seed = 42,
   BPPARAM = SerialParam(),
@@ -36,14 +35,13 @@ or only for some specific cellular contexts (\code{"Col"}) specified in \code{co
 \item{colSel}{If \code{whichCol="colSel"}, name of the cellular context to compute the features for.}
 
 \item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores".
+"Insert" features will always be computed.
 See \link{listFeatures} for an overview of the features.}
 
 \item{annoCol}{Name of column indicating cellular contexts in colData.}
 
 \item{insertionProfile}{Pre-computed insertion footprint profile for the specified transcription factor.
 Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").}
-
-\item{subSample}{If "ChromVAR_Scores" amongst features, the number of sites to subsample for computing the scores. If \code{NULL} no subsampling performed.}
 
 \item{aggregationFun}{function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 provided \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object.}
