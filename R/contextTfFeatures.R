@@ -62,6 +62,25 @@
               "background_peaks"=backgroundPeaks))
 }
 
+.getContextProjection <- function(atacMat, subSample=1e4){
+  if(!is.null(subSample)){
+    atacMat <- atacMat[sample(1:nrow(atacMat), min(subSample, nrow(atacMat))), ]
+  }
+
+  atacMat <- t(atacMat)
+
+  # Taken from stackexchange:
+  # https://stats.stackexchange.com/questions/31565/compute-a-cosine-dissimilarity-matrix-in-r
+  sim <- atacMat / sqrt(rowSums(atacMat * atacMat))
+  sim <- sim %*% t(sim)
+  dSim <- as.dist(1-sim)
+  mdsRes <- stats::cmdscale(dSim)
+  colnames(mdsRes) <- c("MDS_Context_1", "MDS_Context_2") # add to imports
+  rownames(mdsRes) <- rownames(atacMat)
+
+  return(mdsRes)
+}
+
 #' Cellular context and transcription factor-specific features
 #'
 #' Adds an experiment with features specific for the specified transcription factor and the cellular-contexts it is covered for,
@@ -76,7 +95,7 @@
 #' @param whichCol Should features be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
 #' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
 #' @param colSel If `whichCol="colSel"`, name of the cellular context to compute the features for.
-#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores".
+#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores", "MDS_Context".
 #' "Insert" features will always be computed.
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param annoCol Name of column indicating cellular contexts in colData.
@@ -100,7 +119,8 @@ contextTfFeatures <- function(mae,
                               colSel=NULL,
                               features=c("Inserts", "Weighted_Inserts",
                                          "ChromVAR_Scores",
-                                         "Cofactor_ChromVAR_Scores"),
+                                         "Cofactor_ChromVAR_Scores",
+                                         "MDS_Context"),
                               annoCol="context",
                               insertionProfile=NULL,
                               aggregationFun=sum,
@@ -139,7 +159,8 @@ contextTfFeatures <- function(mae,
   coords <- rowRanges(experiments(maeSub)$Motifs)
   features <- match.arg(features, choices=c("Inserts", "Weighted_Inserts",
                                             "ChromVAR_Scores",
-                                            "Cofactor_ChromVAR_Scores"),
+                                            "Cofactor_ChromVAR_Scores",
+                                            "MDS_Context"),
                         several.ok=TRUE)
   features <- unique(c(features, "Inserts"))
 
@@ -172,7 +193,7 @@ contextTfFeatures <- function(mae,
       as(assays(mae[["ChIP"]])$peaks[,col,drop=TRUE], "CsparseMatrix")})
   }
   else{
-    labels <- vector(mode = "list", length = 2)
+    labels <- vector(mode = "list", length = length(contexts))
     names(labels) <- contexts
   }
 
@@ -308,7 +329,7 @@ contextTfFeatures <- function(mae,
     if(!all(assocFeatNames %in% colnames(rowData(mae[["tfFeat"]])))){
 
       # full atac matrix required
-      if(ncol(atacMat)!=ncol(experiments(maeSub)$ATAC)){
+      if(ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
         atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
                                   ncol=ncol(mae[["ATAC"]]))
         colnames(atacMat) <- colnames(mae[["ATAC"]])
@@ -348,6 +369,39 @@ contextTfFeatures <- function(mae,
         c(feats[[context]], actFeats[[context]])
       })
       names(feats) <- contexts
+  }
+
+    if("MDS_Context" %in% features){
+      message("Get MDS-Dimensions")
+      # check if is present of colData of ATAC
+      if(!all(c("MDS_Context_1", "MDS_Context_2") %in%
+              colnames(colData(mae[["ATAC"]])))){
+        # if not check if full atacMAT is around (as for associ)
+        if(ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
+          atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
+                                    ncol=ncol(mae[["ATAC"]]))
+          colnames(atacMat) <- colnames(mae[["ATAC"]])
+        }
+        mdsDim <- .getContextProjection(atacMat)
+        mdsDimSub <- as.matrix(mdsDim[contexts,])
+      }
+      else{
+        colAtac <- subset(colData(mae[["ATAC"]]), get(annoCol) %in% contexts)
+        mdsDim <- colData(mae[["ATAC"]])[,c("MDS_Context_1", "MDS_Context_2")]
+        mdsDimSub <- as.matrix(colAtac[match(contexts, colAtac[[annoCol]]),
+                                  c("MDS_Context_1", "MDS_Context_2")])
+      }
+      feats <- lapply(contexts, function(context){
+        mdsFeat <- Matrix::Matrix(mdsDimSub[context,],
+                                  nrow=length(coords),
+                                  ncol=2, byrow=TRUE)
+        colnames(mdsFeat) <- colnames(mdsDimSub)
+        mdsFeatMat <- lapply(colnames(mdsFeat), function(featCol){
+          mdsFeat[,featCol,drop=FALSE]})
+        names(mdsFeatMat) <- colnames(mdsFeat)
+        c(feats[[context]], mdsFeatMat)
+      })
+      names(feats) <- contexts
     }
 
     # add features back to the full object
@@ -374,6 +428,14 @@ contextTfFeatures <- function(mae,
 
       rowData(mae[["tfFeat"]]) <- cbind(rowData(mae[["tfFeat"]]),
                                         as.data.frame(as.matrix(assocMat)))
+    }
+
+    if("MDS_Context" %in% features){
+      message("Using pre-computed MDS-dimensions")
+      colAtac <- colData(mae[["ATAC"]])
+      colData(mae[["ATAC"]]) <- cbind(colData(mae[["ATAC"]]),
+                                      mdsDim[match(colAtac[[annoCol]],
+                                                   rownames(mdsDim)),])
     }
 
   return(mae)

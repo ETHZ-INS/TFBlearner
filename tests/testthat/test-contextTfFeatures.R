@@ -44,20 +44,24 @@ test_that("Context-TF-features: save pre-computed ChromVAR parameters in colData
                     "ChromVAR_background_peaks"))
 })
 
-test_that("Context-TF-features: message that pre-computed ChromVAR parameters are used", {
+test_that("Context-TF-features: message that pre-computed parameters are used", {
   experiments(maeTest)$contextTfFeat <- NULL
   colData(experiments(maeTest)$siteFeat)$ChromVAR_expectations <- NULL
   colData(experiments(maeTest)$siteFeat)$ChromVAR_sub_ind <- NULL
   colData(experiments(maeTest)$siteFeat)$ChromVAR_background_peaks <- NULL
   maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
-                               whichCol="OnlyTrain",
-                               features=c("Inserts", "ChromVAR_Scores"))
+                               whichCol="All",
+                               addLabels=FALSE,
+                               features=c("Inserts", "ChromVAR_Scores",
+                                          "MDS_Context"))
 
   msgs <- list()
   withCallingHandlers(contextTfFeatures(maeTest, tfName="CTCF",
-                                        whichCol="OnlyTrain",
+                                        whichCol="All",
+                                        addLabels=FALSE,
                                         features=c("Inserts",
-                                                   "ChromVAR_Scores")),
+                                                   "ChromVAR_Scores",
+                                                   "MDS_Context")),
                       message = function(msg) {msgs <<- append(msgs,
                                                                msg$message)})
   msgs <- unlist(msgs)
@@ -65,6 +69,7 @@ test_that("Context-TF-features: message that pre-computed ChromVAR parameters ar
   expect_true("ChromVAR features have been pre-computed\n" %in% msgs)
   expect_true("ChromVAR-Activity ATAC associations have been pre-computed\n"
                %in% msgs)
+  expect_true("Using pre-computed MDS-dimensions\n" %in% msgs)
 })
 
 test_that("Context-TF-features: save pre-computed ChromVAR-Activity and ATAC association in rowData of tfFeat", {
@@ -81,5 +86,20 @@ test_that("Context-TF-features: save pre-computed ChromVAR-Activity and ATAC ass
   expect_contains(colnames(rowData(experiments(maeTest)$tfFeat)), expCols)
 })
 
+
+test_that("Context-TF-features: save pre-computed MDS-dimensions in colData of ATAC", {
+  experiments(maeTest)$contextTfFeat <- NULL
+  tfName <- "CTCF"
+  maeTest <- contextTfFeatures(maeTest, tfName=tfName,
+                               whichCol="All",
+                               addLabels=FALSE,
+                               features=c("Inserts",
+                                          "ChromVAR_Scores",
+                                          "MDS_Context"))
+
+  # expected column names
+  expect_contains(colnames(colData(experiments(maeTest)$ATAC)),
+                  c("MDS_Context_1", "MDS_Context_2"))
+})
 
 # add dimensionality checks and mapping checks

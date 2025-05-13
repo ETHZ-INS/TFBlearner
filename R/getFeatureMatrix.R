@@ -7,6 +7,39 @@
   return(mat)
 }
 
+.robustNormalization <- function(mat, BPPARAM=SerialParam()){
+  scaledMats <- BiocParallel::bplapply(1:ncol(mat),
+                                       function(j, mat){
+    q.25 <- quantile(mat[,j], probs=0.25)
+    q.75 <- quantile(mat[,j], probs=0.75)
+    med <- median(mat[,j])
+    iqr <- (q.75-q.25)
+    if(iqr==0) iqr <- 1
+    scaledMat <- Matrix::Matrix((mat[, j] - med) / iqr, ncol=1)
+  }, mat=mat, BPPARAM=BPPARAM)
+
+  scaledMats <- Reduce("cbind", scaledMats[-1], scaledMats[[1]])
+  colnames(scaledMats) <- colnames(mat)
+  return(scaledMats)
+}
+
+.minMaxNormalization <- function(mat, BPPARAM=SerialParam()){
+  scaledMats <- BiocParallel::bplapply(1:ncol(mat),
+                                       function(j, mat){
+      colMin <- min(mat[,j])
+      colMax <- quantile(mat[,j], probs=0.9)
+      colRanges <- colMax - colMin
+      colRanges[colRanges == 0] <- 1
+
+      if(colRanges==0) colRanges <- 1
+      scaledMat <- Matrix::Matrix(mat[, j] /colRanges, ncol=1)},
+      mat=mat, BPPARAM=BPPARAM)
+
+  scaledMats <- Reduce("cbind", scaledMats[-1], scaledMats[[1]])
+  colnames(scaledMats) <- colnames(mat)
+  return(scaledMats)
+}
+
 #' Feature matrix construction
 #'
 #' Compiles feature matrix based on pre-computed features stored in experiments of the provided [MultiAssayExperiment::MultiAssayExperiment-class] object.

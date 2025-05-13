@@ -63,7 +63,8 @@ load(file.path(system.file("data", package="TFBlearner"), "example_coords.rda"))
 exampleMotif <- list(CTCF=system.file("extdata", "ctcf_motif.tsv", package = "TFBlearner"),
                      JUN=system.file("extdata", "jun_motif.tsv", package = "TFBlearner"))
 exampleATAC <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
-                    K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"))
+                    K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"),
+                    HepG2=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner")) # dummy type for some tests
 exampleChIP <- list(K562_CTCF=system.file("extdata", "example_chIP_K562_ctcf.tsv", package = "TFBlearner"),
                     A549_CTCF=system.file("extdata", "example_chIP_A549_ctcf.tsv", package = "TFBlearner"),
                     K562_JUN=system.file("extdata", "example_chIP_K562_jun.tsv", package = "TFBlearner"))

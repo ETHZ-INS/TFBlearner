@@ -11,7 +11,7 @@ contextTfFeatures(
   whichCol = c("All", "OnlyTrain", "Col"),
   colSel = NULL,
   features = c("Inserts", "Weighted_Inserts", "ChromVAR_Scores",
-    "Cofactor_ChromVAR_Scores"),
+    "Cofactor_ChromVAR_Scores", "MDS_Context"),
   annoCol = "context",
   insertionProfile = NULL,
   aggregationFun = sum,
@@ -34,7 +34,7 @@ or only for some specific cellular contexts (\code{"Col"}) specified in \code{co
 
 \item{colSel}{If \code{whichCol="colSel"}, name of the cellular context to compute the features for.}
 
-\item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores".
+\item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores", "MDS_Context".
 "Insert" features will always be computed.
 See \link{listFeatures} for an overview of the features.}
 
