@@ -111,6 +111,7 @@
 #' @import MultiAssayExperiment
 #' @importFrom BiocParallel bpmapply bplapply SerialParam MulticoreParam SnowParam register
 #' @importFrom chromVAR getBackgroundPeaks computeExpectations
+#' @importFrom stats cmdscale
 #' @export
 contextTfFeatures <- function(mae,
                               tfName,
