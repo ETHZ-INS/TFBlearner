@@ -63,8 +63,7 @@ load(file.path(system.file("data", package="TFBlearner"), "example_coords.rda"))
 exampleMotif <- list(CTCF=system.file("extdata", "ctcf_motif.tsv", package = "TFBlearner"),
                      JUN=system.file("extdata", "jun_motif.tsv", package = "TFBlearner"))
 exampleATAC <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
-                    K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"),
-                    HepG2=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner")) # dummy type for some tests
+                    K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"))
 exampleChIP <- list(K562_CTCF=system.file("extdata", "example_chIP_K562_ctcf.tsv", package = "TFBlearner"),
                     A549_CTCF=system.file("extdata", "example_chIP_A549_ctcf.tsv", package = "TFBlearner"),
                     K562_JUN=system.file("extdata", "example_chIP_K562_jun.tsv", package = "TFBlearner"))
@@ -81,6 +80,18 @@ maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
                                          "Cofactor_Inserts"),
                               addLabels=TRUE,
                               BPPARAM=SerialParam())
+
+exampleATAC2 <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
+                    K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"),
+                    HepG2=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner")) # dummy type for some tests
+
+maeTest2 <- suppressMessages({prepData(example_coords,
+                                      motifData=exampleMotif,
+                                      atacData=exampleATAC2,
+                                      chIPData=exampleChIP,
+                                      testSet="A549")})
+maeTest2 <- siteFeatures(maeTest2)
+maeTest2 <- tfFeatures(maeTest2, tfName="CTCF", tfCofactors="JUN")
 
 maeTestHdf5 <- suppressMessages({prepData(example_coords,
                                        motifData=exampleMotif,

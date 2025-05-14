@@ -44,24 +44,26 @@ test_that("Context-TF-features: save pre-computed ChromVAR parameters in colData
                     "ChromVAR_background_peaks"))
 })
 
-test_that("Context-TF-features: message that pre-computed parameters are used", {
-  experiments(maeTest)$contextTfFeat <- NULL
-  colData(experiments(maeTest)$siteFeat)$ChromVAR_expectations <- NULL
-  colData(experiments(maeTest)$siteFeat)$ChromVAR_sub_ind <- NULL
-  colData(experiments(maeTest)$siteFeat)$ChromVAR_background_peaks <- NULL
-  maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
+test_that("Context-TF-features: message that pre-computed parameters/features are used", {
+  experiments(maeTest2)$contextTfFeat <- NULL
+  colData(experiments(maeTest2)$siteFeat)$ChromVAR_expectations <- NULL
+  colData(experiments(maeTest2)$siteFeat)$ChromVAR_sub_ind <- NULL
+  colData(experiments(maeTest2)$siteFeat)$ChromVAR_background_peaks <- NULL
+  maeTest2 <- contextTfFeatures(maeTest2, tfName="CTCF",
                                whichCol="All",
                                addLabels=FALSE,
-                               features=c("Inserts", "ChromVAR_Scores",
-                                          "MDS_Context"))
+                               features=c("Inserts",
+                                          "ChromVAR_Scores",
+                                          "MDS_Context", "Max_ATAC_Signal"))
 
   msgs <- list()
-  withCallingHandlers(contextTfFeatures(maeTest, tfName="CTCF",
+  withCallingHandlers(contextTfFeatures(maeTest2, tfName="CTCF",
                                         whichCol="All",
                                         addLabels=FALSE,
                                         features=c("Inserts",
                                                    "ChromVAR_Scores",
-                                                   "MDS_Context")),
+                                                   "MDS_Context",
+                                                   "Max_ATAC_Signal")),
                       message = function(msg) {msgs <<- append(msgs,
                                                                msg$message)})
   msgs <- unlist(msgs)
@@ -70,6 +72,7 @@ test_that("Context-TF-features: message that pre-computed parameters are used", 
   expect_true("ChromVAR-Activity ATAC associations have been pre-computed\n"
                %in% msgs)
   expect_true("Using pre-computed MDS-dimensions\n" %in% msgs)
+  expect_true("Using pre-computed maximal ATAC signals\n" %in% msgs)
 })
 
 test_that("Context-TF-features: save pre-computed ChromVAR-Activity and ATAC association in rowData of tfFeat", {
@@ -88,18 +91,31 @@ test_that("Context-TF-features: save pre-computed ChromVAR-Activity and ATAC ass
 
 
 test_that("Context-TF-features: save pre-computed MDS-dimensions in colData of ATAC", {
+  experiments(maeTest2)$contextTfFeat <- NULL
+  tfName <- "CTCF"
+  maeTest2 <- contextTfFeatures(maeTest2, tfName=tfName,
+                                whichCol="All",
+                                addLabels=FALSE,
+                                features=c("Inserts",
+                                           "MDS_Context"))
+
+  # expected column names
+  expect_contains(colnames(colData(experiments(maeTest2)$ATAC)),
+                  c("MDS_Context_1", "MDS_Context_2"))
+})
+
+test_that("Context-TF-features: save pre-computed maximal ATAC-signal in rowData of ATAC", {
   experiments(maeTest)$contextTfFeat <- NULL
   tfName <- "CTCF"
   maeTest <- contextTfFeatures(maeTest, tfName=tfName,
                                whichCol="All",
                                addLabels=FALSE,
                                features=c("Inserts",
-                                          "ChromVAR_Scores",
-                                          "MDS_Context"))
+                                          "Max_ATAC_Signal"))
 
   # expected column names
-  expect_contains(colnames(colData(experiments(maeTest)$ATAC)),
-                  c("MDS_Context_1", "MDS_Context_2"))
+  expect_contains(colnames(rowData(experiments(maeTest)$ATAC)),
+                  c("Max_ATAC_Signal"))
 })
 
 # add dimensionality checks and mapping checks

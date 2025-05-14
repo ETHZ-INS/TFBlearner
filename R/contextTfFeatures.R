@@ -95,7 +95,7 @@
 #' @param whichCol Should features be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
 #' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
 #' @param colSel If `whichCol="colSel"`, name of the cellular context to compute the features for.
-#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores", "MDS_Context".
+#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores", "MDS_Context", "Max_ATAC_Signal".
 #' "Insert" features will always be computed.
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param annoCol Name of column indicating cellular contexts in colData.
@@ -120,7 +120,8 @@ contextTfFeatures <- function(mae,
                               features=c("Inserts", "Weighted_Inserts",
                                          "ChromVAR_Scores",
                                          "Cofactor_ChromVAR_Scores",
-                                         "MDS_Context"),
+                                         "MDS_Context",
+                                         "Max_ATAC_Signal"),
                               annoCol="context",
                               insertionProfile=NULL,
                               aggregationFun=sum,
@@ -160,7 +161,8 @@ contextTfFeatures <- function(mae,
   features <- match.arg(features, choices=c("Inserts", "Weighted_Inserts",
                                             "ChromVAR_Scores",
                                             "Cofactor_ChromVAR_Scores",
-                                            "MDS_Context"),
+                                            "MDS_Context",
+                                            "Max_ATAC_Signal"),
                         several.ok=TRUE)
   features <- unique(c(features, "Inserts"))
 
@@ -377,15 +379,17 @@ contextTfFeatures <- function(mae,
       if(!all(c("MDS_Context_1", "MDS_Context_2") %in%
               colnames(colData(mae[["ATAC"]])))){
         # if not check if full atacMAT is around (as for associ)
-        if(ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
+        if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
           atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
                                     ncol=ncol(mae[["ATAC"]]))
           colnames(atacMat) <- colnames(mae[["ATAC"]])
         }
+
         mdsDim <- .getContextProjection(atacMat)
         mdsDimSub <- as.matrix(mdsDim[contexts,])
       }
       else{
+        message("Using pre-computed MDS-dimensions")
         colAtac <- subset(colData(mae[["ATAC"]]), get(annoCol) %in% contexts)
         mdsDim <- colData(mae[["ATAC"]])[,c("MDS_Context_1", "MDS_Context_2")]
         mdsDimSub <- as.matrix(colAtac[match(contexts, colAtac[[annoCol]]),
@@ -400,6 +404,34 @@ contextTfFeatures <- function(mae,
           mdsFeat[,featCol,drop=FALSE]})
         names(mdsFeatMat) <- colnames(mdsFeat)
         c(feats[[context]], mdsFeatMat)
+      })
+      names(feats) <- contexts
+    }
+
+    if("Max_ATAC_Signal" %in% features){
+      message("Get maximal ATAC-signal per site")
+      if(!("Max_ATAC_Signal" %in% colnames(rowData(mae[["ATAC"]])))){
+        if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
+          atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
+                                    ncol=ncol(mae[["ATAC"]]))
+          colnames(atacMat) <- colnames(mae[["ATAC"]])
+        }
+        atacMat <- .minMaxNormalization(atacMat, BPPARAM=BPPARAM)
+        maxFeat <- Matrix::Matrix(apply(atacMat,1, max), ncol=1)
+        colnames(maxFeat) <- "Max_ATAC_Signal"
+        maxFeat <- list(maxFeat)
+      }
+      else{
+        message("Using pre-computed maximal ATAC signals")
+        maxFeat <- Matrix::Matrix(rowData(mae[["ATAC"]])[,"Max_ATAC_Signal"],
+                                  ncol=1)
+        colnames(maxFeat) <- "Max_ATAC_Signal"
+        maxFeat <- list(maxFeat)
+      }
+      names(maxFeat) <- "Max_ATAC_Signal"
+
+      feats <- lapply(contexts, function(context){
+        c(feats[[context]], maxFeat)
       })
       names(feats) <- contexts
     }
@@ -431,11 +463,25 @@ contextTfFeatures <- function(mae,
     }
 
     if("MDS_Context" %in% features){
-      message("Using pre-computed MDS-dimensions")
       colAtac <- colData(mae[["ATAC"]])
-      colData(mae[["ATAC"]]) <- cbind(colData(mae[["ATAC"]]),
+      colAtac <- colAtac[,setdiff(colnames(colAtac), c("MDS_Context_1",
+                                                       "MDS_Context_2"))]
+      colData(mae[["ATAC"]]) <- cbind(colAtac,
                                       mdsDim[match(colAtac[[annoCol]],
                                                    rownames(mdsDim)),])
+    }
+
+    if("Max_ATAC_Signal" %in% features){
+      rowAtac <- rowData(mae[["ATAC"]])
+      rowAtac <- rowAtac[,setdiff(colnames(rowAtac), "Max_ATAC_Signal")]
+      maxFeat <- as.data.frame(as.matrix(maxFeat[[1]]))
+
+      if(!is.null(rowAtac)){
+        rowAtac <- cbind(rowAtac, maxFeat)}
+      else{
+        rowAtac <- maxFeat
+      }
+      rowData(mae[["ATAC"]]) <- rowAtac
     }
 
   return(mae)
