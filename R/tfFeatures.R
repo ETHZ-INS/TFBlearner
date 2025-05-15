@@ -136,6 +136,7 @@
     }
 
     if(is.null(aggFun)){
+      chIPMat <- as(chIPMat, "CsparseMatrix")
       nmfRes <- suppressMessages(RcppML::nmf(chIPMat, k=nPatterns,
                                              L1=L1, seed=seed))
       fm <- nmfRes$w
@@ -143,11 +144,13 @@
     }
     else{
       aggMatTf <- .aggregate(chIPMat, aggVar="tf", aggFun=aggFun)
+      aggMatTf <- as(aggMatTf, "CsparseMatrix")
       nmfTfRes <- suppressMessages(RcppML::nmf(aggMatTf, k=nPatterns, L1=L1,
                                                seed=seed))
       gc()
 
       aggMatCon <- .aggregate(chIPMat, aggVar="context", aggFun=aggFun)
+      aggMatCon <- as(aggMatCon, "CsparseMatrix")
       nmfConRes <- suppressMessages(RcppML::nmf(aggMatCon, k=nPatterns, L1=L1,
                                                 seed=seed))
       gc()
