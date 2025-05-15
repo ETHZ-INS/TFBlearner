@@ -10,7 +10,7 @@ getFeatureMatrix(
   addLabels = TRUE,
   whichCol = c("All", "OnlyTrain", "Col"),
   colSel = NULL,
-  colNorm = TRUE,
+  norm = c("robust", "min-max", "column", "none"),
   convertInteger = FALSE,
   saveHdf5 = TRUE,
   outDir = NULL,
@@ -32,9 +32,12 @@ or only for some specific cellular contexts (\code{"Col"}) specified in \code{co
 
 \item{colSel}{If \code{whichCol="colSel"}, name of the cellular context to compute the feature matrix for.}
 
-\item{colNorm}{If cellular-context specific features should be column-normalized.}
+\item{norm}{Normalization strategy to be used for features of different cellular contexts,
+can be one of"robust" - substraction of median followed by division by IQR, "min-max" - divison by range between minimum and 0.9-quantile, "column" - division by column sums or "none".
+Default is "robust".}
 
-\item{convertInteger}{If feature matrix should be converted to integer (to lower memory footprint).}
+\item{convertInteger}{If feature matrix should be converted to integer (to lower memory footprint).
+Not recommend to be used, might lower predictive performance due to loss of information.}
 
 \item{saveHdf5}{If feature matrix should be saved as HDF5 file.}
 

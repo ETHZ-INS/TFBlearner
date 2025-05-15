@@ -29,6 +29,7 @@ test_that("Feature Matrix: Basic functionality - Saving to HDF5", {
 
   fmFilePath <- file.path(outDir,
                           paste(prefix, "feature_matrix", "CTCF", sep="_"))
+  fmFilePath <- paste0(fmFilePath, ".h5")
   expect_s4_class(fm, "DelayedMatrix")
   expect_true(file.exists(fmFilePath))
   file.remove(fmFilePath)
@@ -72,7 +73,23 @@ test_that("Feature Matrix: Column names corresponding to R conventions", {
 
 test_that("Feature Matrix: Correct context selection - no context provided", {
   expect_error(getFeatureMatrix(maeTest, tfName="CTCF",
-                                which="Col",
+                                whichCol="Col",
                                 addLabels=FALSE,
                                 saveHdf5=FALSE))
+})
+
+test_that("Feature Matrix: warning if features have not been computed for provided cellular contexts", {
+  experiments(maeTest)$contextTfFeat <- NULL
+  maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
+                               whichCol="Col",
+                               colSel="K562",
+                               features=c("Inserts"))
+
+  expect_warning(getFeatureMatrix(maeTest, tfName="CTCF",
+                                  whichCol="Col",
+                                  colSel=c("K562", "A549"),
+                                  addLabels=FALSE,
+                                  saveHdf5=FALSE),
+                 "Not all the cellular-contexts requested have contextTfFeats compiled.\n
+                   Missing are: A549")
 })
