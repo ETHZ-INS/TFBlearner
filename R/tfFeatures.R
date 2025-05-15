@@ -582,23 +582,27 @@ tfFeatures <- function(mae,
   }
 
   # Add CTCF-Features()
-  if("CTCF_Signal" %in% features & tf!="CTCF"){
+  if("CTCF_Signal" %in% features & tolower(tf)!="ctcf"){
     message("CTCF Signal")
 
     # add the motif to selected motifs
     matchScores <- assays(mae[["Motifs"]])$match_scores
-    motifCols <- grep("CTCF", colnames(matchScores), value=TRUE)
+    motifCols <- grep("CTCF([:_]|$)", colnames(matchScores),
+                      value=TRUE, ignore.case=TRUE)
     selMotifs <- unique(selMotifs, motifCols)
 
-    tfCols <- colnames(chIPMat)[grepl("CTCF", colnames(chIPMat))]
-    sig <- sparseMatrixStats::rowMaxs(chIPMat[,tfCols, drop=FALSE])
-    sig <- Matrix::Matrix(sig, ncol=1)
+    # add some checks if it is in data
+    tfCols <- colnames(chIPMat)[grepl("_CTCF$", colnames(chIPMat),
+                                      ignore.case=TRUE)]
+    if(length(tfCols)>0){
+      sig <- sparseMatrixStats::rowMaxs(chIPMat[,tfCols, drop=FALSE])
+      sig <- Matrix::Matrix(sig, ncol=1)
 
-    colnames(sig) <- "CTCF_signal"
-    ctcfFeat <- list(sig)
-    names(ctcfFeat) <- "CTCF_signal"
-
-    featMats <- append(featMats, ctcfFeat)
+      colnames(sig) <- "CTCF_signal"
+      ctcfFeat <- list(sig)
+      names(ctcfFeat) <- "CTCF_signal"
+      featMats <- append(featMats, ctcfFeat)
+    }
   }
 
   # add features full mae object
