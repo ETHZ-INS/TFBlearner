@@ -354,3 +354,27 @@ test_that("Aggregation checks: Reference implementation no aggregation function 
   expect_equal(as.matrix(mapRes$YY1), as.matrix(refResMats$YY1), ignore_attr=TRUE)
   expect_equal(as.matrix(mapRes$GR), as.matrix(refResMats$GR), ignore_attr=TRUE)
 })
+
+
+test_that("Aggregation checks: Change of overlap type to within",{
+  mapRes <- genomicRangesMapping(refCoords, assayTableTest,
+                                 type="within",
+                                 byCols=c("group"),
+                                 scoreCol="score")
+
+  assayTableTestRanges <- makeGRangesFromDataFrame(as.data.frame(assayTableTest))
+  ov <- findOverlaps(refCoords, assayTableTestRanges, type="within")
+  subAssayTableTest <- assayTableTest[subjectHits(ov), ]
+  subAssayTableTest$ref <- queryHits(ov)
+  subAssayTableTest <- subAssayTableTest[,.(.N), by=.(ref, group)]
+  subAssayTableTest$group <- factor(subAssayTableTest$group,
+                                    levels=c("CTRL", "TRT"), ordered=TRUE)
+  refRes <- sparseMatrix(i=subAssayTableTest$ref,
+                         j=subAssayTableTest$group,
+                         x=subAssayTableTest$N,
+                         dims=c(length(refCoords),
+                                length(unique(assayTableTest$group))))
+  colnames(refRes) <- levels(subAssayTableTest$group)
+
+  expect_equal(as.matrix(mapRes), as.matrix(refRes))
+})

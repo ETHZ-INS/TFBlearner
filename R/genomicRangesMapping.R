@@ -21,6 +21,8 @@
 #' If it is NULL, the number of assay ranges overlapping the reference ranges will be counted.
 #' @param minoverlap Minimal overlap between refRanges and the assay ranges
 #' Passed to [GenomicRanges::findOverlaps()]
+#' @param type Type of overlap to be used, can be one of "any", "start", "end", "within", "equal".
+#' Passed to [GenomicRanges::findOverlaps()]. Default is "any".
 #' @param shift If Tn5 insertion bias should be considered (only if strand column is provided).
 #' @param chunk If data should be processed in chunks (determined by chromosomes in `refRanges`). Recommended for large data.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
@@ -41,9 +43,14 @@ genomicRangesMapping <- function(refRanges,
                                  scoreCol=NULL,
                                  aggregationFun=NULL,
                                  minoverlap=1,
+                                 type=c("any", "start", "end",
+                                        "within", "equal"),
                                  shift=FALSE,
                                  chunk=NULL,
                                  BPPARAM=SerialParam()){
+
+  type <- match.arg(type, choices=c("any","start", "end",
+                                    "within", "equal"))
 
   # TODO: - add warning for integer overflows - data.table size
   assayTable <- .processData(assayTable, readAll=TRUE, shift=shift,
@@ -71,14 +78,14 @@ genomicRangesMapping <- function(refRanges,
                            MoreArgs=list(byCols=byCols, scoreCol=scoreCol,
                                          aggregationFun=aggregationFun,
                                          chunk=FALSE, shift=shift,
+                                         type=type,
                                          BPPARAM=BPPARAM),
                            SIMPLIFY=FALSE)
+
     # retrieve original order
     refRangesList <- Reduce("c", refRangesList[-1], refRangesList[[1]])
-    ind <- GenomicRanges::findOverlaps(refRangesList,
-                                                     refRanges,
-                                                     select="first",
-                                                     type="equal")
+    ind <- GenomicRanges::findOverlaps(refRangesList, refRanges,
+                                       select="first", type="equal")
 
     rbindFill  <- function(mat1, mat2){
 
@@ -172,7 +179,7 @@ genomicRangesMapping <- function(refRanges,
   # find overlaps with ref. coordinates
   overlapTable <- as.data.table(GenomicRanges::findOverlaps(refRanges,
                                                             assayRanges,
-                                                            type="any",
+                                                            type=type,
                                                             minoverlap=minoverlap,
                                                             ignore.strand=TRUE))
   rm(refRanges, assayRanges)

@@ -12,6 +12,7 @@ genomicRangesMapping(
   scoreCol = NULL,
   aggregationFun = NULL,
   minoverlap = 1,
+  type = c("any", "start", "end", "within", "equal"),
   shift = FALSE,
   chunk = NULL,
   BPPARAM = SerialParam()
@@ -37,6 +38,9 @@ If it is NULL, the number of assay ranges overlapping the reference ranges will 
 
 \item{minoverlap}{Minimal overlap between refRanges and the assay ranges
 Passed to \code{\link[GenomicRanges:findOverlaps-methods]{GenomicRanges::findOverlaps()}}}
+
+\item{type}{Type of overlap to be used, can be one of "any", "start", "end", "within", "equal".
+Passed to \code{\link[GenomicRanges:findOverlaps-methods]{GenomicRanges::findOverlaps()}}. Default is "any".}
 
 \item{shift}{If Tn5 insertion bias should be considered (only if strand column is provided).}
 
