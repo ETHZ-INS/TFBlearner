@@ -13,7 +13,7 @@ getInsertionProfiles(
   profiles = NULL,
   symmetric = FALSE,
   stranded = FALSE,
-  subSample = FALSE,
+  subSample = NULL,
   BPPARAM = SerialParam()
 )
 }
@@ -37,7 +37,8 @@ Needs to contain coordinate (chr/seqnames, start, end) columns and weight column
 
 \item{stranded}{If insertion footprint profiles should be computed taking strandedness of fragments into account.}
 
-\item{subSample}{If fragments should be sub-sampled (to a total of 1e8 fragments per sample) for speed-up.}
+\item{subSample}{If fragments should be sub-sampled for speed-up.
+Default is no sub-sampling, if a number is provided the fragments of each file/object provided will be subsampled to that number.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}}.}
 }

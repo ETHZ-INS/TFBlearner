@@ -81,7 +81,8 @@
 #' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
 #' @param symmetric If transcription factor footprint profiles should be symmetric around the motif matches. Only used if `calcProfile=TRUE`.
 #' @param stranded If insertion footprint profiles should be computed taking strandedness of fragments into account.
-#' @param subSample If fragments should be sub-sampled (to a total of 1e8 fragments per sample) for speed-up.
+#' @param subSample If fragments should be sub-sampled for speed-up.
+#' Default is no sub-sampling, if a number is provided the fragments of each file/object provided will be subsampled to that number.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
 #' @return [data.table::data.table] containing insertion counts within and in margins around motif matches and weighted insertion counts in case
 #' an insertion profile is provided or if `calcProfile=TRUE`.
@@ -99,7 +100,7 @@ getInsertionProfiles <- function(atacData,
                                  profiles=NULL,
                                  symmetric=FALSE,
                                  stranded=FALSE,
-                                 subSample=FALSE,
+                                 subSample=NULL,
                                  BPPARAM=SerialParam()){
 
   # prep motif data
@@ -125,7 +126,7 @@ getInsertionProfiles <- function(atacData,
   atacFrag <- lapply(atacData, .processData, shift=shift, subSample=subSample)
   if(!("sample" %in% colnames(atacFrag[[1]]))){
     names(atacFrag) <- names(atacData)
-    atacFrag <- rbindlist(atacFrag, idcol="sample") 
+    atacFrag <- rbindlist(atacFrag, idcol="sample")
   }
   else{
     atacFrag <- rbindlist(atacFrag)
@@ -173,8 +174,8 @@ getInsertionProfiles <- function(atacData,
       atacInserts <- .getInsertsPos(af, md, stranded, shiftLeft)
       atacProfile <- atacInserts[,.(pos_count_global=.N),
                                  by=.(ml, rel_pos, motif_id, type)]
-      return(atacProfile)}, 
-    motifData, atacFrag, MoreArgs=list(stranded=stranded, shiftLeft=shiftLeft), 
+      return(atacProfile)},
+    motifData, atacFrag, MoreArgs=list(stranded=stranded, shiftLeft=shiftLeft),
     SIMPLIFY=FALSE, BPPARAM=BPPARAM)
     atacProfiles <- rbindlist(atacProfiles, idcol="seqnames")
 
@@ -212,19 +213,19 @@ getInsertionProfiles <- function(atacData,
     if(max(atacProfiles$pos_count_global)>0){
       atacProfiles[,w_count:=pos_count_global/max(pos_count_global), by=motif_id]
       atacProfiles[,w_count_smooth:=smooth(w_count), by=motif_id]}
-    
+
     if(sum(atacProfiles$w)==0){
       # in case of very low coverage
       atacProfiles[,w:=pos_count_global/sum(pos_count_global), by=motif_id]
     }
-  
+
     if(symmetric){
       atacProfiles[,w:=rev(w)+w, by=motif_id]
       atacProfiles[,w_count:=rev(w_count)+w_count, by=motif_id]
-      atacProfiles[,w_count_smooth:=rev(w_count_smooth)+w_count_smooth, 
+      atacProfiles[,w_count_smooth:=rev(w_count_smooth)+w_count_smooth,
                    by=motif_id]
     }
-    
+
     # TODO: still needed?
     #atacProfiles[,w:=length(w)*w/sum(w), by=motif_id]
     atacProfiles[,w:=w/sum(w), by=motif_id]
@@ -232,10 +233,10 @@ getInsertionProfiles <- function(atacData,
   else{
     atacProfiles <- profiles
   }
-  
+
   # TODO: still needed?
   #if(!is.null(atacProfiles)) atacProfiles[,exp:=w/sum(w), by=.(motif_id)]
-  
+
   # get match scores
   motifScores <- BiocParallel::bpmapply(function(md,af,
                                                  stranded,
@@ -246,17 +247,17 @@ getInsertionProfiles <- function(atacData,
 
     if(!is.null(profiles)){
       atacInserts <- atacInserts[,.(pos_count=.N),
-                                 by=.(motif_match_id, motif_id, sample, 
+                                 by=.(motif_match_id, motif_id, sample,
                                       rel_pos, type)]
       atacInserts <- merge(atacInserts,
                            profiles[,c("rel_pos", "motif_id", "w"),with=FALSE],
                            by.x=c("motif_id","rel_pos"),
                            by.y=c("motif_id","rel_pos"), all.x=TRUE, all.y=FALSE)
       atacInserts[,score:=w*pos_count]
-      atacInserts[,dev:=(pos_count/sum(pos_count)-w)^2/(w), 
+      atacInserts[,dev:=(pos_count/sum(pos_count)-w)^2/(w),
                    by=.(motif_match_id, motif_id, sample)]
       atacInsertSum <- atacInserts[,.(score=sum(score),
-                                      chi2=sum(dev)+(1-sum(w)),
+                                      chi2=sum(dev)+(1-sum(w)), # add deviation for positions with 0 inserts
                                       tot_count=sum(pos_count)),
                                    by=.(motif_match_id, motif_id, sample, type)]
     }
@@ -269,7 +270,7 @@ getInsertionProfiles <- function(atacData,
   MoreArgs=list(stranded=stranded,
                 profiles=atacProfiles,
                 shiftLeft=shiftLeft),
-  SIMPLIFY=FALSE, 
+  SIMPLIFY=FALSE,
   BPPARAM=BPPARAM)
 
   motifScores <- rbindlist(motifScores)

@@ -224,7 +224,7 @@ contextTfFeatures <- function(mae,
                                              "symmetric", "stranded")]
     args <- c(list(atacData=atacFrag, motifRanges=motifRanges,
                    profiles=profile, calcProfile=calcProfile,
-                   subSample=TRUE, BPPARAM=BPPARAM),
+                   subSample=1e8, BPPARAM=BPPARAM),
               addArgs)
     insRes <- suppressWarnings(suppressMessages(do.call(getInsertionProfiles,
                                                         args)))

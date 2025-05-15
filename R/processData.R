@@ -1,5 +1,5 @@
 .processData <- function(data, readAll=FALSE, shift=FALSE,
-                         subSample=FALSE, seqLevelStyle="UCSC"){
+                         subSample=NULL, seqLevelStyle="UCSC"){
   if(is.character(data)){
     if(grepl(".bam", basename(data), fixed=TRUE))
     {
@@ -54,9 +54,10 @@
     if("seqnames" %in% colnames(seqDat)) setnames(seqDat, "seqnames", "chr")
   }
 
-  if(subSample & nrow(seqDat)>1e8){
+  if(!is.null(subSample) & is.numeric(subSample)){
     message("Subsampling file")
-    seqDat <- seqDat[sample(1:nrow(seqDat), min(nrow(seqDat), 1e8)),]
+    subSample <- as.integer(subSample)
+    seqDat <- seqDat[sample(1:nrow(seqDat), min(nrow(seqDat), subSample)),]
   }
 
   # Match seqlevelstyle to reference
