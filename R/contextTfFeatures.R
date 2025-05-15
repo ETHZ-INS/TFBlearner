@@ -279,16 +279,12 @@ contextTfFeatures <- function(mae,
     bgPeaks <- colData(maeSub[["siteFeat"]])$ChromVAR_background_peaks[[1]]
 
     if(!is.null(subInd) & !is.null(expectations) & !is.null(bgPeaks)){
-      message("ChromVAR features have been pre-computed")
-      atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps[,contexts],
-                                ncol=length(contexts))
-      colnames(atacMat) <- contexts
+     message("ChromVAR features have been pre-computed")
+     atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps[,contexts])
     }
     else{
       # full matrix needed for expectation & background calculation
-      atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
-                                ncol=ncol(mae[["ATAC"]]))
-      colnames(atacMat) <- colnames(mae[["ATAC"]])
+      atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
     }
 
     # get relevant motif columns
@@ -333,9 +329,7 @@ contextTfFeatures <- function(mae,
 
       # full atac matrix required
       if(ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
-        atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
-                                  ncol=ncol(mae[["ATAC"]]))
-        colnames(atacMat) <- colnames(mae[["ATAC"]])
+        atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
       }
 
       # TODO: Fix this when defining naming conventions
@@ -381,9 +375,7 @@ contextTfFeatures <- function(mae,
               colnames(colData(mae[["ATAC"]])))){
         # if not check if full atacMAT is around (as for associ)
         if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
-          atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
-                                    ncol=ncol(mae[["ATAC"]]))
-          colnames(atacMat) <- colnames(mae[["ATAC"]])
+          atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
         }
 
         mdsDim <- .getContextProjection(atacMat)
@@ -413,9 +405,7 @@ contextTfFeatures <- function(mae,
       message("Get maximal ATAC-signal per site")
       if(!("Max_ATAC_Signal" %in% colnames(rowData(mae[["ATAC"]])))){
         if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
-          atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
-                                    ncol=ncol(mae[["ATAC"]]))
-          colnames(atacMat) <- colnames(mae[["ATAC"]])
+          atacMat <-.convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
         }
         atacMat <- .minMaxNormalization(atacMat, BPPARAM=BPPARAM)
         maxFeat <- Matrix::Matrix(apply(atacMat,1, max), ncol=1)

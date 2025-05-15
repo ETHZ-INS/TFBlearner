@@ -1,3 +1,19 @@
+# to muffle the warning "In cor(...): the standard deviation is zero"
+# when computing ChromVAR-ATAC association.
+# This warning is supposed to appear in the given test setup but
+# is not informative for the test cases.
+suppressSdWarning <- function(fun, args){
+
+  msg <- "the standard deviation is zero"
+  withCallingHandlers(
+          res <- do.call(fun, args),
+          warning=function(w){
+          if(grepl(msg, conditionMessage(w))){
+            invokeRestart("muffleWarning")}
+  })
+  return(res)
+}
+
 test_that("Context-TF-features: Basic functionality", {
   experiments(maeTest)$contextTfFeat <- NULL
   maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
@@ -35,9 +51,11 @@ test_that("Context-TF-features: save pre-computed ChromVAR parameters in colData
   colData(experiments(maeTest)$siteFeat)$ChromVAR_expectations <- NULL
   colData(experiments(maeTest)$siteFeat)$ChromVAR_sub_ind <- NULL
   colData(experiments(maeTest)$siteFeat)$ChromVAR_background_peaks <- NULL
-  maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
-                               whichCol="OnlyTrain",
-                               features=c("Inserts", "ChromVAR_Scores"))
+  maeTest <- suppressSdWarning(contextTfFeatures, list(mae=maeTest,
+                                                       tfName="CTCF",
+                                                       whichCol="OnlyTrain",
+                                                       features=c("Inserts",
+                                                            "ChromVAR_Scores")))
 
   expect_contains(colnames(colData(experiments(maeTest)$siteFeat)),
                   c("ChromVAR_sub_ind", "ChromVAR_expectations",
@@ -49,12 +67,15 @@ test_that("Context-TF-features: message that pre-computed parameters/features ar
   colData(experiments(maeTest2)$siteFeat)$ChromVAR_expectations <- NULL
   colData(experiments(maeTest2)$siteFeat)$ChromVAR_sub_ind <- NULL
   colData(experiments(maeTest2)$siteFeat)$ChromVAR_background_peaks <- NULL
-  maeTest2 <- contextTfFeatures(maeTest2, tfName="CTCF",
-                               whichCol="All",
-                               addLabels=FALSE,
-                               features=c("Inserts",
-                                          "ChromVAR_Scores",
-                                          "MDS_Context", "Max_ATAC_Signal"))
+
+  maeTest2 <- suppressSdWarning(contextTfFeatures, list(mae=maeTest2,
+                                                        tfName="CTCF",
+                                                        whichCol="All",
+                                                        addLabels=FALSE,
+                                                        features=c("Inserts",
+                                                            "ChromVAR_Scores",
+                                                            "MDS_Context",
+                                                            "Max_ATAC_Signal")))
 
   msgs <- list()
   withCallingHandlers(contextTfFeatures(maeTest2, tfName="CTCF",
@@ -78,9 +99,12 @@ test_that("Context-TF-features: message that pre-computed parameters/features ar
 test_that("Context-TF-features: save pre-computed ChromVAR-Activity and ATAC association in rowData of tfFeat", {
   experiments(maeTest)$contextTfFeat <- NULL
   tfName <- "CTCF"
-  maeTest <- contextTfFeatures(maeTest, tfName=tfName,
-                               whichCol="OnlyTrain",
-                               features=c("Inserts", "ChromVAR_Scores"))
+
+  maeTest <- suppressSdWarning(contextTfFeatures, list(mae=maeTest,
+                                                       tfName=tfName,
+                                                       whichCol="OnlyTrain",
+                                                       features=c("Inserts",
+                                                            "ChromVAR_Scores")))
 
   # expected column names
   expCols <- paste("ChromVAR_ATAC",

@@ -66,7 +66,7 @@ test_that("Object construction: Motif scores in column data", {
   cd <- cd[order(match(cd$motif,names(exp))),,drop=FALSE]
   obs <- cd$max_score
 
-  expect_equivalent(obs, exp)
+  expect_equal(obs, exp, ignore_attr = TRUE)
 })
 
 test_that("Object construction: Saving as hdf5", {

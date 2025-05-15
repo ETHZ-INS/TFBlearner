@@ -1,3 +1,16 @@
+.convertToMatrix <- function(mat){
+  colNames <- colnames(mat)
+  if(inherits(mat, what="DelayedMatrix")){
+    # to avoid warning message
+    mat <- Matrix::Matrix(mat, ncol=ncol(mat))
+  }
+  else if(is.matrix(mat)){
+    mat <- Matrix::Matrix(mat)
+  }
+  colnames(mat) <- colNames
+  return(mat)
+}
+
 .getType <- function(atacFrag, cuts=c("nucleosome_free"=0,
                                       "mononucleosome"=120,
                                       "dinucleosome"=300,

@@ -426,8 +426,7 @@ tfFeatures <- function(mae,
   coords <- rowRanges(experiments(mae)$Motifs)
 
   # assay-matrices
-  atacMat <- Matrix::Matrix(assays(mae[["ATAC"]])$total_overlaps,
-                            ncol=ncol(mae[["ATAC"]]))
+  atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
   colnames(atacMat) <- colnames(mae[["ATAC"]])
   whichCol <- which(mae[["ChIP"]]$tf_name!=tfName)
   chIPMat <- as(assays(mae[["ChIP"]])$peaks[,whichCol],"CsparseMatrix")
@@ -548,8 +547,7 @@ tfFeatures <- function(mae,
     tfCols <- intersect(chIPCols[!(chIPCols %in% isTesting)], tfCols)
 
     if(length(tfCols)>0){
-      labels <- Matrix::Matrix(assays(mae[["ChIP"]])$peaks[,tfCols,drop=FALSE],
-                               ncol=length(tfCols))
+      labels <- .convertToMatrix(assays(mae[["ChIP"]])$peaks[,tfCols,drop=FALSE])
     }
     else{
       # TODO: motif naming
