@@ -14,6 +14,7 @@ getInsertionProfiles(
   symmetric = FALSE,
   stranded = FALSE,
   subSample = NULL,
+  simplified = FALSE,
   BPPARAM = SerialParam()
 )
 }
@@ -40,11 +41,17 @@ Needs to contain coordinate (chr/seqnames, start, end) columns and weight column
 \item{subSample}{If fragments should be sub-sampled for speed-up.
 Default is no sub-sampling, if a number is provided the fragments of each file/object provided will be subsampled to that number.}
 
+\item{simplified}{If return should be simplified and be provided as a \link[SummarizedExperiment:RangedSummarizedExperiment-class]{SummarizedExperiment::RangedSummarizedExperiment} object.}
+
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bpmapply]{BiocParallel::bpmapply()}}.}
 }
 \value{
-\link[data.table:data.table]{data.table::data.table} containing insertion counts within and in margins around motif matches and weighted insertion counts in case
+If \code{simplified=TRUE} a \link[data.table:data.table]{data.table::data.table} containing insertion counts within and in margins around motif matches and weighted insertion counts in case
 an insertion profile is provided or if \code{calcProfile=TRUE}.
+If \code{calcProfile=TRUE} also a footprint profile around the motif matches is returned, containing a weight ("w") column corresponding to relative insertion
+frequency at the respective position relative to the motif center ("rel_pos").
+If \code{simplified=FALSE} a \link[SummarizedExperiment:RangedSummarizedExperiment-class]{SummarizedExperiment::RangedSummarizedExperiment} object is returned with ranges corresponding to the \code{motifRanges} provided as an input.
+Assays correspond to the different insertion counts computed, columns will correspond to the samples. If \code{calcProfile=TRUE} the profiles will be saved in the metadata.
 }
 \description{
 Counts Tn5 insertions around provided motif-matches.

@@ -83,11 +83,14 @@
 #' @param stranded If insertion footprint profiles should be computed taking strandedness of fragments into account.
 #' @param subSample If fragments should be sub-sampled for speed-up.
 #' Default is no sub-sampling, if a number is provided the fragments of each file/object provided will be subsampled to that number.
+#' @param simplified If return should be simplified and be provided as a [SummarizedExperiment::RangedSummarizedExperiment-class] object.
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
-#' @return [data.table::data.table] containing insertion counts within and in margins around motif matches and weighted insertion counts in case
+#' @return If `simplified=TRUE` a [data.table::data.table] containing insertion counts within and in margins around motif matches and weighted insertion counts in case
 #' an insertion profile is provided or if `calcProfile=TRUE`.
-# If `calcProfile=TRUE` also a footprint profile around the motif matches is returned, containing a weight ("w") column corresponding to relative insertion
-# frequency at the respective position relative to the motif center ("rel_pos").
+#' If `calcProfile=TRUE` also a footprint profile around the motif matches is returned, containing a weight ("w") column corresponding to relative insertion
+#' frequency at the respective position relative to the motif center ("rel_pos").
+#' If `simplified=FALSE` a [SummarizedExperiment::RangedSummarizedExperiment-class] object is returned with ranges corresponding to the `motifRanges` provided as an input.
+#' Assays correspond to the different insertion counts computed, columns will correspond to the samples. If `calcProfile=TRUE` the profiles will be saved in the metadata.
 #' @import data.table
 #' @importFrom GenomicRanges findOverlaps GPos resize GRanges
 #' @importClassesFrom GenomicRanges GRanges
@@ -101,6 +104,7 @@ getInsertionProfiles <- function(atacData,
                                  symmetric=FALSE,
                                  stranded=FALSE,
                                  subSample=NULL,
+                                 simplified=FALSE,
                                  BPPARAM=SerialParam()){
 
   # prep motif data
@@ -286,5 +290,28 @@ getInsertionProfiles <- function(atacData,
   if("score" %in% colnames(motifScores)){
     setnames(motifScores, c("score"), c("weighted_insert_counts"))}
 
-  return(list(motifScores=motifScores, profile=atacProfiles))
+  if(simplified){
+    scoreCols <- intersect(c("insert_counts", "weighted_insert_counts", "chi2"),
+                           colnames(motifScores))
+    assayMats <- lapply(scoreCols, function(scoreCol){
+      ms <- motifScores[,.(score=sum(get(scoreCol))), by=.(motif_id, sample,
+                                                           motif_match_id,
+                                                           chr, start, end)]
+      am <- genomicRangesMapping(motifRanges, assayTable=ms,
+                                 byCols="sample",
+                                 scoreCol="score",
+                                 aggregationFun=max,
+                                 type="equal", #otw this does not work in case motif matches of different TFs are overlapping
+                                 BPPARAM=BPPARAM)})
+
+    names(assayMats) <- scoreCols
+    res <- SummarizedExperiment(rowRanges=motifRanges,
+                                assays=assayMats,
+                                metadata=list(profiles=atacProfiles))
+  }
+  else{
+    res <- list(motifScores=motifScores, profile=atacProfiles)
+  }
+
+  return(res)
 }
