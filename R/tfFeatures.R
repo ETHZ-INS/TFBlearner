@@ -67,27 +67,6 @@
   return(mat)
 }
 
-.toSparseMatrix <- function(mat, threshold=NULL, binarize=TRUE){
-  if(is.null(threshold)) threshold <- 0
-  inds <- DelayedArray::blockApply(mat, function(block, binarize, threshold){
-    ind <- which(as.logical(block>threshold))
-    if(binarize){
-      x <- rep(1, length(ind))}
-    else{
-      x <- block[ind]}
-    indDt <- data.table(i=ind, x=x)
-  }, grid=colAutoGrid(mat, ncol=1),
-  binarize=binarize,
-  threshold=threshold)
-
-  indDt <- rbindlist(inds, idcol="j")
-  mat <- Matrix::sparseMatrix(i=indDt$i, j=indDt$j, x=indDt$x)
-
-  gc()
-
-  return(mat)
-}
-
 .aggregate <- function(chIPMat,
                        threshold=NULL,
                        aggFun=function(x){sum(x)/length(x)},
