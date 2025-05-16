@@ -247,6 +247,7 @@ genomicRangesMapping <- function(refRanges,
                                          j=overlapTable$col_width,
                                          dims=c(nRefs, nColsWidth),
                                          x=overlapTable$scoreCol)
+    overlapTable <- Matrix::Matrix(overlapTable)
 
     colnames(overlapTable) <- colsWidth
   }
