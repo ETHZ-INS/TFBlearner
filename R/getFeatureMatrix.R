@@ -326,6 +326,7 @@ getFeatureMatrix <- function(mae,
      addLabels, convertInteger)
 
   featMats <- Reduce("rbind", featMats[-1], featMats[[1]])
+  featMats <- Matrix::Matrix(featMats)
   colnames(featMats) <- make.names(colnames(featMats), unique=TRUE)
 
   if(saveHdf5){
@@ -337,7 +338,8 @@ getFeatureMatrix <- function(mae,
                      name="feature_matrix")
       h5closeAll()
     }
-    featMats <- HDF5Array(hdf5FileName, "feature_matrix", as.sparse=TRUE)
+    asSparse<- fifelse(is(featMats, "CsparseMatrix"), TRUE, FALSE)
+    featMats <- HDF5Array(hdf5FileName, "feature_matrix", as.sparse=asSparse)
     colnames(featMats) <- featNames
   }
 
