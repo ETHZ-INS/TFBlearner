@@ -247,15 +247,16 @@ contextTfFeatures <- function(mae,
                                  paste(tfName, scoreCol, "margin", sep="_"),
                                  paste(tfName, scoreCol, "within", sep="_"))
       if(scoreCol=="chi2"){
-        feats <- Matrix::Matrix(rowSums(feats), ncol=1)
-        colnames(feats) <- "chi2_dev_profile"
+        feats <- list(Matrix::Matrix(rowSums(feats), ncol=1))
+        names(feats) <- "chi2_dev_profile"
+      }else{
+        namesFeats <- colnames(feats)
+        feats <- lapply(colnames(feats), function(col) feats[,col,drop=FALSE])
+        names(feats) <- namesFeats
       }
       feats
     })
-    insFeats <- Reduce("cbind", insFeats[-1], insFeats[[1]])
-    namesFeats <- colnames(insFeats)
-    insFeats <- lapply(namesFeats, function(col) insFeats[,col,drop=FALSE])
-    names(insFeats) <- namesFeats
+    insFeats <- do.call(c, insFeats)
 
     if(!is.null(labels)){
       insFeats <- append(insFeats, list("label"=Matrix::Matrix(labels)))
