@@ -408,7 +408,7 @@ contextTfFeatures <- function(mae,
         if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
           atacMat <-.convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
         }
-        atacMat <- .minMaxNormalization(atacMat, BPPARAM=BPPARAM)
+        atacMat <- .minMaxNormalization(atacMat)
         maxFeat <- Matrix::Matrix(apply(atacMat,1, max), ncol=1)
         colnames(maxFeat) <- "Max_ATAC_Signal"
         maxFeat <- list(maxFeat)

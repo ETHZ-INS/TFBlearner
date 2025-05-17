@@ -13,45 +13,17 @@
   return(mat)
 }
 
-# overhead of using multiple cores is too big
-.robustNormalization <- function(mat, BPPARAM=SerialParam()){
-  scaledMats <- BiocParallel::bplapply(1:ncol(mat),
-                                       function(j, mat){
-    q.25 <- quantile(mat[,j], probs=0.25)
-    q.75 <- quantile(mat[,j], probs=0.75)
-    med <- median(mat[,j])
-    iqr <- (q.75-q.25)
-    if(iqr==0) iqr <- 1
-    scaledMat <- as.matrix((mat[, j] - med) / iqr, ncol=1)
-  }, mat=mat, BPPARAM=BPPARAM)
-
-  scaledMats <- Reduce("cbind", scaledMats[-1], scaledMats[[1]])
-  scaledMats <- Matrix::Matrix(scaledMats)
-  colnames(scaledMats) <- colnames(mat)
-  return(scaledMats)
+.robustNormalization <- function(mat){
+   qs <- apply(mat,2, quantile, c(0.25,0.5,0.75))
+   Matrix::Matrix(t(t(sweep(mat, 2, qs[2,], "-"))/(qs[3,]-qs[1,])))
 }
-
-# overhead of using multiple cores is too big
-.minMaxNormalization <- function(mat, BPPARAM=SerialParam()){
-  scaledMats <- BiocParallel::bplapply(1:ncol(mat),
-                                       function(j, mat){
-      colMin <- min(mat[,j])
-      colMax <- quantile(mat[,j], probs=0.9)
-      colRanges <- colMax - colMin
-      colRanges[colRanges == 0] <- 1
-
-      scaledMat <- as.matrix(mat[, j] /colRanges, ncol=1)},
-      mat=mat, BPPARAM=BPPARAM)
-
-  scaledMats <- Reduce("cbind", scaledMats[-1], scaledMats[[1]])
-  scaledMats <- Matrix::Matrix(scaledMats)
-  colnames(scaledMats) <- colnames(mat)
-  return(scaledMats)
+.minMaxNormalization <- function(mat){
+  qs <- apply(mat,2, quantile, c(0.0,0.9))
+  Matrix::Matrix(t(t(mat)/(qs[2,]-qs[1,])))
 }
 
 .contextNormalization <- function(mat, method=c("robust", "min-max",
-                                                "column", "none"),
-                                  BPPARAM=SerialParam()){
+                                                "column", "none")){
 
   method <- match.arg(method, choices=c("robust", "min-max",
                                         "column", "none"))
@@ -59,10 +31,10 @@
     normMat <- Matrix::t(Matrix::t(mat)/colSums(mat))
   }
   else if(method=="min-max"){
-    normMat <- .minMaxNormalization(mat, BPPARAM=BPPARAM)
+    normMat <- .minMaxNormalization(mat)
   }
   else if(method=="robust"){
-    normMat <- .robustNormalization(mat, BPPARAM=BPPARAM)
+    normMat <- .robustNormalization(mat)
   }
   else if(method=="none")
   {
