@@ -11,10 +11,11 @@ contextTfFeatures(
   whichCol = c("All", "OnlyTrain", "Col"),
   colSel = NULL,
   features = c("Inserts", "Weighted_Inserts", "ChromVAR_Scores",
-    "Cofactor_ChromVAR_Scores", "MDS_Context", "Max_ATAC_Signal"),
+    "Cofactor_ChromVAR_Scores", "MDS_Context", "Max_ATAC_Signal", "ATAC_Variance"),
   annoCol = "context",
   insertionProfile = NULL,
   aggregationFun = sum,
+  nVarSites = 1e+05,
   seed = 42,
   BPPARAM = SerialParam(),
   ...
@@ -34,7 +35,7 @@ or only for some specific cellular contexts (\code{"Col"}) specified in \code{co
 
 \item{colSel}{If \code{whichCol="colSel"}, name of the cellular context to compute the features for.}
 
-\item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores", "MDS_Context", "Max_ATAC_Signal".
+\item{features}{Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores", "MDS_Context", "Max_ATAC_Signal", "ATAC_Variance".
 "Insert" features will always be computed.
 See \link{listFeatures} for an overview of the features.}
 
@@ -45,6 +46,8 @@ Needs to contain coordinate (chr/seqnames, start, end) columns and weight column
 
 \item{aggregationFun}{function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 provided \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object.}
+
+\item{nVarSites}{Number of sites with highest ATAC-signal variance to include for ChromVAR deviation scores and MDS projections.}
 
 \item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
 

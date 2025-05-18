@@ -20,7 +20,6 @@
   if(is.null(subInd))
   {
     nonZero <- which(Matrix::rowSums(atacMat)>0)
-
     nSub <- min(1e4, length(nonZero))
     subInd <- sample(nonZero, nSub)
   }
@@ -66,7 +65,6 @@
   if(!is.null(subSample)){
     atacMat <- atacMat[sample(1:nrow(atacMat), min(subSample, nrow(atacMat))), ]
   }
-
   atacMat <- t(atacMat)
 
   # Taken from stackexchange:
@@ -79,6 +77,21 @@
   rownames(mdsRes) <- rownames(atacMat)
 
   return(mdsRes)
+}
+
+.getVariableSites <- function(atacMat){
+  atacNormMat <- .minMaxNormalization(atacMat, useMax=TRUE)
+  # entropy <- function(x){
+  #   b <- cut(x, breaks=10, labels=FALSE)
+  #   p <- table(b)/length(b)
+  #   p <- -sum(log(p)*p)
+  # }
+  #ent <- apply(atacNormMat, 1, entropy)
+
+  rowVars <- apply(atacNormMat, 1, var)
+  varMat <- Matrix::Matrix(rowVars, ncol=1)
+  colnames(varMat) <- "ATAC_Variance"
+  return(varMat)
 }
 
 #' Cellular context and transcription factor-specific features
@@ -95,7 +108,7 @@
 #' @param whichCol Should features be calculated for all cellular contexts (`"All"`), only the training data (`"OnlyTrain"`)
 #' or only for some specific cellular contexts (`"Col"`) specified in `colSel`.
 #' @param colSel If `whichCol="colSel"`, name of the cellular context to compute the features for.
-#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores", "MDS_Context", "Max_ATAC_Signal".
+#' @param features Names of features to be added. Can be all or some of "Inserts", "Weighted_Inserts", "ChromVAR_Scores", "Cofactor_ChromVAR_Scores", "MDS_Context", "Max_ATAC_Signal", "ATAC_Variance".
 #' "Insert" features will always be computed.
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param annoCol Name of column indicating cellular contexts in colData.
@@ -103,6 +116,7 @@
 #' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
 #' @param aggregationFun function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 #' provided [MultiAssayExperiment::MultiAssayExperiment-class] object.
+#' @param nVarSites Number of sites with highest ATAC-signal variance to include for ChromVAR deviation scores and MDS projections.
 #' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()] & [BiocParallel::bplapply()].
 #' @param ... Arguments passed to [TFBlearner::getInsertionProfiles] and [chromVAR::getBackgroundPeaks].
@@ -122,10 +136,12 @@ contextTfFeatures <- function(mae,
                                          "ChromVAR_Scores",
                                          "Cofactor_ChromVAR_Scores",
                                          "MDS_Context",
-                                         "Max_ATAC_Signal"),
+                                         "Max_ATAC_Signal",
+                                         "ATAC_Variance"),
                               annoCol="context",
                               insertionProfile=NULL,
                               aggregationFun=sum,
+                              nVarSites=1e5,
                               seed=42,
                               BPPARAM=SerialParam(),
                               ...){
@@ -159,11 +175,14 @@ contextTfFeatures <- function(mae,
   }
 
   coords <- rowRanges(experiments(maeSub)$Motifs)
+  nVarSites <- min(nVarSites, length(coords))
+
   features <- match.arg(features, choices=c("Inserts", "Weighted_Inserts",
                                             "ChromVAR_Scores",
                                             "Cofactor_ChromVAR_Scores",
                                             "MDS_Context",
-                                            "Max_ATAC_Signal"),
+                                            "Max_ATAC_Signal",
+                                            "ATAC_Variance"),
                         several.ok=TRUE)
   features <- unique(c(features, "Inserts"))
 
@@ -272,10 +291,39 @@ contextTfFeatures <- function(mae,
      SIMPLIFY=FALSE)
   names(feats) <- contexts
 
+  if("ATAC_Variance" %in% features | "ChromVAR_Scores" %in% features |
+     "MDS_Context" %in% features){
+    message("Get site-specific variance in ATAC-signal")
+    if(!("ATAC_Variance" %in% colnames(rowData(mae[["ATAC"]])))){
+      atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
+      varFeat <- .getVariableSites(atacMat)
+      rs <- Matrix::rowSums(atacMat)
+
+      topVarSites <- setdiff(order(-varFeat[,1])[1:nVarSites], which(rs==0))
+      colData(mae[["siteFeat"]])$top_var_sites <- list(topVarSites)
+      varFeat <- list(varFeat)
+    }
+    else{
+      message("Using pre-computed variances")
+      varFeat <- Matrix::Matrix(rowData(mae[["ATAC"]])[,"ATAC_Variance"],ncol=1)
+      topVarSites <- unlist(colData(mae[["siteFeat"]])$top_var_sites)
+      colnames(varFeat) <- "ATAC_Variance"
+      varFeat <- list(varFeat)
+    }
+    names(varFeat) <- "ATAC_Variance"
+  }
+
+  if("ATAC_Variance" %in% features){
+    feats <- lapply(contexts, function(context){
+      c(feats[[context]], varFeat)
+    })
+    names(feats) <- contexts
+  }
+
   if("ChromVAR_Scores" %in% features){
     message("Get chromVAR features")
 
-    subInd <- unlist(colData(maeSub[["siteFeat"]])$ChromVAR_sub_ind)
+    subInd <- topVarSites
     expectations <- unlist(colData(maeSub[["siteFeat"]])$ChromVAR_expectations)
     bgPeaks <- colData(maeSub[["siteFeat"]])$ChromVAR_background_peaks[[1]]
 
@@ -283,9 +331,8 @@ contextTfFeatures <- function(mae,
      message("ChromVAR features have been pre-computed")
      atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps[,contexts])
     }
-    else{
-      # full matrix needed for expectation & background calculation
-      atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
+    else if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
+      atacMat <-.convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
     }
 
     # get relevant motif columns
@@ -379,7 +426,7 @@ contextTfFeatures <- function(mae,
           atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
         }
 
-        mdsDim <- .getContextProjection(atacMat)
+        mdsDim <- .getContextProjection(atacMat[topVarSites,], subSample=NULL)
         mdsDimSub <- as.matrix(mdsDim[contexts,])
       }
       else{
@@ -446,7 +493,6 @@ contextTfFeatures <- function(mae,
        "Cofactor_ChromVAR_Scores" %in% features){
 
       # add chromVAR parameters to object
-      colData(mae[["siteFeat"]])$ChromVAR_sub_ind <- list(res$sub_ind)
       colData(mae[["siteFeat"]])$ChromVAR_expectations <- list(res$expectations)
       colData(mae[["siteFeat"]])$ChromVAR_background_peaks <- list(res$background_peaks)
 
@@ -475,6 +521,20 @@ contextTfFeatures <- function(mae,
       }
       rowData(mae[["ATAC"]]) <- rowAtac
     }
+
+  if("ATAC_Variance" %in% features){
+    rowAtac <- rowData(mae[["ATAC"]])
+    rowAtac <- rowAtac[,setdiff(colnames(rowAtac), "ATAC_Variance")]
+    varFeat <- as.data.frame(as.matrix(varFeat[[1]]))
+    colnames(varFeat) <- "ATAC_Variance"
+
+    if(!is.null(rowAtac)){
+      rowAtac <- cbind(rowAtac, varFeat)}
+    else{
+      rowAtac <- varFeat
+    }
+    rowData(mae[["ATAC"]]) <- rowAtac
+  }
 
   return(mae)
 }

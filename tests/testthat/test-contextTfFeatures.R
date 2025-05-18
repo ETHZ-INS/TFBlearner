@@ -50,7 +50,7 @@ test_that("Context-TF-features: save pre-computed ChromVAR parameters in colData
   experiments(maeTest)$contextTfFeat <- NULL
   colData(experiments(maeTest)$siteFeat)$ChromVAR_expectations <- NULL
   colData(experiments(maeTest)$siteFeat)$ChromVAR_sub_ind <- NULL
-  colData(experiments(maeTest)$siteFeat)$ChromVAR_background_peaks <- NULL
+  colData(experiments(maeTest)$siteFeat)$top_var_sites <- NULL
   maeTest <- suppressSdWarning(contextTfFeatures, list(mae=maeTest,
                                                        tfName="CTCF",
                                                        whichCol="OnlyTrain",
@@ -58,14 +58,15 @@ test_that("Context-TF-features: save pre-computed ChromVAR parameters in colData
                                                             "ChromVAR_Scores")))
 
   expect_contains(colnames(colData(experiments(maeTest)$siteFeat)),
-                  c("ChromVAR_sub_ind", "ChromVAR_expectations",
-                    "ChromVAR_background_peaks"))
+                  c("ChromVAR_expectations",
+                    "ChromVAR_background_peaks",
+                    "top_var_sites"))
 })
 
 test_that("Context-TF-features: message that pre-computed parameters/features are used", {
   experiments(maeTest2)$contextTfFeat <- NULL
   colData(experiments(maeTest2)$siteFeat)$ChromVAR_expectations <- NULL
-  colData(experiments(maeTest2)$siteFeat)$ChromVAR_sub_ind <- NULL
+  colData(experiments(maeTest2)$siteFeat)$top_var_sites <- NULL
   colData(experiments(maeTest2)$siteFeat)$ChromVAR_background_peaks <- NULL
 
   maeTest2 <- suppressSdWarning(contextTfFeatures, list(mae=maeTest2,
@@ -140,6 +141,20 @@ test_that("Context-TF-features: save pre-computed maximal ATAC-signal in rowData
   # expected column names
   expect_contains(colnames(rowData(experiments(maeTest)$ATAC)),
                   c("Max_ATAC_Signal"))
+})
+
+test_that("Context-TF-features: save pre-computed ATAC-signal variance in rowData of ATAC", {
+  experiments(maeTest)$contextTfFeat <- NULL
+  tfName <- "CTCF"
+  maeTest <- contextTfFeatures(maeTest, tfName=tfName,
+                               whichCol="All",
+                               addLabels=FALSE,
+                               features=c("Inserts",
+                                          "ATAC_Variance"))
+
+  # expected column names
+  expect_contains(colnames(rowData(experiments(maeTest)$ATAC)),
+                  c("ATAC_Variance"))
 })
 
 # add dimensionality checks and mapping checks

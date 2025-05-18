@@ -17,8 +17,14 @@
    qs <- apply(mat,2, quantile, c(0.25,0.5,0.75))
    Matrix::Matrix(t(t(sweep(mat, 2, qs[2,], "-"))/(qs[3,]-qs[1,])))
 }
-.minMaxNormalization <- function(mat){
-  qs <- apply(mat,2, quantile, c(0.0,0.9))
+
+.minMaxNormalization <- function(mat, useMax=FALSE){
+  if(useMax){
+    qs <- apply(mat,2, quantile, c(0.0,1.0))
+  }
+  else{
+    qs <- apply(mat,2, quantile, c(0.0,0.9))
+  }
   Matrix::Matrix(t(t(mat)/(qs[2,]-qs[1,])))
 }
 
