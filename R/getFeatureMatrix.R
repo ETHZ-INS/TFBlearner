@@ -72,7 +72,8 @@
 #' @param outDir Directory to save HDF5 file to.
 #' @param prefix Prefix added to filename of feature matrix in case saved as HDF5 file.
 #' @param annoCol Name of column indicating cellular contexts in colData.
-#' @return Feature Matrix either as [Matrix::Matrix-class] or as [HDF5Array::HDF5Array-class] (if `saveHdf5=TRUE`).
+#' @return [SummarizedExperiment::RangedSummarizedExperiment-class] object with the feature matrix stored in the assays.
+#' Assay is either saved as [Matrix::Matrix-class] or as [HDF5Array::HDF5Array-class] (if `saveHdf5=TRUE`).
 #' @import Matrix
 #' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close H5garbage_collect
 #' @importClassesFrom HDF5Array HDF5Array
@@ -149,6 +150,7 @@ getFeatureMatrix <- function(mae,
   message("Attaching cellular context-specific features")
   seTfContext <- mae[["contextTfFeat"]][, paste(contexts, tfName, sep="_")]
   seAtac <- mae[["ATAC"]][,contexts]
+  coords <- rowRanges(seAtac)
 
   # get the number of features
   contextAssayNames <- c(names(assays(mae[["contextTfFeat"]])),
@@ -255,8 +257,8 @@ getFeatureMatrix <- function(mae,
     scaledSig <- .minMaxNormalization(featsContextMat[,countCols, drop=FALSE])
     maxSig <- featsNormedMat[,"contextTfFeat_Max_ATAC_Signal", drop=TRUE]
     maxScaledMat <- scaledSig / pmax(maxSig, 1e-4)
-    colnames(maxScaledMat) <- paste("maxATACscaled",
-                                    colnames(maxScaledMat), sep="_")
+    colnames(maxScaledMat) <- paste(colnames(maxScaledMat),
+                                    "maxATACscaled", sep="_")
     }
     else{
       maxScaledMat <- NULL
@@ -321,10 +323,12 @@ getFeatureMatrix <- function(mae,
     colnames(featMats) <- featNames
   }
 
-  # add attributes of feature matrix
-  attr(featMats, "transcription_factor") <- tfName
-  attr(featMats, "cellular_contexts") <- contexts
-  attr(featMats, "cofactors") <- tfCofactors
+  #TODO: add colData with feature-classes & information
+  fmSe <- SummarizedExperiment(assays=list("features"=featMats),
+                               rowRanges=rep(coords, length(contexts)))
+  metadata(fmSe)$transcription_factor <- tfName
+  metadata(fmSe)$cofactors <- tfCofactors
+  metadata(fmSe)$cellular_contexts <- contexts
 
-  return(featMats)
+  return(fmSe)
 }

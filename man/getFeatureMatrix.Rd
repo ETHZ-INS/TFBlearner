@@ -48,7 +48,8 @@ Not recommend to be used, might lower predictive performance due to loss of info
 \item{annoCol}{Name of column indicating cellular contexts in colData.}
 }
 \value{
-Feature Matrix either as \link[Matrix:Matrix-class]{Matrix::Matrix} or as \link[HDF5Array:HDF5Array-class]{HDF5Array::HDF5Array} (if \code{saveHdf5=TRUE}).
+\link[SummarizedExperiment:RangedSummarizedExperiment-class]{SummarizedExperiment::RangedSummarizedExperiment} object with the feature matrix stored in the assays.
+Assay is either saved as \link[Matrix:Matrix-class]{Matrix::Matrix} or as \link[HDF5Array:HDF5Array-class]{HDF5Array::HDF5Array} (if \code{saveHdf5=TRUE}).
 }
 \description{
 Compiles feature matrix based on pre-computed features stored in experiments of the provided \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object.

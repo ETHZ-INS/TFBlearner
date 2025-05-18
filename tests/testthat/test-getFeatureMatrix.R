@@ -4,7 +4,7 @@ test_that("Feature Matrix: Basic functionality", {
                          saveHdf5=FALSE)
   contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
 
-  expect_s4_class(fm, "CsparseMatrix")
+  expect_s4_class(assays(fm)$features, "CsparseMatrix")
   expect_equal(nrow(fm), length(contexts)*length(example_coords))
 })
 
@@ -14,7 +14,7 @@ test_that("Feature Matrix: Basic functionality - HDF5", {
                          saveHdf5=FALSE)
   contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
 
-  expect_s4_class(fm, "CsparseMatrix")
+  expect_s4_class(assays(fm)$features, "CsparseMatrix")
   expect_equal(nrow(fm), length(contexts)*length(example_coords))
 })
 
@@ -30,7 +30,7 @@ test_that("Feature Matrix: Basic functionality - Saving to HDF5", {
   fmFilePath <- file.path(outDir,
                           paste(prefix, "feature_matrix", "CTCF", sep="_"))
   fmFilePath <- paste0(fmFilePath, ".h5")
-  expect_s4_class(fm, "DelayedMatrix")
+  expect_s4_class(assays(fm)$features, "DelayedMatrix")
   expect_true(file.exists(fmFilePath))
   file.remove(fmFilePath)
 })
@@ -46,7 +46,9 @@ test_that("Feature Matrix: Correct context selection - only for training context
   trainContexts <- setdiff(contexts, testContext)
 
   expect_equal(nrow(fm), length(trainContexts)*length(example_coords))
-  expect_equal(attributes(fm)$cellular_contexts, trainContexts)
+  expect_equal(rowRanges(fm),
+               rep(rowRanges(maeTest[["ATAC"]]), length(trainContexts)))
+  expect_equal(metadata(fm)$cellular_contexts, trainContexts)
 })
 
 test_that("Feature Matrix: Correct context selection - only for specified context", {
@@ -57,7 +59,8 @@ test_that("Feature Matrix: Correct context selection - only for specified contex
                          saveHdf5=FALSE)
 
   expect_equal(nrow(fm), length(example_coords))
-  expect_equal(attributes(fm)$cellular_contexts, "A549")
+  expect_equal(rowRanges(fm), rowRanges(maeTest[["ATAC"]]))
+  expect_equal(metadata(fm)$cellular_contexts, "A549")
 })
 
 test_that("Feature Matrix: Column names corresponding to R conventions", {
