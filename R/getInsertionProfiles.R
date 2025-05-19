@@ -286,12 +286,12 @@ getInsertionProfiles <- function(atacData,
                                  c("start", "end", "chr"), with=FALSE])
 
   if("tot_count" %in% colnames(motifScores)){
-  setnames(motifScores, c("tot_count"), c("insert_counts"))}
+  setnames(motifScores, c("tot_count"), insertFeatName)}
   if("score" %in% colnames(motifScores)){
-    setnames(motifScores, c("score"), c("weighted_insert_counts"))}
+    setnames(motifScores, c("score", "chi2"), c(wInsertsFeatName, devFeatName))}
 
   if(simplified){
-    scoreCols <- intersect(c("insert_counts", "weighted_insert_counts", "chi2"),
+    scoreCols <- intersect(c(insertFeatName, wInsertsFeatName, devFeatName),
                            colnames(motifScores))
     assayMats <- lapply(scoreCols, function(scoreCol){
       ms <- motifScores[,.(score=sum(get(scoreCol))), by=.(motif_id, sample,
@@ -310,7 +310,8 @@ getInsertionProfiles <- function(atacData,
                                 metadata=list(profiles=atacProfiles))
   }
   else{
-    res <- list(motifScores=motifScores, profile=atacProfiles)
+    res <- list(motifScores, atacProfiles)
+    names(res) <- c(retScoresName, reProfileName)
   }
 
   return(res)

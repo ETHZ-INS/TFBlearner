@@ -119,7 +119,7 @@
       nmfRes <- suppressMessages(RcppML::nmf(chIPMat, k=nPatterns,
                                              L1=L1, seed=seed))
       fm <- nmfRes$w
-      colnames(fm) <- paste("pattern", "tf", 1:ncol(fm), sep="_")
+      colnames(fm) <- paste(tfPatternPrefix, 1:ncol(fm), sep="_")
     }
     else{
       aggMatTf <- .aggregate(chIPMat, aggVar="tf", aggFun=aggFun)
@@ -135,9 +135,9 @@
       gc()
 
       wTf <- nmfTfRes$w
-      colnames(wTf) <- paste("pattern", "tf", 1:ncol(wTf), sep="_")
+      colnames(wTf) <- paste(tfPatternPrefix, 1:ncol(wTf), sep="_")
       wCon <- nmfConRes$w
-      colnames(wCon) <- paste("pattern", "context", 1:ncol(wCon), sep="_")
+      colnames(wCon) <- paste(contextPatternPrefix, 1:ncol(wCon), sep="_")
       weights <- list(wTf, wCon)
 
       #eventually add coefficients H
@@ -186,7 +186,7 @@
 .getCrowdedness <- function(chIPMat){
   aggMat <- .aggregate(chIPMat, aggVar="tf")
   cScoreMat <- Matrix::Matrix(Matrix::rowSums(aggMat), ncol=1)
-  colnames(cScoreMat) <- "c_score"
+  colnames(cScoreMat) <- cScoreFeatName
 
   return(cScoreMat)
 }
@@ -250,9 +250,9 @@
     cofactBindings <- lapply(tfCofactors, function(tfCol){
       cofactBinding <- Matrix::Matrix(
         Matrix::rowMeans(chIPMat[,tfCols==tfCol, drop=FALSE]), ncol=1)
-      colnames(cofactBinding) <- paste("cofactor_binding", tfCol, sep="_")
+      colnames(cofactBinding) <- paste(cofactorBindingPrefix, tfCol, sep="_")
       cofactBinding})
-    names(cofactBindings) <- paste("cofactor_binding", namesSub, sep="_")
+    names(cofactBindings) <- paste(cofactorBindingPrefix, namesSub, sep="_")
     return(cofactBindings)}
   else{
     return(NULL)
@@ -320,7 +320,7 @@
   atacMat2 <- as(atacMat2, "CsparseMatrix")
 
   pearCor <- cor(Matrix::t(as.matrix(atacMat1)), Matrix::t(as.matrix(atacMat2)))
-  colnames(pearCor) <- paste("Pearson", 1:ncol(pearCor), sep="_")
+  colnames(pearCor) <- paste(assocPearsonPrefix, 1:ncol(pearCor), sep="_")
   pearCor <- Matrix::Matrix(pearCor)
 
   # max-scaling
@@ -332,7 +332,7 @@
   atacBinMat2 <- .binMat(atacScalMat2, threshold=0.3)
 
   cohKappa <- .matrixKappa(atacBinMat1, atacBinMat2)
-  colnames(cohKappa) <- paste("Cohen_Kappa", 1:ncol(cohKappa), sep="_")
+  colnames(cohKappa) <- paste(assocCohenPrefix, 1:ncol(cohKappa), sep="_")
 
   promMat <- cbind(pearCor, cohKappa)
   promMat <- Matrix::Matrix(promMat)
@@ -357,6 +357,7 @@
 #' @param L1 LASSO penalties for lower rank matrices w and h resulting from the NMF decomposition. Vector with two elements for w and h.
 #' Passed to [RcppML::nmf]
 #' @param nMotifs Number of associated motifs to select. Chooses `nMotifs` co-occuring and `nMotifs` mutually exclusive motifs.
+#' @param annoCol Name of column indicating cellular contexts in colData.
 #' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
 #' @param genome [BSgenome::BSgenome-class] to be used.
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] object with an experiment containing transcription factor-specific features added to [MultiAssayExperiment::experiments].
@@ -381,11 +382,12 @@ tfFeatures <- function(mae,
                        nPatterns=50,
                        L1=c(0.5,0.5),
                        nMotifs=10,
+                       annoCol="context",
                        seed=42,
                        genome=BSgenome.Hsapiens.UCSC.hg38){
   set.seed(seed)
 
-  allTfs <- unique(colData(mae[["ChIP"]])$tf_name)
+  allTfs <- unique(colData(mae[[chIPExp]])$tf_name)
   if(!(tfName %in% allTfs)){
     stop(paste("Transcription factor provided -", tfName,
     "- has no corresponding experiments in the provided MultiAssayExperiment
@@ -407,36 +409,37 @@ tfFeatures <- function(mae,
   .checkObject(mae, checkFor="Site")
 
   # reference coordinates
-  coords <- rowRanges(experiments(mae)$Motifs)
+  coords <- rowRanges(mae[[motifExp]])
   if(length(tfCofactors)>0){
-    names(tfCofactors) <- paste("tfCofactor", 1:length(tfCofactors), sep="_")}
+    names(tfCofactors) <- paste(tfCofactorPrefix,1:length(tfCofactors),sep="_")}
 
   # assay-matrices
-  atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
-  colnames(atacMat) <- colnames(mae[["ATAC"]])
-  whichCol <- which(mae[["ChIP"]]$tf_name!=tfName)
-  chIPMat <- as(assays(mae[["ChIP"]])$peaks[,whichCol],"CsparseMatrix")
-  colnames(chIPMat) <- paste(colData(mae[["ChIP"]])[whichCol,c("context")],
-                             colData(mae[["ChIP"]])[whichCol,c("tf_name")],
+  atacMat <- .convertToMatrix(assays(mae[[atacExp]])$total_overlaps)
+  colnames(atacMat) <- colnames(mae[[atacExp]])
+  whichCol <- which(mae[[chIPExp]]$tf_name!=tfName)
+  chIPMat <- as(assays(mae[[chIPExp]])$peaks[,whichCol],"CsparseMatrix")
+  colnames(chIPMat) <- paste(colData(mae[[chIPExp]])[whichCol,annoCol],
+                             colData(mae[[chIPExp]])[whichCol,tfNameCol],
                              sep="_")
 
   # Normalize ATAC-seq data
   message("GC Normalization")
-  gc <- assays(mae[["siteFeat"]])$siteFeat_gc_content[,,drop=TRUE]
+  gc <- assays(mae[[siteFeat]])[[paste(siteFeat,
+                                       gcContFeatName, sep="_")]][,,drop=TRUE]
 
   atacMat <- .GCSmoothQuantile(gc, atacMat, nBins=20, round=TRUE)
-  assays(mae[["ATAC"]], withDimnames=FALSE)$norm_total_overlaps <- atacMat
+  assays(mae[[atacExp]], withDimnames=FALSE)[[normTotalOverlapsName]] <- atacMat
 
-  if("ATAC_promoters" %in% names(experiments(mae))){
+  if(atacPromeExp %in% names(experiments(mae))){
     # prune to standard chromosomes
-    promCoords <- rowRanges(mae[["ATAC_promoters"]])
-    mae[["ATAC_promoters"]] <- keepStandardChromosomes(mae[["ATAC_promoters"]],
+    promCoords <- rowRanges(mae[[atacPromeExp]])
+    mae[[atacPromeExp]] <- keepStandardChromosomes(mae[[atacPromeExp]],
                                                        pruning.mode="coarse")
 
     gc <- Repitools::gcContentCalc(promCoords, genome)
-    atacPromMat <- assays(mae[["ATAC_promoters"]])$total_overlaps
+    atacPromMat <- assays(mae[[atacPromeExp]])$total_overlaps
     atacPromMat <- .GCSmoothQuantile(gc, atacPromMat, nBins=20, round=TRUE)
-    assays(mae[["ATAC_promoters"]])$norm_total_overlaps <- atacPromMat
+    assays(mae[[atacPromeExp]])[[normTotalOverlapsName]] <- atacPromMat
   }
 
   message("Get motif match coordinates")
@@ -455,11 +458,11 @@ tfFeatures <- function(mae,
     scoreMat <- Matrix::Matrix(matchCoords$score, ncol=1)
     colnames(scoreMat) <-  "all"
     scoreMat <- list(scoreMat)
-    names(scoreMat) <- paste("match_score", tf, sep="_")
-    prefix <- paste("match_ranges", tf, sep="_")
+    names(scoreMat) <- paste(matchAssayName, tf, sep="_")
+    prefix <- paste(matchRangesExp, tf, sep="_")
     if(!(prefix) %in% names(experiments(mae))){
       seMatch <- SummarizedExperiment(assays=scoreMat, rowRanges=matchCoords)
-      colData(seMatch)$feature_type <- "motif_matches"
+      colData(seMatch)[[featTypeCol]] <- motifMatchesFeatName
       rownames(colData(seMatch)) <- "all"
       contextsTf <- getContexts(mae, tfName=tfName, which="ChIP")
       mae <- .addFeatures(mae, seMatch, colsToMap=contextsTf, prefix=prefix)
@@ -482,11 +485,11 @@ tfFeatures <- function(mae,
      "ATAC_promoters" %in% names(experiments(mae))){
     message("Promoter association Features")
 
-    isProm <- which(rowData(mae[["ATAC_promoters"]])$tf_name==tfName)
+    isProm <- which(rowData(mae[[atacPromeExp]])$tf_name==tfName)
     atacPromMat <- atacPromMat[isProm,,drop=FALSE]
 
     promAsc <- .getAssociation(atacMat, atacPromMat)
-    colnames(promAsc) <- paste("promoter", colnames(promAsc), sep="_")
+    colnames(promAsc) <- paste(promoterPrefix, colnames(promAsc), sep="_")
     colNamesPromAsc <- colnames(promAsc)
 
     promAsc <- lapply(colNamesPromAsc, function(col) promAsc[,col,drop=FALSE])
@@ -520,9 +523,9 @@ tfFeatures <- function(mae,
     # ensure correct naming
     namesCoCounts <- lapply(names(motifCoords), function(tf){
       if(tf==tfName){
-        name <- "n_cooccuring_motifs_tf"}
-      else{name <- paste("n_cooccuring_motifs",
-                      names(tfCofactors)[which(tfCofactors==tf)], sep="_")}
+        name <- coTfMotifPrefix}
+      else{name <- paste(coCofactorMotifPrefix,
+                         names(tfCofactors)[which(tfCofactors==tf)], sep="_")}
       return(name)})
 
     coCounts <- lapply(colnames(coCounts),
@@ -535,52 +538,53 @@ tfFeatures <- function(mae,
     message("Select motifs")
 
     # get (except from test experiments) ChIP-labels of TF
-    chIPCols <- colnames(mae[["ChIP"]])
-    tfCols <- chIPCols[colData(mae[["ChIP"]])$tf_name==tfName]
-    isTesting <- subset(sampleMap(mae), assay=="ChIP" & is_testing)$colname
+    chIPCols <- colnames(mae[[chIPExp]])
+    tfCols <- chIPCols[colData(mae[[chIPExp]])[[tfNameCol]]==tfName]
+    isTesting <- subset(sampleMap(mae), assay==chIPExp & get(isTestCol))$colname
     tfCols <- intersect(chIPCols[!(chIPCols %in% isTesting)], tfCols)
 
     if(length(tfCols)>0){
-      labels <- .convertToMatrix(assays(mae[["ChIP"]])$peaks[,tfCols,drop=FALSE])
+      labels <- assays(mae[[chIPExp]])[[peakAssayName]][,tfCols,drop=FALSE]
+      labels <- .convertToMatrix(labels)
     }
     else{
       # TODO: motif naming
       tfCol <- paste(tfName, "motif", sep="_")
-      labels <- Matrix::Matrix(
-        assays(mae[["Motifs"]])$match_scores[,tfCol,drop=FALSE], ncol=1)
+      labels <- assays(mae[[motifExp]])[[matchAssayName]][,tfCol,drop=FALSE]
+      labels <- .convertToMatrix(labels)
     }
 
-    matchScores <- assays(mae[["Motifs"]])$match_scores
+    matchScores <- assays(mae[[motifExp]])[[matchAssayName]]
     tfMotifCols <- grep(paste(c(tfName, tfCofactors),collapse="|"),
                         colnames(matchScores), value=TRUE)
 
     # select motifs co-occuring around ChIP-peaks or motif matches of TF of interest
     matchScores <- matchScores[,!c(colnames(matchScores) %in% tfMotifCols), drop=FALSE]
-    colDataMotifs <- colData(mae[["Motifs"]])
+    colDataMotifs <- colData(mae[[motifExp]])
     colDataMotifs <- subset(colDataMotifs, motif %in% colnames(matchScores))
     colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif,
                                                colnames(matchScores))),,
                                    drop=FALSE]
 
-    maxScores <- colDataMotifs$max_score
+    maxScores <- colDataMotifs[[maxScoreCol]]
     selMotifs <- .selectMotifs(matchScores, maxScores, labels, nMotifs=nMotifs)
     selMotifs <- unique(c(selMotifs, tfMotifCols))
   }
   else{
-    matchScores <- assays(mae[["Motifs"]])$match_scores
+    matchScores <- assays(mae[[motifExp]])[[matchAssayName]]
     selMotifs <- unique(grep(paste(c(tfName, tfCofactors),collapse="|"),
                         colnames(matchScores), value=TRUE))
   }
-  names(selMotifs) <- paste("associated_motif", 1:length(selMotifs), sep="_")
+  names(selMotifs) <- paste(assocMotifPrefix, 1:length(selMotifs), sep="_")
   whichIsTf <- grep(paste0(tfName, "([:_]|$)"), selMotifs)
-  names(selMotifs)[whichIsTf] <- paste("tf_motif", 1:length(whichIsTf), sep="_")
+  names(selMotifs)[whichIsTf] <- paste(tfMotifPrefix,1:length(whichIsTf),sep="_")
 
   # Add CTCF-Features()
   if("CTCF_Signal" %in% features & tolower(tf)!="ctcf"){
     message("CTCF Signal")
 
     # add the motif to selected motifs
-    matchScores <- assays(mae[["Motifs"]])$match_scores
+    matchScores <- assays(mae[[motifExp]])[[matchAssayName]]
     motifCols <- grep("CTCF([:_]|$)", colnames(matchScores),
                       value=TRUE, ignore.case=TRUE)
     names(motifCols) <- paste("CTCF_motif", 1:length(motifCols), sep="_")
@@ -594,39 +598,41 @@ tfFeatures <- function(mae,
       sig <- sparseMatrixStats::rowMaxs(chIPMat[,tfCols, drop=FALSE])
       sig <- Matrix::Matrix(sig, ncol=1)
 
-      colnames(sig) <- "CTCF_signal"
+      colnames(sig) <- ctcfSigFeatName
       ctcfFeat <- list(sig)
-      names(ctcfFeat) <- "CTCF_signal"
+      names(ctcfFeat) <- ctcfSigFeatName
       featMats <- append(featMats, ctcfFeat)
     }
   }
 
   # add features full mae object
   featMats <- lapply(featMats, `colnames<-`, NULL)
-  names(featMats) <- paste("tfFeat", names(featMats), sep="_")
+  names(featMats) <- paste(tfFeat, names(featMats), sep="_")
   seTfFeat <- SummarizedExperiment(assays=featMats, rowRanges=coords)
   colnames(seTfFeat) <- tfName
-  colData(seTfFeat)$feature_type <- "tfFeat"
-  colData(seTfFeat)$tf_name <- tfName
+  colData(seTfFeat)[[featTypeCol]] <- tfFeat
+  colData(seTfFeat)[[tfNameCol]] <- tfName
 
   colsToMap <- getContexts(mae, tfName, which="ChIP")
-  mae <- .addFeatures(mae, seTfFeat, colsToMap=colsToMap, prefix="tfFeat")
+  mae <- .addFeatures(mae, seTfFeat, colsToMap=colsToMap, prefix=tfFeat)
 
   # add cofactors for later use
-  colDataTf <- colData(experiments(mae)$tfFeat)
-  if(is.null(colDataTf$tf_cofactors)){
-      colDataTf$tf_cofactors <- replicate(nrow(colDataTf), list)}
+  colDataTf <- colData(mae[[tfFeat]])
+  if(is.null(colDataTf[[tfCofactorsCol]])){
+      colDataTf[[tfCofactorsCol]] <- replicate(nrow(colDataTf), list)}
 
-  colData(experiments(mae)$tfFeat)$tf_cofactors <-
-    fifelse(colDataTf$tf_name==tfName, list(tfCofactors),
-            colDataTf$tf_cofactors)
+  colData(mae[[tfFeat]])[[tfCofactorsCol]] <-
+    fifelse(colDataTf[[tfNameCol]]==tfName, list(tfCofactors),
+            colDataTf[[tfCofactorsCol]])
 
   # add associated motifs to colData
-  if(is.null(colDataTf$preselected_motifs)){
-      colDataTf$preselected_motifs <- replicate(nrow(colDataTf), list)}
+  if(is.null(colDataTf[[preSelMotifCol]])){
+      colDataTf[[preSelMotifCol]] <- replicate(nrow(colDataTf), list)}
 
-  colData(experiments(mae)$tfFeat)$preselected_motifs <-
-  fifelse(colDataTf$tf_name==tfName, list(selMotifs), colDataTf$preselected_motifs)
+  colData(mae[[tfFeat]])[[preSelMotifCol]] <-
+  fifelse(colDataTf[[tfNameCol]]==tfName,
+          list(selMotifs),
+          colDataTf[[preSelMotifCol]])
 
   return(mae)
 }

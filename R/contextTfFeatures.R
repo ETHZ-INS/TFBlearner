@@ -73,7 +73,7 @@
   sim <- sim %*% t(sim)
   dSim <- as.dist(1-sim)
   mdsRes <- stats::cmdscale(dSim)
-  colnames(mdsRes) <- c("MDS_Context_1", "MDS_Context_2") # add to imports
+  colnames(mdsRes) <- paste(mdsDimFeatName, 1:2, sep="_")
   rownames(mdsRes) <- rownames(atacMat)
 
   return(mdsRes)
@@ -90,7 +90,7 @@
 
   rowVars <- apply(atacNormMat, 1, var)
   varMat <- Matrix::Matrix(rowVars, ncol=1)
-  colnames(varMat) <- "ATAC_Variance"
+  colnames(varMat) <- atacVarFeatName
   return(varMat)
 }
 
@@ -151,7 +151,7 @@ contextTfFeatures <- function(mae,
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   whichContexts <- fifelse(addLabels, "Both", "ATAC")
   if(whichCol=="OnlyTrain"){
-    trainCols <- unique(subset(sampleMap(mae), is_training)$colname)
+    trainCols <- unique(subset(sampleMap(mae), get(isTrainCol))$colname)
     cols <- lapply(experiments(mae),
                    function(n){colnames(n)[colnames(n) %in% trainCols]})
     maeSub <- subsetByColumn(mae, cols)
@@ -166,7 +166,7 @@ contextTfFeatures <- function(mae,
       contexts <- intersect(colSel, contexts)
     }
     else{
-      contexts <- intersect(colSel, colnames(mae[["ATAC"]]))
+      contexts <- intersect(colSel, colnames(mae[[atacExp]]))
     }
   }
   else{
@@ -174,7 +174,7 @@ contextTfFeatures <- function(mae,
     contexts <- getContexts(maeSub, tfName, which=whichContexts)
   }
 
-  coords <- rowRanges(experiments(maeSub)$Motifs)
+  coords <- rowRanges(maeSub[[motifExp]])
   nVarSites <- min(nVarSites, length(coords))
 
   features <- match.arg(features, choices=c("Inserts", "Weighted_Inserts",
@@ -186,8 +186,8 @@ contextTfFeatures <- function(mae,
                         several.ok=TRUE)
   features <- unique(c(features, "Inserts"))
 
-  tfCofactors <- unique(unlist(subset(colData(maeSub[["tfFeat"]]),
-                                      tf_name==tfName)$tf_cofactors))
+  tfCofactors <- unique(unlist(subset(colData(maeSub[[tfFeat]]),
+                                    get(tfNameCol)==tfName)[[tfCofactorsCol]]))
 
   if(("Cofactor_ChromVAR_Scores" %in% features) & is.null(tfCofactors)){
     msg <- c("No cofactors have been specified when computing transcription ",
@@ -196,10 +196,10 @@ contextTfFeatures <- function(mae,
     warning(msg)
   }
 
-  atacFragPaths <- unlist(subset(colData(maeSub[["ATAC"]]),
+  atacFragPaths <- unlist(subset(colData(maeSub[[atacExp]]),
                                  get(annoCol) %in% contexts)$origin)
 
-  # get list of motif ranges
+  # get list of motif ranges, this will eventually be refactored anyways
   motifRanges <-  names(experiments(maeSub)[grepl("match_ranges",
                                                   names(experiments(maeSub)))])
   motifRanges <- lapply(experiments(maeSub)[motifRanges], rowRanges)
@@ -207,12 +207,13 @@ contextTfFeatures <- function(mae,
   motifRanges <- motifRanges[c(tfName, tfCofactors)]
 
   if(addLabels){
-    colDataChIP <- colData(mae[["ChIP"]])
-    colDataChIP <- subset(colDataChIP, tf_name==tfName)
+    colDataChIP <- colData(mae[[chIPExp]])
+    colDataChIP <- subset(colDataChIP, get(tfNameCol)==tfName)
     labelCols <- colDataChIP$combination
     names(labelCols) <- colDataChIP[[annoCol]]
     labels <- lapply(labelCols, function(col){
-      as(assays(mae[["ChIP"]])$peaks[,col,drop=TRUE], "CsparseMatrix")})
+     as(assays(mae[[chIPExp]])[[peakAssayName]][,col,drop=TRUE],
+        "CsparseMatrix")})
   }
   else{
     labels <- vector(mode = "list", length = length(contexts))
@@ -250,9 +251,9 @@ contextTfFeatures <- function(mae,
 
     scoreCols <- c()
     if("Weighted_Inserts" %in% features) scoreCols <- c(scoreCols,
-                                                        "weighted_insert_counts",
-                                                        "chi2")
-    if("Inserts" %in% features) scoreCols <- c(scoreCols, "insert_counts")
+                                                        wInsertsFeatName,
+                                                        devFeatName)
+    if("Inserts" %in% features) scoreCols <- c(scoreCols, insertFeatName)
 
     # aggregate features across ranges of interest
     insFeats <- lapply(scoreCols, function(scoreCol){
@@ -265,9 +266,9 @@ contextTfFeatures <- function(mae,
       colnames(feats) <- fifelse(colnames(feats)=="0",
                                  paste("tf", scoreCol, "margin", sep="_"),
                                  paste("tf", scoreCol, "within", sep="_"))
-      if(scoreCol=="chi2"){
+      if(scoreCol==devFeatName){
         feats <- list(Matrix::Matrix(rowSums(feats), ncol=1))
-        names(feats) <- "chi2_dev_profile"
+        names(feats) <- devFeatName
       }else{
         namesFeats <- colnames(feats)
         feats <- lapply(colnames(feats), function(col) feats[,col,drop=FALSE])
@@ -294,23 +295,23 @@ contextTfFeatures <- function(mae,
   if("ATAC_Variance" %in% features | "ChromVAR_Scores" %in% features |
      "MDS_Context" %in% features){
     message("Get site-specific variance in ATAC-signal")
-    if(!("ATAC_Variance" %in% colnames(rowData(mae[["ATAC"]])))){
-      atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
-      varFeat <- .getVariableSites(atacMat)
-      rs <- Matrix::rowSums(atacMat)
+    if(!("ATAC_Variance" %in% colnames(rowData(mae[[atacExp]])))){
+     atacMat <- .convertToMatrix(assays(mae[[atacExp]])$total_overlaps)
+     varFeat <- .getVariableSites(atacMat)
+     rs <- Matrix::rowSums(atacMat)
 
-      topVarSites <- setdiff(order(-varFeat[,1])[1:nVarSites], which(rs==0))
-      colData(mae[["siteFeat"]])$top_var_sites <- list(topVarSites)
-      varFeat <- list(varFeat)
+     topVarSites <- setdiff(order(-varFeat[,1])[1:nVarSites], which(rs==0))
+     colData(mae[[siteFeat]])[[topVarSitesName]] <- list(topVarSites)
+     varFeat <- list(varFeat)
     }
     else{
-      message("Using pre-computed variances")
-      varFeat <- Matrix::Matrix(rowData(mae[["ATAC"]])[,"ATAC_Variance"],ncol=1)
-      topVarSites <- unlist(colData(mae[["siteFeat"]])$top_var_sites)
-      colnames(varFeat) <- "ATAC_Variance"
-      varFeat <- list(varFeat)
+     message("Using pre-computed variances")
+     varFeat <- Matrix::Matrix(rowData(mae[[atacExp]])[,atacVarFeatName],ncol=1)
+     topVarSites <- unlist(colData(mae[[siteFeat]])[[topVarSitesName]])
+     colnames(varFeat) <- atacVarFeatName
+     varFeat <- list(varFeat)
     }
-    names(varFeat) <- "ATAC_Variance"
+    names(varFeat) <- atacVarFeatName
   }
 
   if("ATAC_Variance" %in% features){
@@ -324,39 +325,44 @@ contextTfFeatures <- function(mae,
     message("Get chromVAR features")
 
     subInd <- topVarSites
-    expectations <- colData(maeSub[["siteFeat"]])$ChromVAR_expectations[[1]]
-    bgPeaks <- colData(maeSub[["siteFeat"]])$ChromVAR_background_peaks[[1]]
+    expectations <- colData(maeSub[[siteFeat]])[[chromVarExpName]][[1]]
+    bgPeaks <- colData(maeSub[[siteFeat]])[[chromVarBgName]][[1]]
 
     if(!is.null(subInd) & !is.null(expectations) & !is.null(bgPeaks)){
      message("ChromVAR features have been pre-computed")
-     atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps[,contexts])
+     atacMat <- assays(mae[[atacExp]])[[totalOverlapsName]][,contexts]
+     atacMat <- .convertToMatrix(atacMat)
     }
-    else if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
-      atacMat <-.convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
+    else if(!exists("atacMat") || ncol(atacMat)!=ncol(mae[[atacExp]])){
+      atacMat <-.convertToMatrix(assays(mae[[atacExp]])[[totalOverlapsName]])
     }
 
     # get relevant motif columns
     if("Cofactor_ChromVAR_Scores" %in% features){
-      tfCols <- unlist(subset(colData(mae[["tfFeat"]]),
-                       tf_name==tfName)$preselected_motifs)
+      tfCols <- unlist(subset(colData(mae[[tfFeat]]),
+                       get(tfNameCol)==tfName)[[preSelMotifCol]])
     }else{
-      selMotifs <- unlist(subset(colData(mae[["tfFeat"]]),
-                                 tf_name==tfName)$preselected_motifs)
-      tfCols <- selMotifs[grep("tf_motif", names(selMotifs))]
+      selMotifs <- unlist(subset(colData(mae[[tfFeat]]),
+                                 get(tfNameCol)==tfName)[[preSelMotifCol]])
+      tfCols <- selMotifs[grep(tfMotifPrefix, names(selMotifs))]
     }
 
-    matchScores <- assays(maeSub[["Motifs"]])$match_scores[,tfCols,drop=FALSE]
+    matchScores <- assays(mae[[motifExp]])[[matchAssayName]][,tfCols,drop=FALSE]
     matchScores <- as(as(matchScores, "CsparseMatrix"), "TsparseMatrix")
 
-    colDataMotifs <- subset(colData(maeSub[["Motifs"]]), motif %in% tfCols)
-    colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif, tfCols)),]
+    colDataMotifs <- subset(colData(maeSub[[motifExp]]),
+                            get(motifNameCol) %in% tfCols)
+    colDataMotifs <- colDataMotifs[order(match(colDataMotifs[[motifNameCol]],
+                                               tfCols)),]
 
     # subset motif matches
-    thr <- colDataMotifs$max_score/2
+    thr <- colDataMotifs[[maxScoreCol]]/2
     matchScores@x[matchScores@x<thr[matchScores@j + 1] & matchScores@x<4e4] <- 0
 
     # retrieve GC-content
-    gcContent <- c(assays(experiments(maeSub)$siteFeat)$siteFeat_gc_content[,1])
+    gcContent <- assays(maeSub[[siteFeat]])[[paste(siteFeat,
+                                                   gcContFeatName,
+                                                   sep="_")]][,,drop=TRUE]
     colnames(matchScores) <- names(tfCols)
 
     res <- .getChromVARScores(atacMat, matchScores, gcContent,
@@ -370,15 +376,15 @@ contextTfFeatures <- function(mae,
 
     # TODO: Fix motif naming convention
     isTfCol <- which(tfCols==tfName)
-    assocFeatNames <- paste("ChromVAR_ATAC",
-                            gsub('_[0-9]+',"",c("Pearson","Cohen_Kappa")),
+    assocFeatNames <- paste(chromVarAssocSuffix,
+                            c(assocPearsonPrefix, assocCohenPrefix),
                             tfName, sep="_")
     # compute or retrieve association between accessibility and activation across contexts
-    if(!all(assocFeatNames %in% colnames(rowData(mae[["tfFeat"]])))){
+    if(!all(assocFeatNames %in% colnames(rowData(mae[[tfFeat]])))){
 
       # full atac matrix required
-      if(ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
-        atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
+      if(ncol(atacMat)!=ncol(mae[[atacExp]])){
+        atacMat <- .convertToMatrix(assays(mae[[ataxExp]])[[totalOverlapsName]])
       }
 
       # TODO: Fix this when defining naming conventions
@@ -388,17 +394,17 @@ contextTfFeatures <- function(mae,
       message("ChromVAR-Activity ATAC associations have been pre-computed")
 
       # association features have been pre-computed
-      assocMat <- as.matrix(rowData(mae[["tfFeat"]])[,assocFeatNames])
+      assocMat <- as.matrix(rowData(mae[[tfFeat]])[,assocFeatNames])
       assocMat <- Matrix::Matrix(assocMat)}
 
       colnames(assocMat) <- paste(colnames(assocMat),
-                                  "ChromVAR_ATAC", "tf", sep="_")
+                                  chromVarAssocSuffix, "tf", sep="_")
 
       actFeats <- lapply(contexts,function(col){
         scoreMat <- chromDevMat[,col, drop=FALSE]
         activityMat <- matrix(scoreMat, nrow=nrow(atacMat), ncol=nrow(scoreMat),
                               byrow=TRUE)
-        colnames(activityMat) <- paste("ChromVAR_score",
+        colnames(activityMat) <- paste(chromVarScoreSuffix,
                                        rownames(scoreMat), sep="_")
         activityMat <- cbind(activityMat, assocMat)
         featNames <- colnames(activityMat)
@@ -419,11 +425,12 @@ contextTfFeatures <- function(mae,
     if("MDS_Context" %in% features){
       message("Get MDS-Dimensions")
       # check if is present of colData of ATAC
-      if(!all(c("MDS_Context_1", "MDS_Context_2") %in%
-              colnames(colData(mae[["ATAC"]])))){
+      mdsDimNames <- paste(mdsDimFeatName, 1:2, sep="_")
+      if(!all(mdsDimNames %in% colnames(colData(mae[[atacExp]])))){
         # if not check if full atacMAT is around (as for associ)
-        if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
-          atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
+        if(!exists("atacMat") || ncol(atacMat)!=ncol(mae[[atacExp]])){
+          atacMat <- assays(mae[[atacExp]])[[totalOverlapsName]]
+          atacMat <- .convertToMatrix(atacMat)
         }
 
         mdsDim <- .getContextProjection(atacMat[topVarSites,], subSample=NULL)
@@ -431,10 +438,10 @@ contextTfFeatures <- function(mae,
       }
       else{
         message("Using pre-computed MDS-dimensions")
-        colAtac <- subset(colData(mae[["ATAC"]]), get(annoCol) %in% contexts)
-        mdsDim <- colData(mae[["ATAC"]])[,c("MDS_Context_1", "MDS_Context_2")]
+        colAtac <- subset(colData(mae[[atacExp]]), get(annoCol) %in% contexts)
+        mdsDim <- colData(mae[[atacExp]])[,mdsDimNames]
         mdsDimSub <- as.matrix(colAtac[match(contexts, colAtac[[annoCol]]),
-                                  c("MDS_Context_1", "MDS_Context_2")])
+                                       mdsDimNames])
       }
       feats <- lapply(contexts, function(context){
         mdsFeat <- Matrix::Matrix(mdsDimSub[context,],
@@ -451,23 +458,24 @@ contextTfFeatures <- function(mae,
 
     if("Max_ATAC_Signal" %in% features){
       message("Get maximal ATAC-signal per site")
-      if(!("Max_ATAC_Signal" %in% colnames(rowData(mae[["ATAC"]])))){
-        if(!exists("atacMat") || ncol(atacMat)!=ncol(experiments(mae)$ATAC)){
-          atacMat <-.convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
+      if(!("Max_ATAC_Signal" %in% colnames(rowData(mae[[atacExp]])))){
+        if(!exists("atacMat") || ncol(atacMat)!=ncol(mae[[atacExp]])){
+          atacMat <- assays(mae[[atacExp]])[[totalOverlapsName]]
+          atacMat <-.convertToMatrix(atacMat)
         }
         atacMat <- .minMaxNormalization(atacMat)
         maxFeat <- Matrix::Matrix(apply(atacMat,1, max), ncol=1)
-        colnames(maxFeat) <- "Max_ATAC_Signal"
+        colnames(maxFeat) <- maxAtacFeatName
         maxFeat <- list(maxFeat)
       }
       else{
         message("Using pre-computed maximal ATAC signals")
-        maxFeat <- Matrix::Matrix(rowData(mae[["ATAC"]])[,"Max_ATAC_Signal"],
+        maxFeat <- Matrix::Matrix(rowData(mae[[atacExp]])[,maxAtacFeatName],
                                   ncol=1)
-        colnames(maxFeat) <- "Max_ATAC_Signal"
+        colnames(maxFeat) <- maxAtacFeatName
         maxFeat <- list(maxFeat)
       }
-      names(maxFeat) <- "Max_ATAC_Signal"
+      names(maxFeat) <- maxAtacFeatName
 
       feats <- lapply(contexts, function(context){
         c(feats[[context]], maxFeat)
@@ -478,41 +486,40 @@ contextTfFeatures <- function(mae,
     # add features back to the full object
     for(context in contexts){
       featMats <- lapply(feats[[context]], `colnames<-`, NULL)
-      names(featMats) <- paste("contextTfFeat", names(featMats), sep="_")
+      names(featMats) <- paste(contextTfFeat, names(featMats), sep="_")
 
       seTfFeat <- SummarizedExperiment(assays=featMats,
                                        rowRanges=coords)
       colnames(seTfFeat) <- paste(context, tfName, sep="_")
-      colData(seTfFeat)$feature_type <- "contextTfFeat"
-      colData(seTfFeat)$tf_name <- tfName
+      colData(seTfFeat)[[featTypeCol]] <- contextTfFeat
+      colData(seTfFeat)[[tfNameCol]] <- tfName
       mae <- .addFeatures(mae, seTfFeat, colsToMap=context,
-                          prefix="contextTfFeat")
+                          prefix=contextTfFeat)
     }
 
     if("ChromVAR_Scores" %in% features |
        "Cofactor_ChromVAR_Scores" %in% features){
 
       # add chromVAR parameters to object
-      colData(mae[["siteFeat"]])$ChromVAR_expectations <- list(res$expectations)
-      colData(mae[["siteFeat"]])$ChromVAR_background_peaks <- list(res$background_peaks)
+      colData(mae[[siteFeat]])[[chromVarExpName]] <- list(res$expectations)
+      colData(mae[[siteFeat]])[[chromVarBgName]] <- list(res$background_peaks)
 
       assocFeat <- as.data.frame(as.matrix(assocMat))
       colnames(assocFeat) <- assocFeatNames
-      rowData(mae[["tfFeat"]]) <- cbind(rowData(mae[["tfFeat"]]), assocFeat)
+      rowData(mae[[tfFeat]]) <- cbind(rowData(mae[[tfFeat]]), assocFeat)
     }
 
     if("MDS_Context" %in% features){
-      colAtac <- colData(mae[["ATAC"]])
-      colAtac <- colAtac[,setdiff(colnames(colAtac), c("MDS_Context_1",
-                                                       "MDS_Context_2"))]
-      colData(mae[["ATAC"]]) <- cbind(colAtac,
+      colAtac <- colData(mae[[atacExp]])
+      colAtac <- colAtac[,setdiff(colnames(colAtac), mdsDimNames)]
+      colData(mae[[atacExp]]) <- cbind(colAtac,
                                       mdsDim[match(colAtac[[annoCol]],
                                                    rownames(mdsDim)),])
     }
 
     if("Max_ATAC_Signal" %in% features){
-      rowAtac <- rowData(mae[["ATAC"]])
-      rowAtac <- rowAtac[,setdiff(colnames(rowAtac), "Max_ATAC_Signal")]
+      rowAtac <- rowData(mae[[atacExp]])
+      rowAtac <- rowAtac[,setdiff(colnames(rowAtac), maxAtacFeatName)]
       maxFeat <- as.data.frame(as.matrix(maxFeat[[1]]))
 
       if(!is.null(rowAtac)){
@@ -520,21 +527,21 @@ contextTfFeatures <- function(mae,
       else{
         rowAtac <- maxFeat
       }
-      rowData(mae[["ATAC"]]) <- rowAtac
+      rowData(mae[[atacExp]]) <- rowAtac
     }
 
   if("ATAC_Variance" %in% features){
-    rowAtac <- rowData(mae[["ATAC"]])
-    rowAtac <- rowAtac[,setdiff(colnames(rowAtac), "ATAC_Variance")]
+    rowAtac <- rowData(mae[[atacExp]])
+    rowAtac <- rowAtac[,setdiff(colnames(rowAtac), atacVarFeatName)]
     varFeat <- as.data.frame(as.matrix(varFeat[[1]]))
-    colnames(varFeat) <- "ATAC_Variance"
+    colnames(varFeat) <- atacVarFeatName
 
     if(!is.null(rowAtac)){
       rowAtac <- cbind(rowAtac, varFeat)}
     else{
       rowAtac <- varFeat
     }
-    rowData(mae[["ATAC"]]) <- rowAtac
+    rowData(mae[[atacExp]]) <- rowAtac
   }
 
   return(mae)

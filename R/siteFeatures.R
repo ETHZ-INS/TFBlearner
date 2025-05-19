@@ -16,7 +16,7 @@
                   cpg_density=Matrix::Matrix(cpgDens, ncol=1),
                   gc_cont=Matrix::Matrix(gcCont, ncol=1))
 
-  names(seqFeat) <- c("conservation_scores", "cpg_density", "gc_content")
+  names(seqFeat) <- c(consScoreFeatName, cpgDensFeatName, gcContFeatName)
 
   return(seqFeat)
 }
@@ -70,7 +70,7 @@ siteFeatures <- function(mae,
   # reference coordinates width
   if("Width" %in% features){
     wi <- list(Matrix(width(coords), ncol=1))
-    names(wi) <- "width"
+    names(wi) <- widthFeatName
     featMats <- append(featMats, wi)
   }
 
@@ -98,12 +98,12 @@ siteFeatures <- function(mae,
     featMats <- append(featMats, annotFeats)
   }
 
-  names(featMats) <- paste("siteFeat", names(featMats), sep="_")
+  names(featMats) <- paste(siteFeat, names(featMats), sep="_")
   seSiteFeat <- SummarizedExperiment(assays=featMats, rowRanges=coords)
   colnames(seSiteFeat) <- "all"
-  colData(seSiteFeat)$feature_type <- "siteFeature"
+  colData(seSiteFeat)[[featTypeCol]] <- siteFeat
   colsToMap <- unique(sampleMap(mae)$primary)
-  mae <- .addFeatures(mae, seSiteFeat, colsToMap=colsToMap, prefix="siteFeat")
+  mae <- .addFeatures(mae, seSiteFeat, colsToMap=colsToMap, prefix=siteFeat)
 
   return(mae)
 }

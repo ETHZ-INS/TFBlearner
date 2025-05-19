@@ -11,7 +11,7 @@
           For obtaining a object in the correct form use prepData()")
   }
 
-  expectedExperiments <- c("ATAC", "ChIP", "Motifs")
+  expectedExperiments <- c(atacExp, chIPExp, motifExp)
   experimentNames <- names(experiments(mae))
   if(length(intersect(experimentNames, expectedExperiments))!=3){
     stop("Object provided needs to be a MultiAssayExperiment Object containing
@@ -21,16 +21,16 @@
 
   # check that motifs match to all contexts
   contexts <- unique(sampleMap(mae)$primary)
-  sampleMapMotif <- as.data.table(subset(sampleMap(mae), assay=="Motifs"))
+  sampleMapMotif <- as.data.table(subset(sampleMap(mae), assay==motifExp))
   contextMotifMap <- sampleMapMotif[,.(n_context=length(unique(primary))),
-                                     by=colname]
+                                       by=colname]
   if(nrow(subset(contextMotifMap, n_context!=length(contexts)))>0){
     stop("Motifs need to map to all primaries (cellular context) labels.
           For obtaining a object in the correct form use prepData()")
   }
 
   if("Site" %in% checkFor){
-    if(sum(grepl("siteFeat", experimentNames, ignore.case=TRUE))==0){
+    if(sum(grepl(siteFeat, experimentNames, ignore.case=TRUE))==0){
       stop("Site-specific features as obtained by using siteFeatures() on the object
             are required for further use.")
     }
@@ -39,8 +39,8 @@
   if("TF" %in% checkFor){
     if(is.null(tfName)){
       warning("Please provide the name of a TF for which to check if features are present")}
-    if(sum(grepl("tfFeat", experimentNames, ignore.case=TRUE))==0 ||
-       !(tfName %in% colnames(mae[["tfFeat"]]))){
+    if(sum(grepl(tfFeat, experimentNames, ignore.case=TRUE))==0 ||
+       !(tfName %in% colnames(mae[[tfFeat]]))){
       stop(paste0("TF-features as obtained by using tfFeatures(tfName=",tfName,",...) are required for further use."))
     }
   }
@@ -48,12 +48,12 @@
   if("Context" %in% checkFor){
     if(is.null(tfName)){
       warning("Please provide the name of a TF for which to check if features are present")}
-    if(sum(grepl("contextTfFeat", experimentNames, ignore.case=TRUE))==0){
+    if(sum(grepl(contextTfFeat, experimentNames, ignore.case=TRUE))==0){
       stop("Context-features as obtained by using contextTffeatures() on the object
             are required for further use.")
     }
     else{
-      tfs <- tstrsplit(colnames(mae[["contextTfFeat"]]), split="_", keep=2)
+      tfs <- tstrsplit(colnames(mae[[contextTfFeat]]), split="_", keep=2)
       if(!(tfName %in% unlist(tfs))){
         stop(paste0("Context-features as obtained by using contextTffeatures(tfName=",tfName,",...), are required for further use."))
       }
@@ -135,13 +135,14 @@
                                   colData=contextMap,
                                   sampleMap=dfMap)
   mapFeat <- as.data.table(sampleMap(maeFeat))
-  mapMae <- subset(as.data.table(sampleMap(mae)), assay=="ATAC")
-  mapFeat <- merge(mapFeat, mapMae[,c("primary", "is_testing", "is_training")],
+  mapMae <- subset(as.data.table(sampleMap(mae)), assay==atacExp)
+
+  mapFeat <- merge(mapFeat, mapMae[,c("primary", isTestCol, isTrainCol), with=FALSE],
                    by.x=c("primary"),
                    by.y=c("primary"), all.x=TRUE, all.y=FALSE,
                    allow.cartesian=TRUE)
-  mapFeat[,is_testing:=fifelse(is.na(is_testing), FALSE, is_testing)]
-  mapFeat[,is_training:=fifelse(is.na(is_training), FALSE, is_training)]
+  mapFeat[,eval(isTestCol):=fifelse(is.na(get(isTestCol)),FALSE,get(isTestCol))]
+  mapFeat[,eval(isTrainCol):=fifelse(is.na(get(isTrainCol)),FALSE,get(isTrainCol))]
 
   sampleMap(maeFeat) <- mapFeat
 
@@ -150,7 +151,7 @@
 
 .retainMappings <- function(mae){
   experimentNames <- intersect(names(experiments(mae)),
-                               c("Motifs", "siteFeat", "tfFeat"))
+                               c(motifExp, siteFeat, tfFeat))
   for(experimentName in experimentNames){
     mapComb <- as.data.table(sampleMap(mae))
     mapMotif <- subset(mapComb, assay==experimentName)
@@ -158,8 +159,8 @@
                                       colname=unique(mapMotif$colname)))
     allComb <- allComb[,lapply(.SD, as.character), .SDcols=colnames(allComb)]
     allComb$assay <- experimentName
-    allComb$is_training <- FALSE
-    allComb$is_testing <- FALSE
+    allComb[[isTrainCol]] <- FALSE
+    allComb[[isTestCol]] <- FALSE
     sampleMap(mae) <- data.frame(rbind(mapComb,
                                        allComb[!mapMotif, on=.(primary, colname)],
                                        use.names=TRUE))
@@ -200,13 +201,13 @@ getContexts <- function(mae, tfName=NULL, which=c("ChIP", "ATAC", "Both")){
   .checkObject(mae)
 
   which <- match.arg(which, choices=c("ChIP", "Both", "ATAC"))
-  contextsAtac <- rownames(colData(experiments(mae)$ATAC))
+  contextsAtac <- rownames(colData(mae[[atacExp]]))
 
   if(which=="ATAC"){
     contexts <- contextsAtac
   }
   else{
-    colsChIP <- colnames(experiments(mae)$ChIP)
+    colsChIP <- colnames(mae[[chIPExp]])
     colsChIP <- as.data.table(tstrsplit(colsChIP, split="_"))
     if(!is.null(tfName)){
       contextsChIP <- subset(colsChIP, V2==tfName)$V1}
@@ -269,28 +270,28 @@ addATACData <- function(mae, atacData,
                         BPPARAM=SerialParam(), ...){
   .checkObject(mae)
 
-  coords <- rowRanges(experiments(mae)$Motifs)
+  coords <- rowRanges(mae[[motifExp]])
   seAtac <- .mapSeqData(atacData, coords, type="ATAC", annoCol=annoCol,
                         shift=shift, BPPARAM=BPPARAM)
 
-  mae <- .addFeatures(mae, seAtac, names(atacData), prefix="ATAC",
+  mae <- .addFeatures(mae, seAtac, names(atacData), prefix=atacExp,
                       annoCol=annoCol)
-  matchedContexts <- intersect(colData(experiments(mae)$ATAC)[[annoCol]],
-                               colData(experiments(mae)$ChIP)[[annoCol]])
+  matchedContexts <- intersect(colData(mae[[atacExp]])[[annoCol]],
+                               colData(mae[[chIPExp]])[[annoCol]])
 
   annoDt <- as.data.table(sampleMap(mae))
-  annoDt[,is_testing:=fifelse(primary %in% testSet, TRUE, is_testing)]
-  annoDt[,is_testing:=fifelse(is.na(is_testing), FALSE, is_testing)]
-  annoDt[,is_training:=fifelse(primary %in% matchedContexts & !is_testing,
-                               TRUE, FALSE)]
+  annoDt[,eval(isTestCol):=fifelse(primary %in% testSet, TRUE, get(isTestCol))]
+  annoDt[,eval(isTestCol):=fifelse(is.na(get(isTestCol)), FALSE, get(isTestCol))]
+  annoDt[,eval(isTrainCol):=fifelse(primary %in% matchedContexts &
+                                    !get(isTrainCol), TRUE, FALSE)]
   sampleMap(mae) <- annoDt
 
-  colData(mae)$is_testing <- fifelse(colData(mae)[[annoCol]] %in% testSet,
-                                     TRUE, colData(mae)$is_testing)
-  colData(mae)$is_testing <- fifelse(is.na(colData(mae)$is_testing), FALSE,
-                                     colData(mae)$is_testing)
-  colData(mae)$is_training <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
-                                      !colData(mae)$is_testing,TRUE, FALSE)
+  colData(mae)[[isTestCol]] <- fifelse(colData(mae)[[annoCol]] %in% testSet,
+                                     TRUE, colData(mae)[[isTestCol]])
+  colData(mae)[[isTestCol]] <- fifelse(is.na(colData(mae)[[isTestCol]]), FALSE,
+                                       colData(mae)[[isTestCol]])
+  colData(mae)[[isTrainCol]] <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
+                                       !colData(mae)[[isTestCol]],TRUE, FALSE)
 
   if(computeFeatures){
     if(is.null(tfName)) stop("Please provide a TF to compute the features for")
@@ -415,18 +416,17 @@ prepData <- function(refCoords,
                               colname=colData(atacPromSe)[[annoCol]],
                               stringsAsFactors=FALSE)
     listMap <- list(atacMap, chIPMap, motifMap, atacPromMap)
-    names(listMap) <- c("ATAC", "ChIP", "Motifs", "ATAC_promoters")
-    objList <- list("ATAC"=atacSe,
-                    "ChIP"=chIPSe,
-                    "Motifs"=motifSe,
-                    "ATAC_promoters"=atacPromSe)
+    expNames <- c(atacExp, chIPExp, motifExp, atacPromeExp)
+    names(listMap) <- expNames
+    objList <- list(atacSe, chIPSe, motifSe, atacPromSe)
+    names(objList) <- expNames
   }
   else{
     listMap <- list(atacMap, chIPMap, motifMap)
-    names(listMap) <- c("ATAC", "ChIP", "Motifs")
-    objList <- list("ATAC"=atacSe,
-                    "ChIP"=chIPSe,
-                    "Motifs"=motifSe)
+    expNames <- c(atacExp, chIPExp, motifExp)
+    names(listMap) <- expNames
+    objList <- list(atacSe, chIPSe, motifSe)
+    names(objList) <- expNames
   }
 
   dfMap <- listToMap(listMap)
@@ -443,13 +443,13 @@ prepData <- function(refCoords,
 
   # actually this is not strictly required in the sampleMap
   annoDt <- as.data.table(sampleMap(mae))
-  annoDt[,is_testing:=fifelse(primary %in% testSet, TRUE, FALSE)]
-  annoDt[,is_training:=fifelse(!(primary %in% testSet) &
-                                 primary %in% matchedContexts, TRUE, FALSE)]
+  annoDt[,eval(isTestCol):=fifelse(primary %in% testSet, TRUE, FALSE)]
+  annoDt[,eval(isTrainCol):=fifelse(!(primary %in% testSet) &
+                                      primary %in% matchedContexts, TRUE, FALSE)]
 
   primary <- colData(mae)[[annoCol]]
-  colData(mae)$is_testing <- fifelse(primary %in% testSet, TRUE, FALSE)
-  colData(mae)$is_training <- fifelse(!(primary %in% testSet) &
+  colData(mae)[[isTestCol]] <- fifelse(primary %in% testSet, TRUE, FALSE)
+  colData(mae)[[isTrainCol]] <- fifelse(!(primary %in% testSet) &
                                       primary %in% matchedContexts, TRUE, FALSE)
 
   sampleMap(mae) <- annoDt

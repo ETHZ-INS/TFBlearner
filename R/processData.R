@@ -215,7 +215,9 @@
     maxScore <- max(motifScore@x)
 
     if(saveHdf5){
-      .writeToHdf5(list("match_scores"=motifScore),
+      dataList <- list(motifScore)
+      names(dataList) <- matchAssayName
+      .writeToHdf5(dataList,
                    paste0(file.path(outDir, name), ".h5"),
                    storage="integer")
       motifScore <- head(motifScore, n=1)
@@ -242,9 +244,12 @@
   }
 
   colnames(motifScores) <- colNames
-  motifColData <- data.table(motif=colnames(motifScores),
-                             max_score=maxScores)
-  motifSe <- SummarizedExperiment(assays=list(match_scores=motifScores),
+  motifColData <- data.table(colnames(motifScores), maxScores)
+  colnames(motifColData) <- c(motifNameCol, maxScoreCol)
+
+  assayList <- list(motifScores)
+  names(assayList) <- matchAssayName
+  motifSe <- SummarizedExperiment(assays=assayList,
                                   rowRanges=refCoords,
                                   colData=motifColData)
 
@@ -350,8 +355,8 @@
         ins <- suppressMessages({
           getInsertionProfiles(atacFragType, refCoords, margin=0,
                                calcProfile=FALSE, shift=FALSE)})
-        ins <- ins[["motifScores"]]
-        ins <- ins[,c("chr", "start", "end", "insert_counts"),with=FALSE]}
+        ins <- ins[[retScoresName]]
+        ins <- ins[,c("chr", "start", "end", insertFeatName),with=FALSE]}
       else{
         ins <- data.table(chr=character(), start=numeric(), end=numeric(),
                           insert_counts=numeric())
@@ -368,11 +373,11 @@
                                         byCols="frag_type",
                                         BPPARAM=SerialParam())
     atacTotalOvs <- Matrix::Matrix(Matrix::rowSums(atacTypeOvs), ncol=1)
-    colnames(atacTotalOvs) <- "total_overlaps"
+    colnames(atacTotalOvs) <- totalOverlapsName
     typeNames <- colnames(atacTypeOvs)
     atacTypeOvs <- lapply(typeNames,
                           function(col) atacTypeOvs[,col, drop=FALSE])
-    names(atacTypeOvs) <- paste(typeNames, "overlaps", sep="_")
+    names(atacTypeOvs) <- paste(typeNames, typeOverlapSuffix, sep="_")
 
     atacTypeIns <- genomicRangesMapping(refCoords,
                                         atacIns,
@@ -381,13 +386,19 @@
                                         aggregationFun=sum,
                                         BPPARAM=SerialParam())
     atacTotalIns <- Matrix::Matrix(Matrix::rowSums(atacTypeIns), ncol=1)
-    colnames(atacTotalIns) <- "total_inserts"
+    colnames(atacTotalIns) <- totalInsertsName
     atacTypeIns <- lapply(typeNames,
                           function(col) atacTypeIns[,col, drop=FALSE])
-    names(atacTypeIns) <- paste(typeNames, "inserts", sep="_")
-    atacAssays <- c(list("total_overlaps"=atacTotalOvs),
+    names(atacTypeIns) <- paste(typeNames, typeInsertsSuffix, sep="_")
+
+    atacTotalOvs <- list(atacTotalOvs)
+    names(atacTotalOvs) <- totalOverlapsName
+    atacTotalIns <- list(atacTotalIns)
+    names(atacTotalIns) <- totalInsertsName
+
+    atacAssays <- c(atacTotalOvs,
                     atacTypeOvs,
-                    list("total_inserts"=atacTotalIns),
+                    atacTotalIns,
                     atacTypeIns)
     if(saveHdf5){
       .writeToHdf5(atacAssays, paste0(file.path(outDir, unique(names(d))), ".h5"),
@@ -516,7 +527,9 @@
     colnames(chIPPeaks) <- comb
 
     if(saveHdf5){
-      .writeToHdf5(list("peaks"=chIPPeaks),
+      dataList <- list(chIPPeaks)
+      names(dataList) <- peakAssayName
+      .writeToHdf5(dataList,
                    paste0(file.path(outDir, unique(names(d))), ".h5"),
                    storage="double")
       chIPPeaks <- head(chIPPeaks, n=1)
@@ -539,14 +552,16 @@
 
   colnames(chIPPeaks) <- colNames
   chIPColData <- data.table(combination=colNames)
-  chIPColData[,c(annoCol, "tf_name"):=tstrsplit(combination, split="_")]
+  chIPColData[,c(annoCol, tfNameCol):=tstrsplit(combination, split="_")]
   chIPColData[,origin:=lapply(combination, function(x){
     ds <- unlist(data[names(data)==x])
     names(ds) <- unlist(tstrsplit(names(ds), split=".", keep=2, fixed=TRUE))
     ds <- lapply(ds, function(d) fifelse(is.character(d), d, NA))
     return(ds)})]
 
-  chIPSe <- SummarizedExperiment(assays=list(peaks=chIPPeaks),
+  assayList <- list(chIPPeaks)
+  names(assayList) <- peakAssayName
+  chIPSe <- SummarizedExperiment(assays=assayList,
                                  rowRanges=refCoords,
                                  colData=chIPColData)
 

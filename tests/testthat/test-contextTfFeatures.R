@@ -15,59 +15,58 @@ suppressSdWarning <- function(fun, args){
 }
 
 test_that("Context-TF-features: Basic functionality", {
-  experiments(maeTest)$contextTfFeat <- NULL
+  experiments(maeTest)[[contextTfFeat]] <- NULL
   maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
                         features=c("Inserts", "Weighted_Inserts",
                                    "Cofactor_Inserts"))
 
   expect_s4_class(maeTest, "MultiAssayExperiment")
-  expect_contains(names(experiments(maeTest)), "contextTfFeat")
+  expect_contains(names(experiments(maeTest)), contextTfFeat)
 })
 
 test_that("Context-TF-features: Basic functionality - HDF5", {
-  experiments(maeTest)$contextTfFeat <- NULL
+  experiments(maeTest)[[contextTfFeat]] <- NULL
   maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF",
                         features=c("Inserts", "Weighted_Inserts",
                                    "Cofactor_Inserts"))
 
   expect_s4_class(maeTestHdf5, "MultiAssayExperiment")
-  expect_contains(names(experiments(maeTestHdf5)), "contextTfFeat")
+  expect_contains(names(experiments(maeTestHdf5)), contextTfFeat)
 })
 
 test_that("Context-TF-features: Correct training context selection", {
-  experiments(maeTest)$contextTfFeat <- NULL
+  experiments(maeTest)[[contextTfFeat]] <- NULL
   maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
                                whichCol="OnlyTrain",
                                features=c("Inserts", "Weighted_Inserts",
                                           "Cofactor_Inserts"))
 
   expect_s4_class(maeTest, "MultiAssayExperiment")
-  expect_equal(rownames(colData(experiments(maeTest)$contextTfFeat)),
-               "K562_CTCF")
+  expect_equal(rownames(colData(maeTest[[contextTfFeat]])), "K562_CTCF")
 })
 
 test_that("Context-TF-features: save pre-computed ChromVAR parameters in colData of siteFeat", {
-  experiments(maeTest)$contextTfFeat <- NULL
-  colData(experiments(maeTest)$siteFeat)$ChromVAR_expectations <- NULL
-  colData(experiments(maeTest)$siteFeat)$ChromVAR_sub_ind <- NULL
-  colData(experiments(maeTest)$siteFeat)$top_var_sites <- NULL
+  experiments(maeTest)[[contextTfFeat]] <- NULL
+  colData(experiments(maeTest)[[siteFeat]])[[chromVarExpName]] <- NULL
+  colData(experiments(maeTest)[[siteFeat]])[[chromVarBgName]] <- NULL
+  colData(experiments(maeTest)[[siteFeat]])[[topVarSitesName]] <- NULL
   maeTest <- suppressSdWarning(contextTfFeatures, list(mae=maeTest,
                                                        tfName="CTCF",
                                                        whichCol="OnlyTrain",
                                                        features=c("Inserts",
                                                             "ChromVAR_Scores")))
 
-  expect_contains(colnames(colData(experiments(maeTest)$siteFeat)),
-                  c("ChromVAR_expectations",
-                    "ChromVAR_background_peaks",
-                    "top_var_sites"))
+  expect_contains(colnames(colData(experiments(maeTest)[[siteFeat]])),
+                  c(chromVarExpName,
+                    chromVarBgName,
+                    topVarSitesName))
 })
 
 test_that("Context-TF-features: message that pre-computed parameters/features are used", {
-  experiments(maeTest2)$contextTfFeat <- NULL
-  colData(experiments(maeTest2)$siteFeat)$ChromVAR_expectations <- NULL
-  colData(experiments(maeTest2)$siteFeat)$top_var_sites <- NULL
-  colData(experiments(maeTest2)$siteFeat)$ChromVAR_background_peaks <- NULL
+  experiments(maeTest2)[[contextTfFeat]] <- NULL
+  colData(experiments(maeTest2)[[siteFeat]])[[chromVarExpName]] <- NULL
+  colData(experiments(maeTest2)[[siteFeat]])[[topVarSitesName]] <- NULL
+  colData(experiments(maeTest2)[[siteFeat]])[[chromVarBgName]] <- NULL
 
   maeTest2 <- suppressSdWarning(contextTfFeatures, list(mae=maeTest2,
                                                         tfName="CTCF",
@@ -98,9 +97,11 @@ test_that("Context-TF-features: message that pre-computed parameters/features ar
 })
 
 test_that("Context-TF-features: save pre-computed ChromVAR-Activity and ATAC association in rowData of tfFeat", {
-  experiments(maeTest)$contextTfFeat <- NULL
+  experiments(maeTest)[[contextTfFeat]] <- NULL
   tfName <- "CTCF"
 
+  tfMotifNames <- unlist(colData(maeTest[["tfFeat"]])$preselected_motifs)
+  tfMotifNames <- names(tfMotifNames)[grepl("tf_motif", names(tfMotifNames))]
   maeTest <- suppressSdWarning(contextTfFeatures, list(mae=maeTest,
                                                        tfName=tfName,
                                                        whichCol="OnlyTrain",
@@ -108,15 +109,14 @@ test_that("Context-TF-features: save pre-computed ChromVAR-Activity and ATAC ass
                                                             "ChromVAR_Scores")))
 
   # expected column names
-  expCols <- paste("ChromVAR_ATAC",
-                   gsub('_[0-9]+',"", c("Pearson","Cohen_Kappa")),
-                   tfName, sep="_")
-  expect_contains(colnames(rowData(experiments(maeTest)$tfFeat)), expCols)
+  expCols <- paste(chromVarAssocSuffix,
+                   c(assocPearsonPrefix, assocCohenPrefix), tfName, sep="_")
+  expect_contains(colnames(rowData(experiments(maeTest)[[tfFeat]])), expCols)
 })
 
 
 test_that("Context-TF-features: save pre-computed MDS-dimensions in colData of ATAC", {
-  experiments(maeTest2)$contextTfFeat <- NULL
+  experiments(maeTest2)[[contextTfFeat]] <- NULL
   tfName <- "CTCF"
   maeTest2 <- contextTfFeatures(maeTest2, tfName=tfName,
                                 whichCol="All",
@@ -125,12 +125,12 @@ test_that("Context-TF-features: save pre-computed MDS-dimensions in colData of A
                                            "MDS_Context"))
 
   # expected column names
-  expect_contains(colnames(colData(experiments(maeTest2)$ATAC)),
-                  c("MDS_Context_1", "MDS_Context_2"))
+  expect_contains(colnames(colData(experiments(maeTest2)[[atacExp]])),
+                  paste(mdsDimFeatName, 1:2, sep="_"))
 })
 
 test_that("Context-TF-features: save pre-computed maximal ATAC-signal in rowData of ATAC", {
-  experiments(maeTest)$contextTfFeat <- NULL
+  experiments(maeTest)[[contextTfFeat]] <- NULL
   tfName <- "CTCF"
   maeTest <- contextTfFeatures(maeTest, tfName=tfName,
                                whichCol="All",
@@ -139,12 +139,12 @@ test_that("Context-TF-features: save pre-computed maximal ATAC-signal in rowData
                                           "Max_ATAC_Signal"))
 
   # expected column names
-  expect_contains(colnames(rowData(experiments(maeTest)$ATAC)),
-                  c("Max_ATAC_Signal"))
+  expect_contains(colnames(rowData(experiments(maeTest)[[atacExp]])),
+                  maxAtacFeatName)
 })
 
 test_that("Context-TF-features: save pre-computed ATAC-signal variance in rowData of ATAC", {
-  experiments(maeTest)$contextTfFeat <- NULL
+  experiments(maeTest)[[contextTfFeat]] <- NULL
   tfName <- "CTCF"
   maeTest <- contextTfFeatures(maeTest, tfName=tfName,
                                whichCol="All",
@@ -153,18 +153,18 @@ test_that("Context-TF-features: save pre-computed ATAC-signal variance in rowDat
                                           "ATAC_Variance"))
 
   # expected column names
-  expect_contains(colnames(rowData(experiments(maeTest)$ATAC)),
-                  c("ATAC_Variance"))
+  expect_contains(colnames(rowData(experiments(maeTest)[[atacExp]])),
+                  atacVarFeatName)
 })
 
 test_that("Assays are preserved when computing for new TF", {
-  assayNamesOrig <- names(assays(maeTest[["contextTfFeat"]]))
+  assayNamesOrig <- names(assays(maeTest[[contextTfFeat]]))
   maeTest <- tfFeatures(maeTest, tfName="JUN",
                         features=c("CTCF", "MAX"))
   maeTest <- contextTfFeatures(maeTest, tfName="JUN",
                                features=c("Inserts", "Weighted_Inserts"),
                                addLabels=TRUE)
-  assayNamesNew <- names(assays(maeTest[["contextTfFeat"]]))
+  assayNamesNew <- names(assays(maeTest[[contextTfFeat]]))
   expect_equal(assayNamesNew, assayNamesOrig)
 })
 

@@ -36,33 +36,37 @@ test_that("Feature Matrix: Basic functionality - Saving to HDF5", {
 })
 
 test_that("Feature Matrix: Correct context selection - only for training contexts", {
+  annoCol <- "context"
   fm <- getFeatureMatrix(maeTest, tfName="CTCF",
                          whichCol="OnlyTrain",
                          addLabels=FALSE,
+                         annoCol=annoCol,
                          saveHdf5=FALSE)
 
-  testContext <- subset(colData(maeTest), is_testing)$context
+  testContext <- subset(colData(maeTest), get(isTestCol))$context
   contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
   trainContexts <- setdiff(contexts, testContext)
 
   expect_equal(nrow(fm), length(trainContexts)*length(example_coords))
   expect_equal(rowRanges(fm),
-               rep(rowRanges(maeTest[["ATAC"]]), length(trainContexts)))
-  expect_equal(metadata(fm)$cellular_contexts, trainContexts)
+               rep(rowRanges(maeTest[[atacExp]]), length(trainContexts)))
+  expect_equal(metadata(fm)[[annoCol]], trainContexts)
 })
 
 test_that("Feature Matrix: Correct context selection - only for specified context", {
+  annoCol <- "context"
   fm <- getFeatureMatrix(maeTest, tfName="CTCF",
                          whichCol="Col",
                          colSel="A549",
                          addLabels=FALSE,
+                         annoCol=annoCol,
                          saveHdf5=FALSE)
 
   expect_equal(nrow(fm), length(example_coords))
-  expect_equal(rowRanges(fm), rowRanges(maeTest[["ATAC"]]))
-  expect_equal(metadata(fm)$cellular_contexts, "A549")
-  expect_equal(metadata(fm)$cofactors, "JUN")
-  expect_contains(names(metadata(fm)), "associated_motifs")
+  expect_equal(rowRanges(fm), rowRanges(maeTest[[atacExp]]))
+  expect_equal(metadata(fm)[[annoCol]], "A549")
+  expect_equal(metadata(fm)[[tfCofactorsCol]], "JUN")
+  expect_contains(names(metadata(fm)), assocMotifPrefix)
 })
 
 test_that("Feature Matrix: Column names corresponding to R conventions", {
