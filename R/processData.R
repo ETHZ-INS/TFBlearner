@@ -61,8 +61,8 @@
   }
 
   # Match seqlevelstyle to reference
-  if((sum(grepl("chr", seqDat$chr))==0 & seqLevelStyle=="UCSC") |
-     (sum(grepl("chr", seqDat$chr))>0 & seqLevelStyle=="NCBI")){
+  if((sum(grepl("chr", levels(seqDat$chr)))==0 & seqLevelStyle=="UCSC") |
+     (sum(grepl("chr", levels(seqDat$chr)))>0 & seqLevelStyle=="NCBI")){
     tmpgr <- GRanges(levels(seqDat[[1]]),
                      IRanges(seq_along(levels(seqDat[[1]])), width=2L))
     seqlevelsStyle(tmpgr) <- seqLevelStyle
