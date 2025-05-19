@@ -40,23 +40,23 @@
   # count insertions around motif
   ai[,rel_pos:=insert-motif_center]
   ai[,type:=fifelse(insert>=start & insert<=end, 1,0)]
-  ai[,ml:=end-start+1, by=motif_id] # motif length
+  ai[,ml:=end-start+1L, by=motif_id] # motif length
 
   if(stranded){
     # take strandedness of fragment into account
     if(nrow(ai)>0){
       if(data.table::first(ai$ml) %% 2!=0){
-        ai[,rel_pos:=fifelse(strand_insert=="-", -1*rel_pos, rel_pos)]
+        ai[,rel_pos:=fifelse(strand_insert=="-", -1L*rel_pos, rel_pos)]
       }
       else{
         aiMotif <- subset(ai, type==1)
         if(shiftLeft){
-          ai[,rel_pos:=fifelse(strand_insert=="-", -1*rel_pos-1, rel_pos)]
-          ai[,rel_pos:=fifelse(strand=="-", -1*rel_pos-1, rel_pos)]
+          ai[,rel_pos:=fifelse(strand_insert=="-", -1L*rel_pos-1L, rel_pos)]
+          ai[,rel_pos:=fifelse(strand=="-", -1L*rel_pos-1L, rel_pos)]
         }
         else{
-          ai[,rel_pos:=fifelse(strand_insert=="-", -1*rel_pos+1, rel_pos)]
-          ai[,rel_pos:=fifelse(strand=="-", -1*rel_pos+1, rel_pos)]
+          ai[,rel_pos:=fifelse(strand_insert=="-", -1L*rel_pos+1L, rel_pos)]
+          ai[,rel_pos:=fifelse(strand=="-", -1L*rel_pos+1L, rel_pos)]
         }
       }}
   }
@@ -114,9 +114,10 @@ getInsertionProfiles <- function(atacData,
     motifData[,motif_id:=1L]
   }
 
+  margin <- as.integer(margin)
   if(margin>0){
     motifMarginRanges <- as.data.table(GenomicRanges::resize(motifRanges,
-                                                             width=2*margin,
+                                                             width=2L*margin,
                                                              fix="center"))
   }
   else{
@@ -149,10 +150,10 @@ getInsertionProfiles <- function(atacData,
   motifData[,motif_id:=factor(motif_id, levels=motifLevels, ordered=TRUE)]
 
   # determine motif center
-  motifData[,motif_center:=floor((end-start)/2)+start]
+  motifData[,motif_center:=as.integer(floor((end-start)/2))+start]
 
-  motifData[,end_margin:=fifelse(end_margin-motif_center<margin,end_margin+1,end_margin)]
-  motifData[,start_margin:=fifelse(start_margin-motif_center>-margin,start_margin-1,start_margin)]
+  motifData[,end_margin:=fifelse(end_margin-motif_center<margin,end_margin+1L,end_margin)]
+  motifData[,start_margin:=fifelse(start_margin-motif_center>-margin,start_margin-1L,start_margin)]
 
   distEnd <- motifData$end[1] - motifData$motif_center[1]
   distStart <- motifData$motif_center[1] - motifData$start[1]
@@ -163,7 +164,7 @@ getInsertionProfiles <- function(atacData,
   }
 
   atacFrag[,chr:=as.integer(factor(chr, levels=chrLevels, ordered=TRUE))]
-  medZero <- function(x, len){ median(c(rep(0,max(0,len-length(x))),x)) }
+  medZero <- function(x, len){ median(c(rep(0L,max(0,len-length(x))),x)) }
   nSamples <- length(unique(atacFrag$sample))
 
   setorder(motifData, chr)
