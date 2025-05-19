@@ -85,10 +85,10 @@
   return(seqDat)
 }
 
-.getType <- function(atacFrag, cuts=c("nucleosome_free"=0,
-                                      "mononucleosome"=120,
-                                      "dinucleosome"=300,
-                                      "multinucleosome"=500),
+.getType <- function(atacFrag, cuts=c("nucleosome_free"=0L,
+                                      "mononucleosome"=120L,
+                                      "dinucleosome"=300L,
+                                      "multinucleosome"=500L),
                      label=FALSE) {
   atacFrag[,width:=end-start]
   if(label){
