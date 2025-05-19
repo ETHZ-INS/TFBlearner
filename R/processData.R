@@ -63,15 +63,14 @@
   # Match seqlevelstyle to reference
   if((sum(grepl("chr", seqDat$chr))==0 & seqLevelStyle=="UCSC") |
      (sum(grepl("chr", seqDat$chr))>0 & seqLevelStyle=="NCBI")){
-    seqDat <- makeGRangesFromDataFrame(as.data.frame(seqDat),
-                                       keep.extra.columns=TRUE)
-    seqlevelsStyle(seqDat) <- seqLevelStyle
-    seqDat <- as.data.table(seqDat)
-    setnames(seqDat, "seqnames", "chr")}
+    tmpgr <- GRanges(levels(seqDat[[1]]),
+                     IRanges(seq_along(levels(seqDat[[1]])), width=2L))
+    seqlevelsStyle(tmpgr) <- seqLevelStyle
+    levels(seqDat$chr) <- seqlevels(tmpgr)
+  }
 
   # Insert ATAC shift
-  if(shift)
-  {
+  if(shift){
     seqDat[, start:=start-4]
     seqDat[, end:=end-4]
   }
