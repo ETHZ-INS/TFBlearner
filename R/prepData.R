@@ -311,6 +311,8 @@ addATACData <- function(mae, atacData,
 #' @param motifData  Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
 #' or paths to .bam/.bed files containing motif-matching scores, names being the motif names.
 #' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
+#' Ideally motifs corresponding to TFs for which `chIPData` is present are named the same in both arguments
+#' (e.g `motifData=list(JUN=...)`, `chIPData=list(K562_JUN=...)`.
 #' @param atacData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
 #' or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
 #' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
