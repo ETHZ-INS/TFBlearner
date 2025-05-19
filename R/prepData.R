@@ -74,9 +74,21 @@
 
   if(prefix %in% names(experiments(mae))){
     seOrig <- experiments(mae)[[prefix]]
-    commonAssays <- intersect(names(assays(seOrig)), names(assays(seFeat)))
-    assays(seOrig) <- assays(seOrig)[commonAssays]
-    assays(seFeat) <- assays(seFeat)[commonAssays]
+    allAssays <- unique(c(names(assays(seOrig)), names(assays(seFeat))))
+    missingNew <- setdiff(allAssays, names(assays(seFeat)))
+    missingOrig <- setdiff(allAssays, names(assays(seOrig)))
+
+    for(missing in missingOrig){
+      mat <- Matrix::Matrix(nrow=nrow(seOrig), ncol=ncol(seOrig))
+      colnames(mat) <- colnames(seOrig)
+      assays(seOrig)[[missing]] <- mat
+    }
+
+    for(missing in missingNew){
+      mat <- Matrix::Matrix(nrow=nrow(seFeat), ncol=ncol(seFeat))
+      colnames(mat) <- colnames(seFeat)
+      assays(seFeat)[[missing]] <- mat
+    }
 
     # fill missing colData columns
     for(col in setdiff(colnames(colData(seOrig)), colnames(colData(seFeat)))){
@@ -151,6 +163,8 @@
   maeFeat <- .seToMae(mae, seFeat=seFeat, prefix=prefix,
                       colsToMap=colsToMap, annoCol=annoCol)
   experiments(mae)[[prefix]] <- NULL
+
+  # add missing cols in old somewhere here (with NAs)
 
   # ensure that motifs still map to every cellular context
   mae <- c(mae, maeFeat)

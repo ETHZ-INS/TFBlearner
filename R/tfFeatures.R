@@ -242,7 +242,9 @@
 
 .getCofactorBindings <- function(chIPMat, tfCofactors){
   tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
+  namesSub <- names(tfCofactors)[which(tfCofactors %in% tfCols)]
   tfCofactors <- intersect(tfCols, tfCofactors)
+  names(tfCofactors) <- namesSub
 
   if(length(tfCofactors)>0){
     cofactBindings <- lapply(tfCofactors, function(tfCol){
@@ -250,7 +252,7 @@
         Matrix::rowMeans(chIPMat[,tfCols==tfCol, drop=FALSE]), ncol=1)
       colnames(cofactBinding) <- paste("cofactor_binding", tfCol, sep="_")
       cofactBinding})
-    names(cofactBindings) <- paste("cofactor_binding", tfCofactors, sep="_")
+    names(cofactBindings) <- paste("cofactor_binding", namesSub, sep="_")
     return(cofactBindings)}
   else{
     return(NULL)
@@ -406,6 +408,8 @@ tfFeatures <- function(mae,
 
   # reference coordinates
   coords <- rowRanges(experiments(mae)$Motifs)
+  if(length(tfCofactors)>0){
+    names(tfCofactors) <- paste("tfCofactor", 1:length(tfCofactors), sep="_")}
 
   # assay-matrices
   atacMat <- .convertToMatrix(assays(mae[["ATAC"]])$total_overlaps)
@@ -512,10 +516,18 @@ tfFeatures <- function(mae,
     message("Co-occuring motifs counts")
 
     coCounts <- .getCoOccuringMotifs(motifCoords, coords)
-    namesCoCounts <- colnames(coCounts)
 
-    coCounts <- lapply(namesCoCounts, function(col) coCounts[,col,drop=FALSE])
-    names(coCounts) <- namesCoCounts
+    # ensure correct naming
+    namesCoCounts <- lapply(names(motifCoords), function(tf){
+      if(tf==tfName){
+        name <- "n_cooccuring_motifs_tf"}
+      else{name <- paste("n_cooccuring_motifs",
+                      names(tfCofactors)[which(tfCofactors==tf)], sep="_")}
+      return(name)})
+
+    coCounts <- lapply(colnames(coCounts),
+                       function(col) coCounts[,col,drop=FALSE])
+    names(coCounts) <- unlist(namesCoCounts)
     featMats <- append(featMats, coCounts)
   }
 
@@ -559,6 +571,9 @@ tfFeatures <- function(mae,
     selMotifs <- unique(grep(paste(c(tfName, tfCofactors),collapse="|"),
                         colnames(matchScores), value=TRUE))
   }
+  names(selMotifs) <- paste("associated_motif", 1:length(selMotifs), sep="_")
+  whichIsTf <- grep(paste0(tfName, "([:_]|$)"), selMotifs)
+  names(selMotifs)[whichIsTf] <- paste("tf_motif", 1:length(whichIsTf), sep="_")
 
   # Add CTCF-Features()
   if("CTCF_Signal" %in% features & tolower(tf)!="ctcf"){
@@ -568,7 +583,9 @@ tfFeatures <- function(mae,
     matchScores <- assays(mae[["Motifs"]])$match_scores
     motifCols <- grep("CTCF([:_]|$)", colnames(matchScores),
                       value=TRUE, ignore.case=TRUE)
-    selMotifs <- unique(selMotifs, motifCols)
+    names(motifCols) <- paste("CTCF_motif", 1:length(motifCols), sep="_")
+    selMotifs <- c(selMotifs, motifCols)
+    selMotifs <- selMotifs[!duplicated(selMotifs)]
 
     # add some checks if it is in data
     tfCols <- colnames(chIPMat)[grepl("_CTCF$", colnames(chIPMat),

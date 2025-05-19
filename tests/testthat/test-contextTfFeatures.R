@@ -157,4 +157,15 @@ test_that("Context-TF-features: save pre-computed ATAC-signal variance in rowDat
                   c("ATAC_Variance"))
 })
 
+test_that("Assays are preserved when computing for new TF", {
+  assayNamesOrig <- names(assays(maeTest[["contextTfFeat"]]))
+  maeTest <- tfFeatures(maeTest, tfName="JUN",
+                        features=c("CTCF", "MAX"))
+  maeTest <- contextTfFeatures(maeTest, tfName="JUN",
+                               features=c("Inserts", "Weighted_Inserts"),
+                               addLabels=TRUE)
+  assayNamesNew <- names(assays(maeTest[["contextTfFeat"]]))
+  expect_equal(assayNamesNew, assayNamesOrig)
+})
+
 # add dimensionality checks and mapping checks

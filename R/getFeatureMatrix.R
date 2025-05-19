@@ -196,6 +196,10 @@ getFeatureMatrix <- function(mae,
     hdf5FileName <- NULL
   }
 
+  # remove only NA columns
+  colsToKeep <- which(colSums(!is.na(nonContextTfFeat))>0)
+  nonContextTfFeat <- nonContextTfFeat[,colsToKeep,drop=FALSE]
+
   if(convertInteger){
     nonContextTfFeat<- .roundingCompression(nonContextTfFeat)}
 
@@ -235,6 +239,10 @@ getFeatureMatrix <- function(mae,
     else{
       labelCol <- NULL
     }
+
+    # remove only NA columns
+    colsToKeep <- which(colSums(!is.na(featsContextMat))>0)
+    featsContextMat <- featsContextMat[,colsToKeep,drop=FALSE]
 
     # determine sub-mat to be normalized
     featsNormed <- unlist(subset(listFeatures(),
@@ -329,6 +337,7 @@ getFeatureMatrix <- function(mae,
   metadata(fmSe)$transcription_factor <- tfName
   metadata(fmSe)$cofactors <- tfCofactors
   metadata(fmSe)$cellular_contexts <- contexts
+  metadata(fmSe)$associated_motifs <- selMotifs
 
   return(fmSe)
 }

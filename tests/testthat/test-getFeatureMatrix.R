@@ -61,6 +61,8 @@ test_that("Feature Matrix: Correct context selection - only for specified contex
   expect_equal(nrow(fm), length(example_coords))
   expect_equal(rowRanges(fm), rowRanges(maeTest[["ATAC"]]))
   expect_equal(metadata(fm)$cellular_contexts, "A549")
+  expect_equal(metadata(fm)$cofactors, "JUN")
+  expect_contains(names(metadata(fm)), "associated_motifs")
 })
 
 test_that("Feature Matrix: Column names corresponding to R conventions", {

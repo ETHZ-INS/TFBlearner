@@ -20,4 +20,15 @@ test_that("TF-features: Basic functionality - HDF5", {
   expect_contains(names(experiments(maeTestHdf5)), "tfFeat")
 })
 
+test_that("Assays are preserved when computing for new TF", {
+  assayNamesOrig <- names(assays(maeTest[["tfFeat"]]))
+  maeTest <- tfFeatures(maeTest, tfName="JUN",
+                        features=c("Binding_Patterns",
+                                   "Promoter_Association", "C_Score",
+                                   "Cooccuring_Motifs"))
+  assayNamesNew <- names(assays(maeTest[["tfFeat"]]))
+  expect_equal(assayNamesNew, assayNamesOrig)
+})
+
+
 # add dimensionality checks and mapping checks
