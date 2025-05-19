@@ -98,3 +98,12 @@ test_that("Feature Matrix: warning if features have not been computed for provid
                  "Not all the cellular-contexts requested have contextTfFeats compiled.\n
                    Missing are: A549")
 })
+
+test_that("Feature Matrix: error if features have not been computed for provided TF", {
+  tfName="JUN"
+  expect_error(getFeatureMatrix(maeTest, tfName=tfName,
+                                  whichCol="Col",
+                                  colSel=c("K562", "A549"),
+                                  addLabels=FALSE,
+                                  saveHdf5=FALSE))
+})

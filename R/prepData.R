@@ -1,5 +1,6 @@
 .checkObject <- function(mae,
-                         checkFor=c("None", "Site", "TF", "Context")){
+                         checkFor=c("None", "Site", "TF", "Context"),
+                         tfName=NULL){
 
   if("None" %in% checkFor) checkFor <- "None"
   checkFor <- match.arg(checkFor, choices=c("None", "Site", "TF", "Context"),
@@ -36,17 +37,29 @@
   }
 
   if("TF" %in% checkFor){
-    if(sum(grepl("tfFeat", experimentNames, ignore.case=TRUE))==0){
-      stop("TF-features as obtained by using tfFeatures() on the object
-            are required for further use.")
+    if(is.null(tfName)){
+      warning("Please provide the name of a TF for which to check if features are present")}
+    if(sum(grepl("tfFeat", experimentNames, ignore.case=TRUE))==0 ||
+       !(tfName %in% colnames(mae[["tfFeat"]]))){
+      stop(paste0("TF-features as obtained by using tfFeatures(tfName=",tfName,",...) are required for further use."))
     }
   }
 
   if("Context" %in% checkFor){
+    if(is.null(tfName)){
+      warning("Please provide the name of a TF for which to check if features are present")}
     if(sum(grepl("contextTfFeat", experimentNames, ignore.case=TRUE))==0){
       stop("Context-features as obtained by using contextTffeatures() on the object
             are required for further use.")
     }
+    else{
+      tfs <- tstrsplit(colnames(mae[["contextTfFeat"]]), split="_", keep=2)
+      if(!(tfName %in% unlist(tfs))){
+        stop(paste0("Context-features as obtained by using contextTffeatures(tfName=",tfName,",...), are required for further use."))
+      }
+
+    }
+
   }
 
   #TODO: Add further checks, current form merely captures the idea.

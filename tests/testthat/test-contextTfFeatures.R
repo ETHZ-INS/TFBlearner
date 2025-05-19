@@ -168,4 +168,9 @@ test_that("Assays are preserved when computing for new TF", {
   expect_equal(assayNamesNew, assayNamesOrig)
 })
 
+test_that("Error if features have not been computed for provided TF", {
+  tfName="JUN"
+  expect_error(contextTfFeatures(maeTest, tfName=tfName))
+})
+
 # add dimensionality checks and mapping checks
