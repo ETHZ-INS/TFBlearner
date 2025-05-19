@@ -39,17 +39,18 @@
   cn <- colnames(mat)
   mat <- as(mat, "TsparseMatrix")
 
-  if(is.null(threshold)) threshold <- 0
+  if(is.null(threshold)) threshold <- 0L
   ind <- which(mat@x>threshold)
-  mat <- sparseMatrix(i=mat@i[ind]+1,
-                      j=mat@j[ind]+1,
-                      x=rep(1, length(ind)),
+  mat <- sparseMatrix(i=mat@i[ind]+1L,
+                      j=mat@j[ind]+1L,
+                      x=rep(1L, length(ind)),
                       dims=c(nrow(mat), ncol(mat)))
   mat <- Matrix::Matrix(mat)
   colnames(mat) <- cn
 
   return(mat)
 }
+
 
 .aggregate <- function(chIPMat,
                        threshold=NULL,
@@ -62,11 +63,11 @@
    var <- factor(unlist(tstrsplit(cn, split="_",
                                   keep=fifelse(aggVar=="tf", 2, 1))))
 
-   if(is.null(threshold)) threshold <- 0
+   if(is.null(threshold)) threshold <- 0L
 
    toKeep <- which(chIPMat@x>threshold)
-   colsInd <- chIPMat@j[toKeep]+1
-   chIPIndDt <- data.table(i=chIPMat@i[toKeep]+1,
+   colsInd <- chIPMat@j[toKeep]+1L
+   chIPIndDt <- data.table(i=chIPMat@i[toKeep]+1L,
                            j=colsInd,
                            x=chIPMat@x[toKeep],
                            aggVar=var[colsInd])
@@ -178,9 +179,8 @@
 .selectMotifs <- function(matchScores, maxScores, labels, nMotifs=10,
                           subSample=10000)
 {
-  labels <- .binMat(labels, threshold=0)
+  labels <- .binMat(labels, threshold=0L)
   labels <- .marginMax(labels, margin="row")
-
   thr <- maxScores/2
 
   subRows <- sample(1:nrow(matchScores), min(subSample, nrow(matchScores)))
@@ -266,8 +266,8 @@
     stopifnot(ncol(mat1)==ncol(mat2))
     # Compute pairwise agreements
     tp <- tcrossprod(mat1,mat2) # 1-1 matches
-    fn <- tcrossprod((1-mat1),mat2) # 0-1 mismatches
-    fp <- tcrossprod(mat1,(1-mat2)) # 1-0 mismatches
+    fn <- tcrossprod((1L-mat1),mat2) # 0-1 mismatches
+    fp <- tcrossprod(mat1,(1L-mat2)) # 1-0 mismatches
     tn <- ncol(mat1)-(tp+fn+fp) # 0-0 matches
     #tn <- tcrossprod(abs(1-mat1),abs(1-mat2))
     if(!adjust) return((tp+tn)/ncol(mat1))
