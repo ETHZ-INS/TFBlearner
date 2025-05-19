@@ -71,8 +71,8 @@
 
   # Insert ATAC shift
   if(shift){
-    seqDat[, start:=start-4]
-    seqDat[, end:=end-4]
+    seqDat[, start:=start+4L]
+    seqDat[, end:=end-4L]
   }
   else if(shift){
     warning("Did not shift as no column named strand was not found")
