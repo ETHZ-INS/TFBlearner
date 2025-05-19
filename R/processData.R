@@ -186,7 +186,7 @@
                           fileName=NULL,
                           outDir=NULL,
                           BPPARAM=SerialParam()){
-  threads <- floor(getDTthreads())/BPPARAM$workers
+  threads <- floor(getDTthreads()/BPPARAM$workers)
 
   # reshape list
   colNames <- unique(names(data))
@@ -328,7 +328,7 @@
                          outDir=NULL,
                          BPPARAM=SerialParam())
 {
-  threads <- floor(getDTthreads())/BPPARAM$workers
+  threads <- floor(getDTthreads()/BPPARAM$workers)
 
   # reshape list
   colNames <- unique(names(data))
@@ -466,7 +466,7 @@
                          outDir=NULL,
                          BPPARAM=SerialParam()){
 
-  threads <- floor(getDTthreads())/BPPARAM$workers
+  threads <- floor(getDTthreads()/BPPARAM$workers)
 
   # reshape list
   colNames <- unique(names(data))
