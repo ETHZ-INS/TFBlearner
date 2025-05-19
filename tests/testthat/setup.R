@@ -76,14 +76,13 @@ maeTest <- suppressMessages({prepData(example_coords,
 maeTest <- siteFeatures(maeTest)
 maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN")
 maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
-                              features=c("Inserts", "Weighted_Inserts",
-                                         "Cofactor_Inserts"),
+                              features=c("Inserts", "Weighted_Inserts"),
                               addLabels=TRUE,
                               BPPARAM=SerialParam())
 
 exampleATAC2 <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
-                    K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"),
-                    HepG2=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner")) # dummy type for some tests
+                     K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"),
+                     HepG2=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner")) # dummy type for some tests
 
 maeTest2 <- suppressMessages({prepData(example_coords,
                                       motifData=exampleMotif,
@@ -110,6 +109,7 @@ maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
 
 # Training & Prediction testing ------------------------------------------------
 
-fm <- getFeatureMatrix(maeTest, tfName="CTCF",
-                       addLabels=TRUE,
-                       saveHdf5=FALSE)
+fmSe <- getFeatureMatrix(maeTest, tfName="CTCF",
+                         addLabels=TRUE,
+                         saveHdf5=FALSE)
+fmTest <- assays(fmSe)$features
