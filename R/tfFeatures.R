@@ -1,19 +1,3 @@
-.doOneScan <- function(mo, coords, genome, lowp=1e-03){ #1e-02
-  # low-confidence matches
-  po <- matchMotifs(mo, subject=coords, genome=genome,
-                    out="positions", p.cutoff=lowp)[[1]]
-  # trace back the original DHS behind each
-  po$orig <- to(findOverlaps(po, coords, minoverlap=2L))
-  # keep only the strongest hit per DHS
-  po <- po[order(seqnames(po), -po$score)]
-  po <- po[!duplicated(po$orig)]
-  po$orig <- NULL
-  # find all below the default cutoff
-  po2 <- matchMotifs(mo, subject=coords, genome=genome, out="positions")[[1]]
-  po <- po[!overlapsAny(po,po2)]
-  sort(c(po,po2))
-}
-
 .getMotifMatches <- function(coords,
                              tfName,
                              tfCofactors,
