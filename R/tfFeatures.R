@@ -428,11 +428,7 @@ tfFeatures <- function(mae,
 
   if(atacPromeExp %in% names(experiments(mae))){
     # prune to standard chromosomes
-    promCoords <- rowRanges(mae[[atacPromeExp]])
-    mae[[atacPromeExp]] <- keepStandardChromosomes(mae[[atacPromeExp]],
-                                                       pruning.mode="coarse")
-
-    gc <- Repitools::gcContentCalc(promCoords, genome)
+    gc <- rowData(mae[[atacPromeExp]])[[gcContFeatName]]
     atacPromMat <- assays(mae[[atacPromeExp]])$total_overlaps
     atacPromMat <- .GCSmoothQuantile(gc, atacPromMat, nBins=20, round=TRUE)
     assays(mae[[atacPromeExp]])[[normTotalOverlapsName]] <- atacPromMat
