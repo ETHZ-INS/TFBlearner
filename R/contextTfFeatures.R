@@ -464,7 +464,7 @@ contextTfFeatures <- function(mae,
           atacMat <-.convertToMatrix(atacMat)
         }
         atacMat <- .minMaxNormalization(atacMat)
-        maxFeat <- Matrix::Matrix(apply(atacMat,1, max), ncol=1)
+        maxFeat <- Matrix::Matrix(.marginMax(atacMat, margin="row"), ncol=1)
         colnames(maxFeat) <- maxAtacFeatName
         maxFeat <- list(maxFeat)
       }

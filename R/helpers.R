@@ -11,6 +11,32 @@
   return(mat)
 }
 
+.marginMax <- function(mat, margin=c("row", "col")){
+
+  margin <- match.arg(margin, choices=c("col", "row"))
+  if(margin=="row"){fun <- MatrixGenerics::rowMaxs}
+  else{fun <- MatrixGenerics::colMaxs}
+
+  if(!is(mat, "CsparseMatrix") & !is(mat, "TsparseMatrix")){
+    mat <- as.matrix(mat)
+  }
+  marginMax <- fun(mat)
+  return(marginMax)
+}
+
+.marginQuant <- function(mat, probs, margin=c("row", "col")){
+
+  margin <- match.arg(margin, choices=c("col", "row"))
+  if(margin=="row"){fun <- MatrixGenerics::rowQuantiles}
+  else{fun <- MatrixGenerics::colQuantiles}
+  if(!is(mat, "CsparseMatrix") & !is(mat, "TsparseMatrix")){
+    mat <- as.matrix(mat)
+  }
+  marginQuant <- t(fun(mat, probs=probs))
+
+  return(marginQuant)
+}
+
 .getType <- function(atacFrag, cuts=c("nucleosome_free"=0,
                                       "mononucleosome"=120,
                                       "dinucleosome"=300,

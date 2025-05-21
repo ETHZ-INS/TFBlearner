@@ -195,8 +195,7 @@
                           subSample=10000)
 {
   labels <- .binMat(labels, threshold=0)
-  labels <- as(labels, "CsparseMatrix")
-  labels <- sparseMatrixStats::rowMaxs(labels)
+  labels <- .marginMax(labels, margin="row")
 
   thr <- maxScores/2
 
@@ -316,16 +315,13 @@
   atacMat1 <- atacMat1[,commonContexts,drop=FALSE]
   atacMat2 <- atacMat2[,commonContexts,drop=FALSE]
 
-  atacMat1 <- as(atacMat1, "CsparseMatrix")
-  atacMat2 <- as(atacMat2, "CsparseMatrix")
-
   pearCor <- cor(Matrix::t(as.matrix(atacMat1)), Matrix::t(as.matrix(atacMat2)))
   colnames(pearCor) <- paste(assocPearsonPrefix, 1:ncol(pearCor), sep="_")
   pearCor <- Matrix::Matrix(pearCor)
 
   # max-scaling
-  atacScalMat1 <- Matrix::t(Matrix::t(atacMat1)/sparseMatrixStats::colMaxs(atacMat1))
-  atacScalMat2 <- Matrix::t(Matrix::t(atacMat2)/sparseMatrixStats::colMaxs(atacMat2))
+  atacScalMat1 <- Matrix::t(Matrix::t(atacMat1)/.marginMax(atacMat1, margin="col"))
+  atacScalMat2 <- Matrix::t(Matrix::t(atacMat2)/.marginMax(atacMat2, margin="col"))
 
   # binarizing
   atacBinMat1 <- .binMat(atacScalMat1, threshold=0.3)
@@ -369,7 +365,7 @@
 #' @importFrom MotifDb MotifDb
 #' @importFrom RcppML nmf
 #' @importFrom preprocessCore normalize.quantiles
-#' @importFrom sparseMatrixStats colMaxs rowMaxs
+#' @importFrom MatrixGenerics colMaxs rowMaxs
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
 tfFeatures <- function(mae,
@@ -595,7 +591,7 @@ tfFeatures <- function(mae,
     tfCols <- colnames(chIPMat)[grepl("_CTCF$", colnames(chIPMat),
                                       ignore.case=TRUE)]
     if(length(tfCols)>0){
-      sig <- sparseMatrixStats::rowMaxs(chIPMat[,tfCols, drop=FALSE])
+      sig <- .marginMax(chIPMat[,tfCols, drop=FALSE], margin="row")
       sig <- Matrix::Matrix(sig, ncol=1)
 
       colnames(sig) <- ctcfSigFeatName

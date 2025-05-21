@@ -13,6 +13,7 @@ tfFeatures(
   nPatterns = 50,
   L1 = c(0.5, 0.5),
   nMotifs = 10,
+  annoCol = "context",
   seed = 42,
   genome = BSgenome.Hsapiens.UCSC.hg38
 )
@@ -37,6 +38,8 @@ Passed to \link[RcppML:nmf]{RcppML::nmf}.}
 Passed to \link[RcppML:nmf]{RcppML::nmf}}
 
 \item{nMotifs}{Number of associated motifs to select. Chooses \code{nMotifs} co-occuring and \code{nMotifs} mutually exclusive motifs.}
+
+\item{annoCol}{Name of column indicating cellular contexts in colData.}
 
 \item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
 

@@ -14,16 +14,16 @@
 }
 
 .robustNormalization <- function(mat){
-   qs <- apply(mat,2, quantile, c(0.25,0.5,0.75))
+   qs <- .marginQuant(mat, probs=c(0.25,0.5,0.75), margin="col")
    Matrix::Matrix(t(t(sweep(mat, 2, qs[2,], "-"))/(qs[3,]-qs[1,])))
 }
 
 .minMaxNormalization <- function(mat, useMax=FALSE){
   if(useMax){
-    qs <- apply(mat,2, quantile, c(0.0,1.0))
+    qs <- .marginQuant(mat, probs=c(0.0,1.0), margin="col")
   }
   else{
-    qs <- apply(mat,2, quantile, c(0.0,0.9))
+    qs <- .marginQuant(mat, probs=c(0.0,0.9), margin="col")
   }
   Matrix::Matrix(t(t(mat)/(qs[2,]-qs[1,])))
 }
@@ -76,6 +76,7 @@
 #' Assay is either saved as [Matrix::Matrix-class] or as [HDF5Array::HDF5Array-class] (if `saveHdf5=TRUE`).
 #' @import Matrix
 #' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close H5garbage_collect
+#' @importFrom MatrixGenerics colQuantiles rowQuantiles
 #' @importClassesFrom HDF5Array HDF5Array
 #' @export
 getFeatureMatrix <- function(mae,
