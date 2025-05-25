@@ -18,7 +18,7 @@
       setnames(seqDat, c("seqnames"), c("chr"))
     }
     else if(grepl(".bed", basename(data), fixed=TRUE)){
-      if(readAll) seqDat <- fread(data)
+      if(readAll) seqDat <- fread(data, stringsAsFactors=TRUE)
       else{
 
         readBed <- function(data){
@@ -38,11 +38,12 @@
       }
     }
     else if(grepl(".tsv", basename(data), fixed=TRUE)){
-      if(readAll) seqDat <- fread(data)
+      if(readAll) seqDat <- fread(data, stringsAsFactors=TRUE)
       else{
         seqDat <- fread(data, select=c(1:3),
                         col.names=c("chr", "start", "end"),
                         stringsAsFactors=TRUE)}
+      if("seqnames" %in% colnames(seqDat)) setnames(seqDat, "seqnames", "chr")
     }
     else if(grepl(".rds", basename(data), fixed=TRUE)){
       seqDat <- as.data.table(readRDS(data))
@@ -52,6 +53,7 @@
   else{
     seqDat <- as.data.table(data)
     if("seqnames" %in% colnames(seqDat)) setnames(seqDat, "seqnames", "chr")
+    seqDat$chr <- factor(seqDat$chr)
   }
 
   if(!is.null(subSample) & is.numeric(subSample)){
@@ -63,8 +65,8 @@
   # Match seqlevelstyle to reference
   if((sum(grepl("chr", levels(seqDat$chr)))==0 & seqLevelStyle=="UCSC") |
      (sum(grepl("chr", levels(seqDat$chr)))>0 & seqLevelStyle=="NCBI")){
-    tmpgr <- GRanges(levels(seqDat[[1]]),
-                     IRanges(seq_along(levels(seqDat[[1]])), width=2L))
+    tmpgr <- GRanges(levels(seqDat[["chr"]]),
+                      IRanges(seq_along(levels(seqDat[["chr"]])), width=2L))
     seqlevelsStyle(tmpgr) <- seqLevelStyle
     levels(seqDat$chr) <- seqlevels(tmpgr)
   }
@@ -245,6 +247,9 @@
   colnames(motifScores) <- colNames
   motifColData <- data.table(colnames(motifScores), maxScores)
   colnames(motifColData) <- c(motifNameCol, maxScoreCol)
+
+  # add paths of motifs files
+  motifColData[,origin:=unlist(data[get(motifNameCol)])]
 
   assayList <- list(motifScores)
   names(assayList) <- matchAssayName

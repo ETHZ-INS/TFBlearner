@@ -2,8 +2,8 @@ test_that("Shifting checks", {
   #TODO: move this test to the corresponding file
   assayTableSimple1$strand <- c("+", "-", "+", "-")
   atacFragShifted <- .processData(assayTableSimple1, shift=TRUE)
-  expect_equal(atacFragShifted$start, assayTableSimple1$start+c(-4,-4,-4,-4))
-  expect_equal(atacFragShifted$end, assayTableSimple1$end+c(-4,-4,-4,-4))
+  expect_equal(atacFragShifted$start, assayTableSimple1$start+c(4L,4L,4L,4L))
+  expect_equal(atacFragShifted$end, assayTableSimple1$end+c(-4L,-4L,-4L,-4L))
 })
 
 test_that("Object construction: Basic functionality", {
@@ -37,6 +37,19 @@ test_that("Object construction: Column naming", {
   expect_equal(colnames(mae[[motifExp]]), names(exampleMotif))
   expect_equal(colnames(mae[[chIPExp]]), names(exampleChIP))
   expect_equal(colnames(mae[[atacExp]]), names(exampleATAC))
+})
+
+test_that("Object construction: Train test assignment", {
+  mae <- suppressMessages({prepData(example_coords,
+                                    motifData=exampleMotif,
+                                    atacData=exampleATAC,
+                                    chIPData=exampleChIP,
+                                    testSet="A549")})
+
+  expect_true(file.exists(subset(colData(mae[[motifExp]]),
+                          get(motifNameCol)==names(exampleMotif)[[1]])$origin))
+  expect_true(file.exists(subset(colData(mae[[motifExp]]),
+                          get(motifNameCol)==names(exampleMotif)[[2]])$origin))
 })
 
 test_that("Object construction: Train test assignment", {
