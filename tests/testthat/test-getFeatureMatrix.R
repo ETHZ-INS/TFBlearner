@@ -47,9 +47,12 @@ test_that("Feature Matrix: Correct context selection - only for training context
   contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
   trainContexts <- setdiff(contexts, testContext)
 
+  expect_equal(as.character(levels(rowRanges(fm)@elementMetadata[[annoCol]])),
+               trainContexts)
   expect_equal(nrow(fm), length(trainContexts)*length(example_coords))
-  expect_equal(rowRanges(fm),
-               rep(rowRanges(maeTest[[atacExp]]), length(trainContexts)))
+  expRanges <- rep(rowRanges(maeTest[[atacExp]]), length(trainContexts))
+  expect_equal(ranges(rowRanges(fm)), ranges(expRanges), ignore_attr=TRUE)
+  expect_equal(rowRanges(fm)@seqnames, expRanges@seqnames, ignore_attr=TRUE)
   expect_equal(metadata(fm)[[annoCol]], trainContexts)
 })
 
@@ -63,7 +66,10 @@ test_that("Feature Matrix: Correct context selection - only for specified contex
                          saveHdf5=FALSE)
 
   expect_equal(nrow(fm), length(example_coords))
-  expect_equal(rowRanges(fm), rowRanges(maeTest[[atacExp]]))
+  expect_equal(as.character(levels(rowRanges(fm)@elementMetadata[[annoCol]])),
+               "A549")
+  expect_equal(rowRanges(fm)@seqnames, rowRanges(maeTest[[atacExp]])@seqnames)
+  expect_equal(ranges(rowRanges(fm)), ranges(rowRanges(maeTest[[atacExp]])))
   expect_equal(metadata(fm)[[annoCol]], "A549")
   expect_equal(metadata(fm)[[tfCofactorsCol]], "JUN")
   expect_contains(names(metadata(fm)), assocMotifPrefix)

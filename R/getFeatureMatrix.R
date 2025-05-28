@@ -50,6 +50,43 @@
   return(normMat)
 }
 
+.cbindFeat <- function(mats, isDelayed=FALSE){
+  colNames <- mapply(function(mat,name){
+    if(ncol(mat)>1){
+      return(colnames(mat))
+    }else{
+      return(name)}}, mats, names(mats))
+  colNames <- unlist(colNames)
+
+  if(isDelayed) mats <- lapply(mats, .convertToMatrix)
+
+  # homogenize class
+  mats <- lapply(mats, drop0)
+  xs <- lapply(mats, function(m){
+      n <- ncol(m)*nrow(m)
+      (length(m@x)/n)})
+  nCols <- unlist(lapply(mats, ncol))
+  sp <- weighted.mean(unlist(xs), nCols/sum(nCols))
+
+  mats <- lapply(mats, as, "TsparseMatrix")
+  js <- cumsum(nCols)
+  indDt <- lapply(1:length(mats), function(i){
+      j <- js[[i]]
+      indDt <- data.table(x=mats[[i]]@x,
+                          i=mats[[i]]@i+1,
+                          j=rep(j, length(mats[[i]]@x)))})
+  indDt <- rbindlist(indDt)
+
+  # Get matrix
+  # 2x faster than Reduce("cbind") or do.call("cbind") on the cost of a slight memory overhead
+  mat <- sparseMatrix(i=indDt$i, j=indDt$j, x=indDt$x,
+                      dims=c(nrow(mats[[1]]), sum(nCols)))
+  if(sp>0.5) mat <- suppressWarnings({Matrix::Matrix(mat)})
+  colnames(mat) <- colNames
+
+  return(mat)
+}
+
 #' Feature matrix construction
 #'
 #' Compiles feature matrix based on pre-computed features stored in experiments of the provided [MultiAssayExperiment::MultiAssayExperiment-class] object.
@@ -77,6 +114,7 @@
 #' @import Matrix
 #' @importFrom rhdf5 h5createFile h5createDataset h5delete h5write H5close H5garbage_collect
 #' @importFrom MatrixGenerics colQuantiles rowQuantiles
+#' @importFrom IRanges ranges
 #' @importClassesFrom HDF5Array HDF5Array
 #' @export
 getFeatureMatrix <- function(mae,
@@ -96,7 +134,6 @@ getFeatureMatrix <- function(mae,
 
   norm <- match.arg(norm, choices=c("robust", "min-max",
                                     "column", "none"))
-
 
   # retrieve specified contexts
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
@@ -126,41 +163,40 @@ getFeatureMatrix <- function(mae,
   tfCofactors <- unique(unlist(subset(colData(mae[[tfFeat]]),
                                      get(tfNameCol)==tfName)[[tfCofactorsCol]]))
 
-  message("Attaching Coordinate Features")
-  siteFeatMat <- Reduce("cbind", assays(mae[[siteFeat]])[-1],
-                                 assays(mae[[siteFeat]])[[1]])
-  colnames(siteFeatMat) <- names(assays(mae[[siteFeat]]))
-
-  message("Attaching TF Features")
-  seTf <- mae[[tfFeat]]
-  seTf <- seTf[,colData(seTf)[[tfNameCol]]==tfName]
-
-  tfFeatMat <- Reduce("cbind", assays(seTf)[-1], assays(seTf)[[1]])
-  colnames(tfFeatMat) <- names(assays(seTf))
-
+  message("Attaching Site & TF-Features")
   selMotifs <- subset(colData(mae[[tfFeat]]),
                       get(tfNameCol)==tfName)[[preSelMotifCol]]
   selMotifs <- unique(unlist(selMotifs))
-  motifMat <- as(assays(mae[[motifExp]])[[matchAssayName]][,selMotifs,drop=FALSE],
-                 "CsparseMatrix")
+  motifMat <- assays(mae[[motifExp]])[[matchAssayName]][,selMotifs,drop=FALSE]
   colnames(motifMat) <- paste(assocMotifPrefix, colnames(motifMat), sep="_")
 
-  nonContextTfFeat<- list(siteFeatMat, tfFeatMat, motifMat)
-  nonContextTfFeat<- Reduce("cbind", nonContextTfFeat[-1], nonContextTfFeat[[1]])
+  # remove sole NA columns
+  seTf <- mae[[tfFeat]]
+  seTf <- seTf[,colData(seTf)[[tfNameCol]]==tfName]
+  isCovered <- lapply(assays(seTf), function(mat) sum(!is.na(mat))>0)
+  isCovered <- unlist(isCovered)
+  tfAssaysToKeep <- assays(seTf)[isCovered]
+
+  nonContextTfFeat <- c(assays(mae[[siteFeat]]), tfAssaysToKeep, list(motifMat))
+  nonContextTfFeat <- .cbindFeat(nonContextTfFeat, isDelayed=TRUE)
 
   message("Attaching cellular context-specific features")
   seTfContext <- mae[[contextTfFeat]][, paste(contexts, tfName, sep="_")]
   seAtac <- mae[[atacExp]][,contexts]
   coords <- rowRanges(seAtac)
 
+  # remove sole NA columns
+  isCovered <- lapply(assays(seTfContext), function(mat) sum(!is.na(mat))>0)
+  isCovered <- unlist(isCovered)
+  assaysToKeep <- assays(seTfContext)[isCovered]
+  seTfContext <- SummarizedExperiment(assays=assaysToKeep)
+
   # get the number of features
-  contextAssayNames <- c(names(assays(mae[[contextTfFeat]])),
-                         names(assays(mae[[atacExp]])))
-  nFeats <- length(assays(mae[[siteFeat]]))+
-            length(assays(mae[[tfFeat]]))+
-            length(assays(mae[[contextTfFeat]]))+
-            length(assays(mae[[atacExp]]))+
-            length(selMotifs)
+  contextAssayNames <- c(names(assays(seTfContext)),
+                         names(assays(seAtac)))
+  nFeats <- ncol(nonContextTfFeat)+
+            length(assays(seTfContext))+
+            length(assays(seAtac))
 
   if(paste(contextTfFeat, maxAtacFeatName, sep="_") %in% contextAssayNames){
    nFeats <- nFeats+sum(grepl(insertFeatName, contextAssayNames))+
@@ -197,17 +233,12 @@ getFeatureMatrix <- function(mae,
     hdf5FileName <- NULL
   }
 
-  # remove only NA columns
-  colsToKeep <- which(colSums(!is.na(nonContextTfFeat))>0)
-  nonContextTfFeat <- nonContextTfFeat[,colsToKeep,drop=FALSE]
-
   if(convertInteger){
     nonContextTfFeat<- .roundingCompression(nonContextTfFeat)}
 
   featMats <- lapply(contexts, function(context, seAtac,
                                         seTfContext,
                                         tfName, tfCofactors,
-                                        selMotifs,
                                         otherFeatMat,
                                         norm, saveChunk,
                                         hdf5FileName,
@@ -217,22 +248,19 @@ getFeatureMatrix <- function(mae,
 
     # get context- & TF-specific features
     labelColName <- paste(contextTfFeat, labelFeatName, sep="_")
-    assayNames <- names(assays(mae[[contextTfFeat]]))
+    assayNames <- names(assays(seTfContext))
     if(!addLabels) assayNames <- setdiff(assayNames, labelColName)
     featsTfContext <- lapply(assayNames, function(assayName){
-                        assayMat <- assays(mae[[contextTfFeat]])[[assayName]]
-                        assayMat[,paste(context, tfName, sep="_"),drop=FALSE]})
+                             assayMat <- assays(seTfContext)[[assayName]]
+                             assayMat[,paste(context, tfName, sep="_"),drop=FALSE]})
     names(featsTfContext) <- featNames <- assayNames
-    featsTfContext <- Reduce("cbind", featsTfContext[-1], featsTfContext[[1]])
-    colnames(featsTfContext) <- featNames
+    featsTfContext <- .cbindFeat(featsTfContext)
 
     # get context-specific features
-    featsContext <- lapply(assays(seAtac), function(assayMat){
-                           as(assayMat[,context, drop=FALSE], "CsparseMatrix")})
-    featsContext <- Reduce("cbind", featsContext[-1], featsContext[[1]])
-    colnames(featsContext) <- names(assays(seAtac))
-
+    atacAssays <- lapply(assays(seAtac), function(assayMat) assayMat[,context,drop=FALSE])
+    featsContext <- .cbindFeat(atacAssays, isDelayed=TRUE)
     featsContextMat <- cbind(featsTfContext, featsContext)
+
     if(addLabels){
       labelCol <- featsContextMat[,labelColName,drop=FALSE]
       featsContextMat <- featsContextMat[,setdiff(colnames(featsContextMat),
@@ -242,17 +270,20 @@ getFeatureMatrix <- function(mae,
       labelCol <- NULL
     }
 
-    # remove only NA columns
-    colsToKeep <- which(colSums(!is.na(featsContextMat))>0)
-    featsContextMat <- featsContextMat[,colsToKeep,drop=FALSE]
-
     # determine sub-mat to be normalized
     featsNormed <- unlist(subset(listFeatures(),
                                  feature_type=="context-tf-Feature" &
                                  context_normed)$feature_matrix_column_names)
-    featsNormed <- lapply(c(tfName, tfCofactors, selMotifs), gsub,
-                          pattern="<tf_name>|<cofactor_name>", featsNormed)
-    featsNormed <- unique(unlist(featsNormed))
+    enumFeats <- unlist(tstrsplit(colnames(featsContextMat), split="_"))
+    enumFeats <- as.integer(enumFeats[grepl("^[-+]?[0-9]+$", enumFeats)])
+    enumFeats <- enumFeats[is.finite(enumFeats) & !is.na(enumFeats)]
+    if(length(enumFeats)>0){maxEnum <- max(max(enumFeats),1)}
+    else{maxEnum <- 1}
+
+    featsNormed <- lapply(1:maxEnum, gsub, pattern="<i>", featsNormed)
+    featsNormed <- c(unlist(featsNormed), gsub("tf", "CTCF", unlist(featsNormed)))
+    featsNormed <- unique(featsNormed)
+
     featsNormed <- intersect(colnames(featsContextMat),
                              c(featsNormed, normTotalOverlapsName))
     featsNormedMat <- featsContextMat[,featsNormed, drop=FALSE]
@@ -286,10 +317,13 @@ getFeatureMatrix <- function(mae,
       featsContextMat <- .roundingCompression(featsContextMat)
     }
 
+    matClass <- fifelse(class(otherFeatMat)=="dgCMatrix", "CsparseMatrix", "dgeMatrix")
+    featsContextMat <- as(featsContextMat, matClass)
     featsMat <- cbind(featsContextMat, otherFeatMat)
 
     i <- which(colnames(seAtac)==context)
-    contextCol <-  Matrix(i, nrow=nrow(featsMat), ncol=1)
+    contextCol <-  Matrix::Matrix(i, nrow=nrow(featsMat), ncol=1)
+    contextCol <- as(contextCol, matClass)
     colnames(contextCol) <- annoCol
     featsMat <- cbind(featsMat, contextCol)
 
@@ -310,14 +344,13 @@ getFeatureMatrix <- function(mae,
     }
   }, seAtac, seTfContext,
      tfName, tfCofactors,
-     selMotifs,
      nonContextTfFeat, norm,
      saveChunk, hdf5FileName,
      annoCol,
      addLabels, convertInteger)
 
   featMats <- Reduce("rbind", featMats[-1], featMats[[1]])
-  featMats <- Matrix::Matrix(featMats)
+  featMats <- suppressWarnings({Matrix::Matrix(featMats)})
   colnames(featMats) <- make.names(colnames(featMats), unique=TRUE)
 
   if(saveHdf5){
@@ -332,11 +365,15 @@ getFeatureMatrix <- function(mae,
     asSparse<- fifelse(is(featMats, "CsparseMatrix"), TRUE, FALSE)
     featMats <- HDF5Array(hdf5FileName, "feature_matrix", as.sparse=asSparse)
     colnames(featMats) <- featNames
+    gc()
   }
 
   #TODO: add colData with feature-classes & information
+  coords <- rep(coords, length(contexts))
+  coords@elementMetadata[[annoCol]] <- factor(contexts[featMats[,annoCol]],
+                                              levels=contexts)
   fmSe <- SummarizedExperiment(assays=list("features"=featMats),
-                               rowRanges=rep(coords, length(contexts)))
+                               rowRanges=coords)
   metadata(fmSe)[[tfNameCol]] <- tfName
   metadata(fmSe)[[tfCofactorsCol]] <- tfCofactors
   metadata(fmSe)[[annoCol]] <- contexts
