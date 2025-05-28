@@ -173,7 +173,7 @@ listFeatures <- function(){
                                                           paste(contextTfFeat, "tf", wInsertsFeatName, c("within", "margin"), sep="_"),
                                                           paste(contextTfFeat, devFeatName, sep="_"),
                                                           paste(contextTfFeat, chromVarScoreSuffix, tfMotifPrefix, "<i>", sep="_"),
-                                                          paste(contextTfFeat, chromVarAssocSuffix, c(assocPearsonPrefix, assocCohenPrefix), "tf", sep="_"),
+                                                          paste(contextTfFeat, c(assocPearsonPrefix, assocCohenPrefix), "<i>",chromVarAssocSuffix, "tf", sep="_"), # to be refactored
                                                           paste(contextTfFeat, chromVarScoreSuffix, assocMotifPrefix, "<i>", sep="_"),
                                                           paste(contextTfFeat, mdsDimFeatName, 1:2, sep="_"),
                                                           paste(contextTfFeat, maxAtacFeatName, sep="_"),
