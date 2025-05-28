@@ -207,9 +207,9 @@
   # top motif scores
   matchCoScores <- matchSubScores
   matchCoScores@x[matchCoScores@x < thr[matchCoScores@j + 1] &
-                    matchCoScores@x<4e4] <- 0
+                    matchCoScores@x<4*scalFactMotif] <- 0
   matchCoScores@x[matchCoScores@x >= thr[matchCoScores@j + 1] &
-                    matchCoScores@x>=4e4] <- 1
+                    matchCoScores@x>=4*scalFactMotif] <- 1
 
   # get mutually exclusive motif scores
   zeroInd <- which(matchSubScores==0, arr.ind = TRUE)

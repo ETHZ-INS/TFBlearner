@@ -357,7 +357,7 @@ contextTfFeatures <- function(mae,
 
     # subset motif matches
     thr <- colDataMotifs[[maxScoreCol]]/2
-    matchScores@x[matchScores@x<thr[matchScores@j + 1] & matchScores@x<4e4] <- 0
+    matchScores@x[matchScores@x<thr[matchScores@j + 1] & matchScores@x<4*scalFactMotif] <- 0
 
     # retrieve GC-content
     gcContent <- assays(maeSub[[siteFeat]])[[paste(siteFeat,

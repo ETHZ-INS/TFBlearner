@@ -211,7 +211,7 @@
                                        byCols="motif_name",
                                        aggregationFun=aggregationFun,
                                        BPPARAM=SerialParam())
-    motifScore <- .roundingCompression(motifScore, factor=1e4)
+    motifScore <- .roundingCompression(motifScore, factor=scalFactMotif)
     maxScore <- max(motifScore@x)
 
     if(saveHdf5){
