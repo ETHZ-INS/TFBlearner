@@ -5,19 +5,20 @@
 \title{Training transcription factor-specific tree-based gradient boosting Models}
 \usage{
 trainStacked(
-  featMat,
+  fm,
   modsBagged,
   stackingStrat = c("last", "wLast", "wMean", "boostTree"),
   subSample = 1e+05,
   evalRounds = 100,
   earlyStoppingRounds = 10,
+  annoCol = "context",
   seed = 42,
   numThreads = 10,
   BPPARAM = SerialParam()
 )
 }
 \arguments{
-\item{featMat}{Labelled feature matrix as obtained with \link{getFeatureMatrix}. Ideally not used for training the bagged models.}
+\item{fm}{\link[SummarizedExperiment:RangedSummarizedExperiment-class]{SummarizedExperiment::RangedSummarizedExperiment} object containing features & labels as obtained by \link{getFeatureMatrix}. Ideally not used for training the bagged models.}
 
 \item{modsBagged}{Bag of models trained on different stratas of the data, as obtained by \link{trainBagged}.}
 
@@ -26,11 +27,13 @@ observational weights for the ChIP-seq peaks. \code{wLast} using the last model 
 \code{wMean} weighted mean all models based on performance on the feature matrix provided.
 \code{boostTree} Trains a lightgbm model on the predictions of the models in the bag, together with some additional features (e.g. gc_content, total_overlaps).}
 
-\item{subSample}{Number of rows of featMat whoich should be used for computing performance estimates. Only used if \code{stackingStrat="wMean"}-}
+\item{subSample}{Number of rows of featMat which should be used for computing performance estimates. Only used if \code{stackingStrat="wMean"}-}
 
 \item{evalRounds}{Number of evaluation rounds for the hyperparameter selection rounds. Only used if \code{stackingStrat="wBoost"}.}
 
 \item{earlyStoppingRounds}{Number of early stopping rounds for the hyperparameter selection and training of the \link[lightgbm:lightgbm]{lightgbm::lightgbm} model. Only used if \code{stackingStrat="wBoost"}.}
+
+\item{annoCol}{Name of column indicating cellular contexts.}
 
 \item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
 
@@ -46,6 +49,6 @@ or a vector with weights for the models in the provided bag (\code{wMean}).
 \description{
 Trains a stacked model provided a bag of four tree-based gradient boosting models as obtained by \link{trainBagged}.
 For different stacking strategies can be used.
-The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository \url{https://github.com/mlr-org/mlr3extralearners}, whichs
+The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository \url{https://github.com/mlr-org/mlr3extralearners}, which
 contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
 }

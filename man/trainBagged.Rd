@@ -6,13 +6,14 @@
 \usage{
 trainBagged(
   tfName,
-  featMat,
+  fm,
   measureName = c("classif.aucpr", "classif.logloss"),
   evalRounds = 100,
-  earlyStoppingRounds = 100,
+  earlyStoppingRounds = 10,
   posFrac = 0.25,
   loContext = FALSE,
   tuneHyperparams = TRUE,
+  annoCol = "context",
   seed = 42,
   numThreads = 10,
   BPPARAM = SerialParam()
@@ -21,7 +22,7 @@ trainBagged(
 \arguments{
 \item{tfName}{Name of transcription factor to train model for.}
 
-\item{featMat}{Feature matrix as constructed by \link{getFeatureMatrix}.}
+\item{fm}{\link[SummarizedExperiment:RangedSummarizedExperiment-class]{SummarizedExperiment::RangedSummarizedExperiment} object containing features & labels as obtained by \link{getFeatureMatrix}.}
 
 \item{measureName}{Measure used for hyperparameter selection.
 Either area under the precision-recall curve computed using \link[PRROC:pr.curve]{PRROC::pr.curve} ("classif.aucpr") or
@@ -39,6 +40,8 @@ Only works if more than one cellular-context is contained within the feature mat
 
 \item{tuneHyperparams}{If hyperparameters should be tuned with \link[mlr3mbo:mlr_tuners_mbo]{mlr3mbo::TunerMbo}. Recommend to have this turned on (\code{tuneHyperparams=TRUE}).
 Otherwise (hopefully) sensible defaults are used.}
+
+\item{annoCol}{Name of column indicating cellular contexts.}
 
 \item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
 
