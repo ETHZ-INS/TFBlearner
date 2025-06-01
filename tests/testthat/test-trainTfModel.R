@@ -2,7 +2,8 @@ test_that("Arguments check: Error if mismatch between transcription factor speci
   fm <- Matrix(runif(100),ncol=10, nrow=10)
   fm <- SummarizedExperiment(assays=list(features=fm))
   metadata(fm)$tf_name <- "JUN"
-  expect_error(trainBagged("YY1", fm, evalRounds=2, BPPARAM=SerialParam()))
+  expect_error(trainTfModel("YY1", fm, evalRounds=2, stackingStrat="last",
+                            BPPARAM=SerialParam()))
 })
 
 test_that("Arguments check: Basic training setup",{
@@ -24,27 +25,38 @@ test_that("Arguments check: Basic training setup",{
                     paste(siteFeat, widthFeatName, sep="_"))
   fm <- as(fm, "CsparseMatrix")
   coords <- refCoords[sample(1:length(refCoords),
-                  nrow(fm), replace=TRUE)]
+                      floor(nrow(fm)/2), replace=TRUE)]
+  coords <- c(coords, coords)
   coords@elementMetadata[[annoCol]] <- cellTypeCol
   fm <- SummarizedExperiment(assays=list(features=fm),
                              rowRanges=coords)
   metadata(fm)[[annoCol]] <- unique(cellTypeCol[,1,drop=TRUE])
   metadata(fm)$tf_name <- tfName
   mods <- NULL
-  expect_no_error(mods <- trainBagged(tfName, fm, evalRounds=2, BPPARAM=SerialParam()))
-  expect_no_error(trainStacked(fm, mods, stackingStrat="last", BPPARAM=SerialParam()))
-  expect_no_error(trainStacked(fm, mods, stackingStrat="wLast", BPPARAM=SerialParam()))
-  expect_no_error(trainStacked(fm, mods, stackingStrat="wMean",
-                               subSample=100, BPPARAM=SerialParam()))
+  modsBaggedNames <- c(modelTopWeightName,
+                       modelMedWeightName,
+                       modelAllWeigthName,
+                       modelAllName)
+
+  expect_no_error(mods <- trainTfModel(tfName, fm, evalRounds=2,
+                                       stackingStrat=c("last"),
+                                       BPPARAM=SerialParam()))
+  expect_contains(names(mods), c(modsBaggedNames,
+                                 paste(modelStackedSuffix, "last", sep="_"),
+                                 "stacking_strategy"))
+  expect_no_error(.trainStacked(fm, mods[modsBaggedNames],
+                                stackingStrat="wLast"))
+  expect_no_error(.trainStacked(fm, mods[modsBaggedNames],
+                                stackingStrat="wMean", subSample=100))
 })
 
 test_that("Correct assignment of positive and negative fractions during training",{
-  fm <- Matrix(runif(1e7), ncol=10)
-  motifScore <- Matrix(runif(1e6, 0.5, 10), ncol=1)
-  labelCol <- Matrix(sample(c(1,0), 1e6, prob=c(0.05,0.95), replace=TRUE), ncol=1)
-  cellTypeCol <- Matrix(c(rep(1, 5e5), rep(2, 5e5)), ncol=1)
-  countCol <- Matrix(sample(1:100, 1e6, replace=TRUE), ncol=1)
-  widthCol <- Matrix(sample(50:200, 1e6, replace=TRUE), ncol=1)
+  fm <- Matrix(runif(1e6), ncol=10)
+  motifScore <- Matrix(runif(1e5, 0.5, 10), ncol=1)
+  labelCol <- Matrix(sample(c(1,0), 1e5, prob=c(0.05,0.95), replace=TRUE), ncol=1)
+  cellTypeCol <- Matrix(c(rep(1, 5e4), rep(2, 5e4)), ncol=1)
+  countCol <- Matrix(sample(1:100, 1e5, replace=TRUE), ncol=1)
+  widthCol <- Matrix(sample(50:200, 1e5, replace=TRUE), ncol=1)
   fm <- cbind(fm, motifScore, labelCol, cellTypeCol, countCol, widthCol)
   tfName <- "YY1"
   annoCol <- "context"
@@ -56,15 +68,17 @@ test_that("Correct assignment of positive and negative fractions during training
                     paste(siteFeat, widthFeatName, sep="_"))
   fm <- as(fm, "CsparseMatrix")
   coords <- refCoords[sample(1:length(refCoords),
-                             nrow(fm), replace=TRUE)]
+                             floor(nrow(fm)/2), replace=TRUE)]
+  coords <- c(coords, coords)
   coords@elementMetadata[[annoCol]] <- cellTypeCol
   fm <- SummarizedExperiment(assays=list(features=fm),
                              rowRanges=coords)
   metadata(fm)[[annoCol]] <- unique(cellTypeCol[,1,drop=TRUE])
   metadata(fm)$tf_name <- tfName
 
-  mod <- trainBagged(tfName, fm, evalRounds=1, tuneHyperparams=FALSE,
-                     BPPARAM=SerialParam())
+  mod <- trainTfModel(tfName, fm, evalRounds=1,
+                      tuneHyperparams=FALSE, stackingStrat="last",
+                      BPPARAM=SerialParam())
 
   nPos <- mod$top_weighted_pos$params$n_pos_train
   nTot <- mod$top_weighted_pos$params$n_neg_train+nPos

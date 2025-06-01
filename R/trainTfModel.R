@@ -474,12 +474,12 @@
 
  #' Training transcription factor-specific tree-based gradient boosting Models
  #'
- #' Trains a bag of four tree-based gradient boosting models of the [lightgbm::lightgbm] library.
+ #' Trains a bag of four tree-based gradient boosting models of the [lightgbm::lightgbm] library and stacked model combining the predictions of the latter.
  #' Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the [mlr3tuning] library.
  #' The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), whichs
  #' contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
  #'
- #' @name trainBagged
+ #' @name trainTfModel
  #' @param tfName Name of transcription factor to train model for.
  #' @param fm [SummarizedExperiment::RangedSummarizedExperiment-class] object containing features & labels as obtained by [TFBlearner::getFeatureMatrix].
  #' @param measureName Measure used for hyperparameter selection.
@@ -493,6 +493,11 @@
  #' Only works if more than one cellular-context is contained within the feature matrix.
  #' @param tuneHyperparams If hyperparameters should be tuned with [mlr3mbo::TunerMbo]. Recommend to have this turned on (`tuneHyperparams=TRUE`).
  #' Otherwise (hopefully) sensible defaults are used.
+ #' @param stackingStrat Stacking strategy to use. `last`, chooses the the model which has been trained on all (most) positives not using
+ #' observational weights for the ChIP-seq peaks. `wLast` using the last model which has seen most positives and has been trained with observational weights.
+ #' `wMean` weighted mean all models based on performance on the feature matrix provided.
+ #' `boostTree` Trains a lightgbm model on the predictions of the models in the bag, together with some additional features (e.g. gc_content, total_overlaps).
+ #' @param subSample Number of rows of featMat which should be used for computing performance estimates. Only used if `stackingStrat="wMean"`.
  #' @param annoCol Name of column indicating cellular contexts.
  #' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
  #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
@@ -502,7 +507,11 @@
  #' @import mlr3
  #' @import data.table
  #' @import Matrix
+ #' @importFrom GenomeInfoDb seqlevelsStyle
  #' @importFrom R6 R6Class
+ #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges assays
+ #' @importClassesFrom SummarizedExperiment SummarizedExperiment RangedSummarizedExperiment
+ #' @importFrom IRanges subsetByOverlaps
  #' @importFrom mlr3tuning trm ti
  #' @importFrom mlr3mbo TunerMbo
  #' @importFrom mlr3measures logloss
@@ -512,25 +521,55 @@
  #' @importFrom lightgbm lgb.Dataset lightgbm
  #' @importFrom PRROC pr.curve
  #' @export
-trainBagged <- function(tfName,
-                        fm,
-                        measureName=c("classif.aucpr",
-                                      "classif.logloss"),
-                        evalRounds=100,
-                        earlyStoppingRounds=10,
-                        posFrac=0.25,
-                        loContext=FALSE,
-                        tuneHyperparams=TRUE,
-                        annoCol="context",
-                        seed=42,
-                        numThreads=10,
-                        BPPARAM=SerialParam()){
+ trainTfModel <- function(tfName,
+                          fm,
+                          measureName=c("classif.aucpr",
+                                        "classif.logloss"),
+                          evalRounds=100,
+                          earlyStoppingRounds=10,
+                          posFrac=0.25,
+                          loContext=FALSE,
+                          tuneHyperparams=TRUE,
+                          stackingStrat=c("last", "wLast",
+                                          "wMean", "boostTree"),
+                          subSample=1e5,
+                          annoCol="context",
+                          seed=42,
+                          numThreads=10,
+                          BPPARAM=SerialParam()){
   set.seed(seed)
+  stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
+                                                      "wMean", "boostTree"))
 
   fmTfName <- metadata(fm)$tf_name
   if(fmTfName!=tfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and not for", tfName))
   }
+
+  # sample stacked chrs
+  rangesFm <- unique(rowRanges(fm))
+  mcols(rangesFm) <- NULL
+  seqlevelsStyle(rangesFm) <- "UCSC"
+  rangeDt <- as.data.table(rangesFm)
+  rangeDt[,row_id:=1:nrow(rangeDt)]
+  chrLevels <- unique(rangeDt$seqnames)
+  if(all(c("chr9", "chr19") %in% chrLevels)){
+    trainStackChr <- c("chr9", "chr19")
+    stackInd <- subset(rangeDt, seqnames %in% trainStackChr)$row_id
+    stackRanges <- rangesFm[stackInd]
+  }
+  else if(length(chrLevels)>2){
+    nChrs <- fifelse(length(chrLevels)>5,2,1)
+    trainStackChr <- sample(chrLevels, nChrs)
+    stackInd <- subset(rangeDt, seqnames %in% trainStackChr)$row_id
+    stackRanges <- rangesFm[stackInd]
+  }
+  else{
+    nSub <- floor(length(rangesFm)*0.1)
+    stackRanges <- rangesFm[sample(1:length(rangesFm), nSub)]
+  }
+  fmStacked <- IRanges::subsetByOverlaps(fm, stackRanges, type="equal")
+  fm <- IRanges::subsetByOverlaps(fm, stackRanges, invert=TRUE, type="equal")
 
   featMat <- assays(fm)$features
   measureName <- match.arg(measureName, choices=c("classif.aucpr",
@@ -687,6 +726,21 @@ trainBagged <- function(tfName,
                    modelAllWeigthName,
                    modelAllName)
 
+  # train the stacked model
+  fitStacked <- .trainStacked(fmStacked, fits, stackingStrat=stackingStrat,
+                              subSample=subSample, evalRounds=evalRounds,
+                              earlyStoppingRounds=earlyStoppingRounds,
+                              annoCol=annoCol, numThreads=numThreads,
+                              BPPARAM=BPPARAM)
+  if(stackingStrat=="wMean"){
+    fits <- mapply(function(mod, w){mod$params$stacking_weights <- w},
+                   fits, fitStacked)
+  }
+  fitStacked <- list(fitStacked)
+  names(fitStacked) <- paste(modelStackedSuffix, stackingStrat, sep="_")
+  fits <- append(fits, fitStacked)
+  fits[["stacking_strategy"]] <- stackingStrat
+
   return(fits)
 }
 
@@ -731,7 +785,7 @@ trainBagged <- function(tfName,
 #' The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), which
 #' contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
 #'
-#' @name trainStacked
+#' @name .trainStacked
 #' @param fm [SummarizedExperiment::RangedSummarizedExperiment-class] object containing features & labels as obtained by [TFBlearner::getFeatureMatrix]. Ideally not used for training the bagged models.
 #' @param modsBagged Bag of models trained on different stratas of the data, as obtained by [TFBlearner::trainBagged].
 #' @param stackingStrat Stacking strategy to use. `last`, chooses the the model which has been trained on all (most) positives not using
@@ -761,17 +815,16 @@ trainBagged <- function(tfName,
 #' @importFrom lightgbm lgb.Dataset lightgbm
 #' @importFrom PRROC pr.curve
 #' @importFrom MatrixGenerics colMaxs
-#' @export
-trainStacked <- function(fm, modsBagged,
-                         stackingStrat=c("last", "wLast",
-                                         "wMean", "boostTree"),
-                         subSample=1e5,
-                         evalRounds=100,
-                         earlyStoppingRounds=10,
-                         annoCol="context",
-                         seed=42,
-                         numThreads=10,
-                         BPPARAM=SerialParam()){
+.trainStacked <- function(fm, modsBagged,
+                          stackingStrat=c("last", "wLast",
+                                          "wMean", "boostTree"),
+                          subSample=1e5,
+                          evalRounds=100,
+                          earlyStoppingRounds=10,
+                          annoCol="context",
+                          seed=42,
+                          numThreads=10,
+                          BPPARAM=SerialParam()){
 
   stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
                                                       "wMean", "boostTree"))
@@ -802,8 +855,8 @@ trainStacked <- function(fm, modsBagged,
   else if(stackingStrat=="wMean"){
     stackMod <- .trainWeightedMean(preds, annoCol=annoCol,
                                    subSample=subSample, seed=seed)
-    stackMod <- mapply(function(mod, w){mod$params$stacking_weights <- w},
-                       modsBagged, stackMod)
+    #stackMod <- mapply(function(mod, w){mod$params$stacking_weights <- w},
+    #                   modsBagged, stackMod)
     attr(stackMod, "stacking_strategy") <- "weighted_mean"
   }
   else{
@@ -926,4 +979,16 @@ trainStacked <- function(fm, modsBagged,
   stackedMod$params$tf <- tfName
 
   return(stackedMod)
+}
+
+saveModel <- function(){
+  ml2 <- lapply(ml, \(x){
+    x$raw <- NULL
+    x$save_model_to_string()
+  })
+  saveRDS(ml2, file="modelList.rds")
+
+  # loading
+  ml <- readRDS("modelList.rds")
+  ml <- lapply(ml, \(x) lightgbm::lgb.load(model_str=x))
 }
