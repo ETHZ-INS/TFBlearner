@@ -733,8 +733,9 @@
                               annoCol=annoCol, numThreads=numThreads,
                               BPPARAM=BPPARAM)
   if(stackingStrat=="wMean"){
-    fits <- mapply(function(mod, w){mod$params$stacking_weights <- w},
-                   fits, fitStacked)
+    fits <- mapply(function(mod, w){
+      mod$params$stacking_weights <- w
+      mod}, fits, fitStacked)
   }
   fitStacked <- list(fitStacked)
   names(fitStacked) <- paste(modelStackedSuffix, stackingStrat, sep="_")
@@ -981,14 +982,86 @@
   return(stackedMod)
 }
 
-saveModel <- function(){
-  ml2 <- lapply(ml, \(x){
-    x$raw <- NULL
-    x$save_model_to_string()
-  })
-  saveRDS(ml2, file="modelList.rds")
+saveModels <- function(models, outPath){
 
-  # loading
-  ml <- readRDS("modelList.rds")
-  ml <- lapply(ml, \(x) lightgbm::lgb.load(model_str=x))
+  outDir <- dirname(outPath)
+  stackingStrat <- models[["stacking_strategy"]]
+  stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
+  modelNames <- c(modelTopWeightName,
+                  modelMedWeightName,
+                  modelAllWeigthName,
+                  modelAllName,
+                  stackedModel)
+
+  ml2 <- lapply(modelNames, \(modelName){
+    if(modelName==stackedModel & stackingStrat=="wMean"){
+     return(NULL)
+    }
+    else{
+      x <- models[[modelName]]
+      x$raw <- NULL
+      singleModelName <- paste0(file.path(outDir, modelName), ".txt")
+      lgb.save(x, singleModelName)
+      con <- file(singleModelName, "a")
+      writeLines(paste("extra paramter tf:", x$params$tf), con)
+      writeLines(paste("extra parameter sparse thres:",
+                     as.character(x$params$sparse_thr)), con)
+      writeLines(paste("extra parameter stacking strategy:",
+                     stackingStrat), con)
+      if(stackingStrat=="wMean"){
+        writeLines(paste("extra parameter stacking weights:",
+                       as.character(x$params$stacking_weights)), con)
+      }
+      writeLines("end of model", con)
+      writeLines("\n", con)
+      close(con)
+      return(singleModelName)}
+  })
+
+  ml2 <- ml2[lengths(ml2) != 0]
+  allMl2 <- unlist(lapply(ml2, readLines))
+  lapply(ml2, file.remove)
+  writeLines(allMl2, outPath)
+}
+
+loadModels <- function(modelPath){
+  outDir <- dirname(modelPath)
+  modelNames <- c(modelTopWeightName,
+                  modelMedWeightName,
+                  modelAllWeigthName,
+                  modelAllName,
+                  paste(modelStackedSuffix, stackingStrat, sep="_"))
+
+  models <- readLines(modelPath)
+  ml2 <- lapply(modelNames, \(modelName){
+
+    endParameters <- "end of parameters"
+    endModel <- "end of model"
+    singleModelName <- paste0(file.path(outDir, modelName), ".txt")
+
+    # read single model
+    endParamLine <- which(models==endParameters)[1]
+    lgbModel <- models[1:endParamLine]
+    writeLines(lgbModel, singleModelName)
+    lgbModel <- lgb.load(filename=singleModelName)
+    file.remove(singleModelName)
+
+    # read extra parameters
+    endModelLine <- which(models==endModel)[1]
+    stackingStrat <- unlist(tstrsplit(models[endModelLine-1], split=": ", keep=2))
+    sub <- fifelse(stackingStrat=="wMean",4,3)
+    lgbModel$params$tf <- unlist(tstrsplit(models[(endModelLine-sub)],
+                                           split=": ", keep=2))
+    lgbModel$params$sparse_thr <- unlist(tstrsplit(models[(endModelLine-(sub-1))],
+                                                   split=": ", keep=2,
+                                                   type.convert=TRUE))
+    # delete other models
+    otherModels <- models[-(1:(endModelLine+2))]
+    writeLines(otherModels, modelPath)
+    lgbModel
+  })
+  names(ml2) <- modelNames
+  ml2[["stacking_strategy"]] <- stackingStrat
+
+  return(ml2)
 }
