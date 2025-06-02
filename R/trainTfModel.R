@@ -982,6 +982,15 @@
   return(stackedMod)
 }
 
+#' Saves models on disk.
+#'
+#' Saves models obtained by [TFBlearner::trainTfModel] on disk.
+#'
+#' @name saveModels
+#' @param models List of models as obtained by [TFBlearner::trainTfModel].
+#' @param outPath Path for saving the models.
+#' @importFrom lightgbm lgb.save
+#' @export
 saveModels <- function(models, outPath){
 
   outDir <- dirname(outPath)
@@ -993,9 +1002,10 @@ saveModels <- function(models, outPath){
                   modelAllName,
                   stackedModel)
 
-  ml2 <- lapply(modelNames, \(modelName){
+  ml2 <- list()
+  for(modelName in modelNames){
     if(modelName==stackedModel & stackingStrat=="wMean"){
-     return(NULL)
+      next
     }
     else{
       x <- models[[modelName]]
@@ -1005,38 +1015,54 @@ saveModels <- function(models, outPath){
       con <- file(singleModelName, "a")
       writeLines(paste("extra paramter tf:", x$params$tf), con)
       writeLines(paste("extra parameter sparse thres:",
-                     as.character(x$params$sparse_thr)), con)
-      writeLines(paste("extra parameter stacking strategy:",
-                     stackingStrat), con)
+                       as.character(x$params$sparse_thr)), con)
       if(stackingStrat=="wMean"){
         writeLines(paste("extra parameter stacking weights:",
-                       as.character(x$params$stacking_weights)), con)
+                         as.character(x$params$stacking_weights)), con)
       }
+      writeLines(paste("extra parameter stacking strategy:",
+                       stackingStrat), con)
       writeLines("end of model", con)
       writeLines("\n", con)
       close(con)
-      return(singleModelName)}
-  })
-
-  ml2 <- ml2[lengths(ml2) != 0]
+      ml2[[modelName]] <- singleModelName
+    }
+  }
   allMl2 <- unlist(lapply(ml2, readLines))
   lapply(ml2, file.remove)
   writeLines(allMl2, outPath)
 }
 
+#' Loads models from disk.
+#'
+#' Loads models saved by [TFBlearner::saveModels] from disk.
+#'
+#' @name loadModels
+#' @param modelPath Path of the models .txt-file.
+#' @return A list of [lightgbm::lightgbm] models saved on disk .
+#' @importFrom lightgbm lgb.load
+#' @export
 loadModels <- function(modelPath){
+
   outDir <- dirname(modelPath)
+  models <- readLines(modelPath)
+  endParameters <- "end of parameters"
+  endModel <- "end of model"
+  tempModelPath <- file.path(dirname(modelPath), "tmp_model.txt")
+  endModelLine <- which(models==endModel)[1]
+
+  stackingStrat <- unlist(tstrsplit(models[endModelLine-1], split=": ", keep=2))
+
   modelNames <- c(modelTopWeightName,
                   modelMedWeightName,
                   modelAllWeigthName,
-                  modelAllName,
-                  paste(modelStackedSuffix, stackingStrat, sep="_"))
+                  modelAllName)
+  stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
+  if(stackingStrat!="wMean"){modelNames <- c(modelnames, stackedModel)}
 
-  models <- readLines(modelPath)
-  ml2 <- lapply(modelNames, \(modelName){
-
-    endParameters <- "end of parameters"
-    endModel <- "end of model"
+  ml2 <- list()
+  for(modelName in modelNames){
+    models <- readLines(modelPath)
     singleModelName <- paste0(file.path(outDir, modelName), ".txt")
 
     # read single model
@@ -1048,8 +1074,15 @@ loadModels <- function(modelPath){
 
     # read extra parameters
     endModelLine <- which(models==endModel)[1]
-    stackingStrat <- unlist(tstrsplit(models[endModelLine-1], split=": ", keep=2))
-    sub <- fifelse(stackingStrat=="wMean",4,3)
+    if(stackingStrat=="wMean"){
+      lgbModel$params$stacking_weights <- unlist(
+        tstrsplit(models[(endModelLine-2)], split=": ",
+                  keep=2, type.convert=TRUE))
+      sub <- 4
+    }
+    else{
+      sub <- 3
+    }
     lgbModel$params$tf <- unlist(tstrsplit(models[(endModelLine-sub)],
                                            split=": ", keep=2))
     lgbModel$params$sparse_thr <- unlist(tstrsplit(models[(endModelLine-(sub-1))],
@@ -1057,9 +1090,12 @@ loadModels <- function(modelPath){
                                                    type.convert=TRUE))
     # delete other models
     otherModels <- models[-(1:(endModelLine+2))]
+    modelPath <- tempModelPath
     writeLines(otherModels, modelPath)
-    lgbModel
-  })
+    ml2[[modelName]] <- lgbModel
+  }
+
+  file.remove(tempModelPath)
   names(ml2) <- modelNames
   ml2[["stacking_strategy"]] <- stackingStrat
 

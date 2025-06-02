@@ -39,15 +39,32 @@ test_that("Arguments check: Basic training setup",{
                        modelAllName)
 
   expect_no_error(mods <- trainTfModel(tfName, fm, evalRounds=2,
-                                       stackingStrat=c("last"),
+                                       stackingStrat=c("wMean"),
+                                       subSample=100,
                                        BPPARAM=SerialParam()))
   expect_contains(names(mods), c(modsBaggedNames,
-                                 paste(modelStackedSuffix, "last", sep="_"),
+                                 paste(modelStackedSuffix, "wMean", sep="_"),
                                  "stacking_strategy"))
   expect_no_error(.trainStacked(fm, mods[modsBaggedNames],
                                 stackingStrat="wLast"))
   expect_no_error(.trainStacked(fm, mods[modsBaggedNames],
-                                stackingStrat="wMean", subSample=100))
+                                stackingStrat="last"))
+
+  # test saving functionality
+  outDir <- tempdir()
+  modFilePath <- file.path(outDir, "testModels.txt")
+  saveModels(mods, outPath=modFilePath)
+  expect_true(file.exists(modFilePath))
+  modLoad <- loadModels(modFilePath)
+  expect_contains(names(modLoad), c(modsBaggedNames,
+                                    "stacking_strategy"))
+  expect_equal(mods[[modelMedWeightName]]$sparse_thr,
+               modLoad[[modelMedWeightName]]$sparse_thr)
+  expect_equal(mods[[modelMedWeightName]]$tf,
+               modLoad[[modelMedWeightName]]$tf)
+  expect_equal(mods[[modelMedWeightName]]$stacking_weights,
+               modLoad[[modelMedWeightName]]$stacking_weights)
+  file.remove(modFilePath)
 })
 
 test_that("Correct assignment of positive and negative fractions during training",{
