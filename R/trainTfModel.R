@@ -503,7 +503,7 @@
  #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
  #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
  #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bpmapply()].
- #' @return A list of four [lightgbm::lightgbm] models trained on different strata of the data.
+ #' @return A list of four [lightgbm::lightgbm] models trained on different strata of the data and stacked model combining the predictions of the later.
  #' @import mlr3
  #' @import data.table
  #' @import Matrix
@@ -740,7 +740,7 @@
   fitStacked <- list(fitStacked)
   names(fitStacked) <- paste(modelStackedSuffix, stackingStrat, sep="_")
   fits <- append(fits, fitStacked)
-  fits[["stacking_strategy"]] <- stackingStrat
+  fits[[stackingStratEntry]] <- stackingStrat
 
   return(fits)
 }
@@ -835,7 +835,7 @@
     stop(paste("Feature matrix has been computed for", fmTfName, "and model trained for", tfName))
   }
 
-  preds <- predictTfBindingBagged(modsBagged, fm,
+  preds <- predictTfBinding(modsBagged, fm,
                                   sparsify=FALSE, BPPARAM=BPPARAM)
 
   # get preds in matrix form
@@ -846,19 +846,19 @@
   colnames(preds) <- assayNames
 
   if(stackingStrat=="last"){
-    stackMod <- modsBagged[[3]]
-    attr(stackMod, "stacking_strategy") <- "last"
+    stackMod <- modsBagged[[modelAllName]]
+    attr(stackMod, stackingStratEntry) <- "last"
   }
   else if(stackingStrat=="wLast"){
-    stackMod <- modsBagged[[4]]
-    attr(stackMod, "stacking_strategy") <- "weighted_last"
+    stackMod <- modsBagged[[modelAllWeigthName]]
+    attr(stackMod, stackingStratEntry) <- "weighted_last"
   }
   else if(stackingStrat=="wMean"){
     stackMod <- .trainWeightedMean(preds, annoCol=annoCol,
                                    subSample=subSample, seed=seed)
     #stackMod <- mapply(function(mod, w){mod$params$stacking_weights <- w},
     #                   modsBagged, stackMod)
-    attr(stackMod, "stacking_strategy") <- "weighted_mean"
+    attr(stackMod, stackingStratEntry) <- "weighted_mean"
   }
   else{
     featMat <- assays(fm)$features
@@ -867,7 +867,7 @@
                                          earlyStoppingRounds=earlyStoppingRounds,
                                          annoCol=annoCol, numThreads=numThreads,
                                          seed=seed)
-    attr(stackMod, "stacking_strategy") <- "boostTree"
+    attr(stackMod, stackingStratEntry) <- "boostTree"
   }
 
   return(stackMod)
@@ -920,8 +920,7 @@
   labelCol <-  paste(contextTfFeat, labelFeatName, sep="_")
   contextCol <- annoCol
 
-  colSel <- c(paste(siteFeat, widthFeatName, sep="_"),
-              contextCol, totalOverlapsName,
+  colSel <- c(contextCol, totalOverlapsName,
               paste(siteFeat, gcContFeatName),
               labelCol,
               paste(assocMotifPrefix, tfName, sep="_"))
@@ -942,7 +941,8 @@
   fmStack <- fmStack[nonFlank,] # remove flanking regions for training
   labelsBinStack <- labelsStack[nonFlank]
   labelsBinStack <- fifelse(labelsBinStack>0,1,0)
-  colSel <- setdiff(colnames(fmStack), labelCol)
+  contexts <- fmStack[,contextCol,drop=TRUE]
+  colSel <- setdiff(colnames(fmStack), c(labelCol))
 
   # select hyperparameters
   set <- .chooseBags(fmStack,
@@ -962,7 +962,7 @@
                          evalRounds=evalRounds,
                          numThreads=numThreads,
                          measure=msr("classif.aucpr"),
-                         contexts=fmStack[,contextCol],
+                         contexts=contexts,
                          labels=labelsBinStack,
                          seed=seed)
 
@@ -972,7 +972,7 @@
                           isWeighted=FALSE,
                           featMat=fmStack[,colSel],
                           labels=labelsBinStack,
-                          contexts=fmStack[,contextCol],
+                          contexts=contexts,
                           earlyStoppingRounds=earlyStoppingRounds,
                           numThreads=numThreads,
                           posFrac=0.01,
@@ -994,7 +994,7 @@
 saveModels <- function(models, outPath){
 
   outDir <- dirname(outPath)
-  stackingStrat <- models[["stacking_strategy"]]
+  stackingStrat <- models[[stackingStratEntry]]
   stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
   modelNames <- c(modelTopWeightName,
                   modelMedWeightName,
@@ -1097,7 +1097,7 @@ loadModels <- function(modelPath){
 
   file.remove(tempModelPath)
   names(ml2) <- modelNames
-  ml2[["stacking_strategy"]] <- stackingStrat
+  ml2[[stackingStratEntry]] <- stackingStrat
 
   return(ml2)
 }
