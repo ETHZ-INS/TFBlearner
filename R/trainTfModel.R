@@ -106,8 +106,10 @@
                         seed=seed,
                         num_threads=numThreads)
 
+   maxLeaves <- min(floor((nrow(trainTable)*0.8)/20), 8192)
+   minLeaves <- fifelse(maxLeaves<31, 2, 31)
    paramSet <- paradox::ParamSet$new(list(
-     num_leaves=paradox::p_int(lower=31, upper=min(floor((nrow(trainTable)*0.8)/20), 8192)),
+     num_leaves=paradox::p_int(lower=minLeaves, upper=maxLeaves),
      lambda_l1=paradox::p_dbl(lower=0,upper=1000),
      lambda_l2=paradox::p_dbl(lower=0,upper=1000),
      feature_fraction=paradox::p_dbl(lower=0.5,upper=1.0),
