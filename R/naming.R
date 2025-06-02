@@ -135,6 +135,9 @@ stackModelWeightLast <- "wLast"
 stackModelWeightMean <- "wMean"
 stackModelBoostTree <- "boostTree"
 
-# Prediction -------------------------------------------------------------------
+stackingStratEntry <- "stacking_strategy"
 
+# Prediction -------------------------------------------------------------------
 binLabelName <- "label_bin"
+predPrefix <- "pred"
+stackedSuffix <- "stacked"
