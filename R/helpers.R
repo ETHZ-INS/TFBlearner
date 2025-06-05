@@ -24,6 +24,19 @@
   return(marginMax)
 }
 
+.marginSum <- function(mat, margin=c("row", "col")){
+
+  margin <- match.arg(margin, choices=c("col", "row"))
+  if(margin=="row"){fun <- MatrixGenerics::rowSums}
+  else{fun <- MatrixGenerics::colSums}
+
+  if(!is(mat, "CsparseMatrix") & !is(mat, "TsparseMatrix")){
+    mat <- as.matrix(mat)
+  }
+  marginMax <- fun(mat)
+  return(marginMax)
+}
+
 .marginQuant <- function(mat, probs, margin=c("row", "col")){
 
   margin <- match.arg(margin, choices=c("col", "row"))

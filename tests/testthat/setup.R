@@ -7,6 +7,22 @@ library(phastCons100way.UCSC.hg38)
 
 refCoords <- readRDS(test_path("./test_data/refCoords_test.rds"))
 
+# to muffle the warning "In cor(...): the standard deviation is zero"
+# when computing ChromVAR-ATAC association.
+# This warning is supposed to appear in the given test setup but
+# is not informative for the test cases.
+suppressSdWarning <- function(fun, args){
+
+  msg <- "the standard deviation is zero"
+  withCallingHandlers(
+    res <- do.call(fun, args),
+    warning=function(w){
+      if(grepl(msg, conditionMessage(w))){
+        invokeRestart("muffleWarning")}
+    })
+  return(res)
+}
+
 # Setup for genomicRangesMapping tests------------------------------------------
 
 n <- runif(1,90,100)

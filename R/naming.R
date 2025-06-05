@@ -7,6 +7,7 @@ tfNameCol <- "tf_name"
 # cofactor / motif
 tfCofactorsCol <- "tf_cofactors"
 preSelMotifCol <- "preselected_motifs"
+preSelActCol <- "preselected_motif_activity"
 
 isTestCol <- "is_testing"
 isTrainCol <- "is_training"
@@ -15,14 +16,29 @@ featTypeCol <- "feature_type"
 # prefices
 promoterPrefix <- "promoter"
 tfCofactorPrefix <- "tfCofactor"
+
 tfMotifPrefix <- "tf_motif"
 assocMotifPrefix <- "associated_motif"
+
+tfActPrefix <- "activity_tf"
+assocActPrefix <- "associated_activity"
 
 # ATAC-experiment --------------------------------------------------------------
 
 # experiment-name:
 atacExp <- "ATAC"
 atacPromeExp <- "ATAC_promoters"
+
+# coldata-names:
+chromVarExpName <- "ChromVAR_expectations"
+mdsDimFeatName <- "MDS_Context"
+
+# rowdata-names:
+atacVarFeatName <- "ATAC_Variance"
+maxAtacFeatName <- "Max_ATAC_Signal"
+
+# metadata-names
+chromVarBgName <- "ChromVAR_background_peaks"
 
 # assay-names / prefices:
 # typeNames are defined via argument of .getFragType
@@ -58,7 +74,11 @@ matchRangesExp <- "match_ranges"
 
 # Activity-experiment ----------------------------------------------------------
 
-actExp <- "Activity"
+actExp <- "chromVARAct"
+assocExp <- "assocAct"
+
+devAssay <- "deviations"
+normDevAssay <- "normDev"
 
 # siteFeat-experiment ----------------------------------------------------------
 
@@ -71,9 +91,6 @@ cpgDensFeatName <- "cpg_density"
 gcContFeatName <- "gc_content"
 widthFeatName <- "width"
 
-# coldata-names:
-chromVarExpName <- "ChromVAR_expectations"
-chromVarBgName <- "ChromVAR_background_peaks"
 topVarSitesName <- "top_var_sites"
 
 # tfFeat-experiment ------------------------------------------------------------
@@ -105,9 +122,6 @@ contextTfFeat <- "contextTfFeat"
 insertFeatName <- "insert_counts"
 wInsertsFeatName <- "weighted_insert_counts"
 devFeatName <- "chi2_dev_profile"
-mdsDimFeatName <- "MDS_Context"
-atacVarFeatName <- "ATAC_Variance"
-maxAtacFeatName <- "Max_ATAC_Signal"
 
 chromVarAssocSuffix <-  "ChromVAR_ATAC"
 chromVarScoreSuffix <- "ChromVAR_score"
@@ -119,7 +133,6 @@ maxAtacScaledPrefix <- "maxATAC_scaled"
 
 retScoresName <- "motifScores"
 reProfileName <- "profile"
-
 
 # Training ---------------------------------------------------------------------
 

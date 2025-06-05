@@ -1,19 +1,3 @@
-# to muffle the warning "In cor(...): the standard deviation is zero"
-# when computing ChromVAR-ATAC association.
-# This warning is supposed to appear in the given test setup but
-# is not informative for the test cases.
-suppressSdWarning <- function(fun, args){
-
-  msg <- "the standard deviation is zero"
-  withCallingHandlers(
-          res <- do.call(fun, args),
-          warning=function(w){
-          if(grepl(msg, conditionMessage(w))){
-            invokeRestart("muffleWarning")}
-  })
-  return(res)
-}
-
 test_that("Context-TF-features: Basic functionality", {
   experiments(maeTest)[[contextTfFeat]] <- NULL
   maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
