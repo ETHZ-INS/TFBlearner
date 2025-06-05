@@ -18,7 +18,7 @@
       setnames(seqDat, c("seqnames"), c("chr"))
     }
     else if(grepl(".bed", basename(data), fixed=TRUE)){
-      if(readAll) seqDat <- fread(data)
+      if(readAll) seqDat <- fread(data, stringsAsFactors=TRUE)
       else{
 
         readBed <- function(data){
@@ -38,11 +38,12 @@
       }
     }
     else if(grepl(".tsv", basename(data), fixed=TRUE)){
-      if(readAll) seqDat <- fread(data)
+      if(readAll) seqDat <- fread(data, stringsAsFactors=TRUE)
       else{
         seqDat <- fread(data, select=c(1:3),
                         col.names=c("chr", "start", "end"),
                         stringsAsFactors=TRUE)}
+      if("seqnames" %in% colnames(seqDat)) setnames(seqDat, "seqnames", "chr")
     }
     else if(grepl(".rds", basename(data), fixed=TRUE)){
       seqDat <- as.data.table(readRDS(data))
@@ -52,6 +53,7 @@
   else{
     seqDat <- as.data.table(data)
     if("seqnames" %in% colnames(seqDat)) setnames(seqDat, "seqnames", "chr")
+    seqDat$chr <- factor(seqDat$chr)
   }
 
   if(!is.null(subSample) & is.numeric(subSample)){
@@ -61,19 +63,18 @@
   }
 
   # Match seqlevelstyle to reference
-  if((sum(grepl("chr", seqDat$chr))==0 & seqLevelStyle=="UCSC") |
-     (sum(grepl("chr", seqDat$chr))>0 & seqLevelStyle=="NCBI")){
-    seqDat <- makeGRangesFromDataFrame(as.data.frame(seqDat),
-                                       keep.extra.columns=TRUE)
-    seqlevelsStyle(seqDat) <- seqLevelStyle
-    seqDat <- as.data.table(seqDat)
-    setnames(seqDat, "seqnames", "chr")}
+  if((sum(grepl("chr", levels(seqDat$chr)))==0 & seqLevelStyle=="UCSC") |
+     (sum(grepl("chr", levels(seqDat$chr)))>0 & seqLevelStyle=="NCBI")){
+    tmpgr <- GRanges(levels(seqDat[["chr"]]),
+                      IRanges(seq_along(levels(seqDat[["chr"]])), width=2L))
+    seqlevelsStyle(tmpgr) <- seqLevelStyle
+    levels(seqDat$chr) <- seqlevels(tmpgr)
+  }
 
   # Insert ATAC shift
-  if(shift)
-  {
-    seqDat[, start:=start-4]
-    seqDat[, end:=end-4]
+  if(shift){
+    seqDat[, start:=start+4L]
+    seqDat[, end:=end-4L]
   }
   else if(shift){
     warning("Did not shift as no column named strand was not found")
@@ -86,10 +87,10 @@
   return(seqDat)
 }
 
-.getType <- function(atacFrag, cuts=c("nucleosome_free"=0,
-                                      "mononucleosome"=120,
-                                      "dinucleosome"=300,
-                                      "multinucleosome"=500),
+.getType <- function(atacFrag, cuts=c("nucleosome_free"=0L,
+                                      "mononucleosome"=120L,
+                                      "dinucleosome"=300L,
+                                      "multinucleosome"=500L),
                      label=FALSE) {
   atacFrag[,width:=end-start]
   if(label){
@@ -187,7 +188,7 @@
                           fileName=NULL,
                           outDir=NULL,
                           BPPARAM=SerialParam()){
-  threads <- floor(getDTthreads())/BPPARAM$workers
+  threads <- floor(getDTthreads()/BPPARAM$workers)
 
   # reshape list
   colNames <- unique(names(data))
@@ -246,6 +247,9 @@
   colnames(motifScores) <- colNames
   motifColData <- data.table(colnames(motifScores), maxScores)
   colnames(motifColData) <- c(motifNameCol, maxScoreCol)
+
+  # add paths of motifs files
+  motifColData[,origin:=unlist(data[get(motifNameCol)])]
 
   assayList <- list(motifScores)
   names(assayList) <- matchAssayName
@@ -329,7 +333,7 @@
                          outDir=NULL,
                          BPPARAM=SerialParam())
 {
-  threads <- floor(getDTthreads())/BPPARAM$workers
+  threads <- floor(getDTthreads()/BPPARAM$workers)
 
   # reshape list
   colNames <- unique(names(data))
@@ -467,7 +471,7 @@
                          outDir=NULL,
                          BPPARAM=SerialParam()){
 
-  threads <- floor(getDTthreads())/BPPARAM$workers
+  threads <- floor(getDTthreads()/BPPARAM$workers)
 
   # reshape list
   colNames <- unique(names(data))

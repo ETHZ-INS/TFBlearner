@@ -200,11 +200,9 @@ contextTfFeatures <- function(mae,
                                  get(annoCol) %in% contexts)$origin)
 
   # get list of motif ranges, this will eventually be refactored anyways
-  motifRanges <-  names(experiments(maeSub)[grepl("match_ranges",
-                                                  names(experiments(maeSub)))])
-  motifRanges <- lapply(experiments(maeSub)[motifRanges], rowRanges)
-  names(motifRanges) <- unlist(tstrsplit(names(motifRanges), split="_", keep=3))
-  motifRanges <- motifRanges[c(tfName, tfCofactors)]
+  motifPath <- subset(colData(maeSub[[motifExp]]),
+                      get(motifNameCol)==tfName)$origin
+  motifRanges <- readRDS(motifPath)
 
   if(addLabels){
     colDataChIP <- colData(mae[[chIPExp]])
@@ -285,8 +283,8 @@ contextTfFeatures <- function(mae,
     return(insFeats)
   }, contexts, labels,
      MoreArgs=list(coords=coords, atacFrag=atacFragPaths,
-                   motifRanges=motifRanges[[tfName]], features=features,
-                   profile=insertionProfile[[tfName]], tfName=tfName,
+                   motifRanges=motifRanges, features=features,
+                   profile=insertionProfile, tfName=tfName,
                    threads=threads, aggregationFun=aggregationFun,
                    BPPARAM=BPPARAM, ...),
      SIMPLIFY=FALSE)

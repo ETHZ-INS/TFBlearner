@@ -1,65 +1,12 @@
-.doOneScan <- function(mo, coords, genome, lowp=1e-03){ #1e-02
-  # low-confidence matches
-  po <- matchMotifs(mo, subject=coords, genome=genome,
-                    out="positions", p.cutoff=lowp)[[1]]
-  # trace back the original DHS behind each
-  po$orig <- to(findOverlaps(po, coords, minoverlap=2L))
-  # keep only the strongest hit per DHS
-  po <- po[order(seqnames(po), -po$score)]
-  po <- po[!duplicated(po$orig)]
-  po$orig <- NULL
-  # find all below the default cutoff
-  po2 <- matchMotifs(mo, subject=coords, genome=genome, out="positions")[[1]]
-  po <- po[!overlapsAny(po,po2)]
-  sort(c(po,po2))
-}
-
-.getMotifMatches <- function(coords,
-                             tfName,
-                             tfCofactors,
-                             genome=BSgenome.Hsapiens.UCSC.hg38,
-                             seqStyle="UCSC"){
-
-  # retrieve motifs
-  seqlevelsStyle(coords) <- "UCSC"
-  if(genome@metadata$organism=="Homo sapiens"){
-    species <- "Hsapiens"
-  }
-  else if(genome@metadata$organism=="Mus musculus"){
-    species <- "Mmusculus"
-  }
-  else{
-    stop("Currently BSgenome needs to be either from Homo sapiens or Mus musculus")
-  }
-
-  motifs <- .getNonRedundantMotifs(c(tfName, tfCofactors), species=species)
-
-  # get motif matching positions
-  matchRanges <- lapply(motifs, .doOneScan, coords=coords, genome=genome)
-  matchRanges <- as(matchRanges, "GRangesList")
-
-  # match seqLevelStyle
-  motifCoords <- matchRanges[[tfName]]
-  tfCofactors <- intersect(names(matchRanges), tfCofactors)
-  cofactCoords <- matchRanges[tfCofactors]
-
-  # match seqLevelStyle
-  if(length(motifCoords)>0) seqlevelsStyle(motifCoords) <- seqStyle
-  if(length(cofactCoords)>0) seqlevelsStyle(cofactCoords) <- seqStyle
-
-  return(list(motifCoords=motifCoords,
-              cofactCoords=cofactCoords))
-}
-
 .binMat <- function(mat, threshold=NULL){
   cn <- colnames(mat)
   mat <- as(mat, "TsparseMatrix")
 
-  if(is.null(threshold)) threshold <- 0
+  if(is.null(threshold)) threshold <- 0L
   ind <- which(mat@x>threshold)
-  mat <- sparseMatrix(i=mat@i[ind]+1,
-                      j=mat@j[ind]+1,
-                      x=rep(1, length(ind)),
+  mat <- sparseMatrix(i=mat@i[ind]+1L,
+                      j=mat@j[ind]+1L,
+                      x=rep(1L, length(ind)),
                       dims=c(nrow(mat), ncol(mat)))
   mat <- Matrix::Matrix(mat)
   colnames(mat) <- cn
@@ -78,11 +25,11 @@
    var <- factor(unlist(tstrsplit(cn, split="_",
                                   keep=fifelse(aggVar=="tf", 2, 1))))
 
-   if(is.null(threshold)) threshold <- 0
+   if(is.null(threshold)) threshold <- 0L
 
    toKeep <- which(chIPMat@x>threshold)
-   colsInd <- chIPMat@j[toKeep]+1
-   chIPIndDt <- data.table(i=chIPMat@i[toKeep]+1,
+   colsInd <- chIPMat@j[toKeep]+1L
+   chIPIndDt <- data.table(i=chIPMat@i[toKeep]+1L,
                            j=colsInd,
                            x=chIPMat@x[toKeep],
                            aggVar=var[colsInd])
@@ -194,9 +141,8 @@
 .selectMotifs <- function(matchScores, maxScores, labels, nMotifs=10,
                           subSample=10000)
 {
-  labels <- .binMat(labels, threshold=0)
+  labels <- .binMat(labels, threshold=0L)
   labels <- .marginMax(labels, margin="row")
-
   thr <- maxScores/2
 
   subRows <- sample(1:nrow(matchScores), min(subSample, nrow(matchScores)))
@@ -277,13 +223,12 @@
   return(normCounts)
 }
 
-
 .matrixKappa <- function(mat1, mat2, adjust=TRUE) {
     stopifnot(ncol(mat1)==ncol(mat2))
     # Compute pairwise agreements
     tp <- tcrossprod(mat1,mat2) # 1-1 matches
-    fn <- tcrossprod((1-mat1),mat2) # 0-1 mismatches
-    fp <- tcrossprod(mat1,(1-mat2)) # 1-0 mismatches
+    fn <- tcrossprod((1L-mat1),mat2) # 0-1 mismatches
+    fp <- tcrossprod(mat1,(1L-mat2)) # 1-0 mismatches
     tn <- ncol(mat1)-(tp+fn+fp) # 0-0 matches
     #tn <- tcrossprod(abs(1-mat1),abs(1-mat2))
     if(!adjust) return((tp+tn)/ncol(mat1))
@@ -291,21 +236,6 @@
     Pe <- (((tp+fn)/ncol(mat1)) * ((tp+fp)/ncol(mat1))) +
       (((tn+fp)/ncol(mat1)) * ((tn+fn)/ncol(mat1)))
     return((Po-Pe)/(1-Pe))
-}
-
-.getCoOccuringMotifs <- function(motifCoords, refCoords){
-  coCounts <- lapply(names(motifCoords), function(tf){
-    mDt <- as.data.table(motifCoords[[tf]])
-    mDt$tf <- tf
-    coCount <- genomicRangesMapping(refCoords,
-                                    mDt[,c("seqnames", "start", "end", "tf")],
-                                    byCols=c("tf"))
-    colnames(coCount) <- paste("n_cooccuring_motifs", tf, sep="_")
-    coCount
-  })
-  coCounts <- Reduce(cbind, coCounts[-1], coCounts[[1]])
-
-  return(coCounts)
 }
 
 .getAssociation <- function(atacMat1, atacMat2){
@@ -434,33 +364,6 @@ tfFeatures <- function(mae,
     assays(mae[[atacPromeExp]])[[normTotalOverlapsName]] <- atacPromMat
   }
 
-  message("Get motif match coordinates")
-  matchData <- .getMotifMatches(coords,
-                                tfName,
-                                tfCofactors,
-                                seqStyle=seqlevelsStyle(coords),
-                                genome=genome)
-  motifCoords <- append(GRangesList(matchData$motifCoords),
-                        matchData$cofactCoords, after=1)
-  names(motifCoords) <- c(tfName, names(matchData$cofactCoords))
-
-  # Add motif matching ranges to object
-  for(tf in names(motifCoords)){
-    matchCoords <- motifCoords[[tf]]
-    scoreMat <- Matrix::Matrix(matchCoords$score, ncol=1)
-    colnames(scoreMat) <-  "all"
-    scoreMat <- list(scoreMat)
-    names(scoreMat) <- paste(matchAssayName, tf, sep="_")
-    prefix <- paste(matchRangesExp, tf, sep="_")
-    if(!(prefix) %in% names(experiments(mae))){
-      seMatch <- SummarizedExperiment(assays=scoreMat, rowRanges=matchCoords)
-      colData(seMatch)[[featTypeCol]] <- motifMatchesFeatName
-      rownames(colData(seMatch)) <- "all"
-      contextsTf <- getContexts(mae, tfName=tfName, which="ChIP")
-      mae <- .addFeatures(mae, seMatch, colsToMap=contextsTf, prefix=prefix)
-    }
-  }
-
   # NMF decomposition Binding Patterns
   if("Binding_Patterns" %in% features){
     message("Binding pattern Features")
@@ -508,20 +411,24 @@ tfFeatures <- function(mae,
   }
 
   if("Cooccuring_Motifs" %in% features){
-    message("Co-occuring motifs counts")
 
-    coCounts <- .getCoOccuringMotifs(motifCoords, coords)
+    message("Co-occuring motifs counts")
+    tfs <- c(tfName, tfCofactors)
+    tfs <- intersect(colData(mae[[motifExp]])[[motifNameCol]],tfs)
+
+    coCounts <- lapply(tfs, function(tf){
+      mmPath <- subset(colData(mae[[motifExp]]), get(motifNameCol)==tf)$origin
+      mm <- readRDS(mmPath)
+      mm$motif <- tf
+      mmc <- genomicRangesMapping(coords, mm, byCols="motif",
+                                  scoreCol="cooccurences", aggregationFun=sum)})
 
     # ensure correct naming
-    namesCoCounts <- lapply(names(motifCoords), function(tf){
-      if(tf==tfName){
-        name <- coTfMotifPrefix}
+    namesCoCounts <- lapply(tfs, function(tf){
+      if(tf==tfName){name <- coTfMotifPrefix}
       else{name <- paste(coCofactorMotifPrefix,
                          names(tfCofactors)[which(tfCofactors==tf)], sep="_")}
-      return(name)})
-
-    coCounts <- lapply(colnames(coCounts),
-                       function(col) coCounts[,col,drop=FALSE])
+    })
     names(coCounts) <- unlist(namesCoCounts)
     featMats <- append(featMats, coCounts)
   }
@@ -572,7 +479,7 @@ tfFeatures <- function(mae,
   names(selMotifs)[whichIsTf] <- paste(tfMotifPrefix,1:length(whichIsTf),sep="_")
 
   # Add CTCF-Features()
-  if("CTCF_Signal" %in% features & tolower(tf)!="ctcf"){
+  if("CTCF_Signal" %in% features & tolower(tfName)!="ctcf"){
     message("CTCF Signal")
 
     # add the motif to selected motifs

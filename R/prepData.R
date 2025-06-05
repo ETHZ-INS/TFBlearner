@@ -235,6 +235,15 @@ getContexts <- function(mae, tfName=NULL, which=c("ChIP", "ATAC", "Both")){
 #' @keywords GRanges
 NULL
 
+#' Example Data: Motifs
+#'
+#' Example motifs of JUN and CTCF as PWMatrixList. Can be used as an example input for prepMotifs().
+#'
+#' @name example_pwms
+#' @format [TFBSTools::PWMatrixList] object
+#' @docType data
+#' @keywords PWMatrixList
+NULL
 
 
 #' Add further ATAC-seq datasets to object
