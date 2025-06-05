@@ -30,5 +30,22 @@ test_that("Assays are preserved when computing for new TF", {
   expect_equal(assayNamesNew, assayNamesOrig)
 })
 
+test_that("Preselected motifs are saved in colData", {
+  experiments(maeTest2)[[tfFeat]] <- NULL
+  maeTest2 <- tfFeatures(maeTest2, tfName="JUN",
+                         features=c("Binding_Patterns",
+                                    "Promoter_Association", "C_Score",
+                                    "Cooccuring_Motifs",
+                                    "Associated_Motifs",
+                                    "Associated_Motif_Activity"))
+  expect_contains(colnames(colData(maeTest2[[tfFeat]])),
+                  c(preSelMotifCol, preSelActCol))
 
-# add dimensionality checks and mapping checks
+  preSelMotifs <- colData(maeTest2[[tfFeat]])[[preSelMotifCol]][[1]]
+  expect_true(is.vector(preSelMotifs))
+  expect_equal(preSelMotifs[[paste(tfMotifPrefix, 1, sep="_")]][[1]], "JUN")
+
+  preSelActMotifs <- colData(maeTest2[[tfFeat]])[[preSelActCol]][[1]]
+  expect_true(is.vector(preSelActMotifs))
+  expect_equal(preSelActMotifs[[paste(tfActPrefix, 1, sep="_")]], "JUN")
+})

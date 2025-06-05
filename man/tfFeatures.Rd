@@ -9,7 +9,8 @@ tfFeatures(
   tfName,
   tfCofactors = NULL,
   features = c("Binding_Patterns", "Promoter_Association", "C_Score",
-    "Cooccuring_Motifs", "Cofactor_Binding", "CTCF_Signal", "Associated_Motifs"),
+    "Cooccuring_Motifs", "Cofactor_Binding", "CTCF_Signal", "Associated_Motifs",
+    "Associated_Motif_Activity"),
   nPatterns = 50,
   L1 = c(0.5, 0.5),
   nMotifs = 10,
@@ -28,7 +29,8 @@ Provided MultiAssayExperiment object needs to contain ChIP-seq data for the spec
 \item{tfCofactors}{Names of cofactors (other transcription factors) of the specified transcription factor.}
 
 \item{features}{Names of features to be added. Can be all or some of "Binding_Patterns", "Promoter_Association",
-"C_Score", "Cofactor_Binding", "CTCF_Signal", "Cooccuring_Motifs", "Associated_Motifs". Features are stored in the assays of the added experiment.
+"C_Score", "Cofactor_Binding", "CTCF_Signal", "Cooccuring_Motifs", "Associated_Motifs", "Associated_Motif_Activity".
+Features are stored in the assays of the added experiment.
 See \link{listFeatures} for an overview of the features.}
 
 \item{nPatterns}{Number of non-negative matrix factorization (NMF) components to consider for the decomposition of the ChIP-seq peaks matrix.

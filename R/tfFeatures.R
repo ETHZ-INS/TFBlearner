@@ -138,7 +138,11 @@
   return(cScoreMat)
 }
 
-.selectMotifs <- function(matchScores, maxScores, labels, nMotifs=10,
+.selectMotifs <- function(matchScores,
+                          maxScores,
+                          labels,
+                          addThr=4,
+                          nMotifs=10,
                           subSample=10000)
 {
   labels <- .binMat(labels, threshold=0L)
@@ -153,9 +157,9 @@
   # top motif scores
   matchCoScores <- matchSubScores
   matchCoScores@x[matchCoScores@x < thr[matchCoScores@j + 1] &
-                    matchCoScores@x<4*scalFactMotif] <- 0
+                    matchCoScores@x<addThr*scalFactMotif] <- 0
   matchCoScores@x[matchCoScores@x >= thr[matchCoScores@j + 1] &
-                    matchCoScores@x>=4*scalFactMotif] <- 1
+                    matchCoScores@x>=addThr*scalFactMotif] <- 1
 
   # get mutually exclusive motif scores
   zeroInd <- which(matchSubScores==0, arr.ind = TRUE)
@@ -276,7 +280,8 @@
 #' Provided MultiAssayExperiment object needs to contain ChIP-seq data for the specified transcription factor (check `colData(experiments(mae)$ChIP`).
 #' @param tfCofactors Names of cofactors (other transcription factors) of the specified transcription factor.
 #' @param features Names of features to be added. Can be all or some of "Binding_Patterns", "Promoter_Association",
-#' "C_Score", "Cofactor_Binding", "CTCF_Signal", "Cooccuring_Motifs", "Associated_Motifs". Features are stored in the assays of the added experiment.
+#' "C_Score", "Cofactor_Binding", "CTCF_Signal", "Cooccuring_Motifs", "Associated_Motifs", "Associated_Motif_Activity".
+#' Features are stored in the assays of the added experiment.
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param nPatterns Number of non-negative matrix factorization (NMF) components to consider for the decomposition of the ChIP-seq peaks matrix.
 #' Passed to [RcppML::nmf].
@@ -304,7 +309,8 @@ tfFeatures <- function(mae,
                        features=c("Binding_Patterns", "Promoter_Association",
                                   "C_Score", "Cooccuring_Motifs",
                                   "Cofactor_Binding", "CTCF_Signal",
-                                  "Associated_Motifs"),
+                                  "Associated_Motifs",
+                                  "Associated_Motif_Activity"),
                        nPatterns=50,
                        L1=c(0.5,0.5),
                        nMotifs=10,
@@ -316,9 +322,9 @@ tfFeatures <- function(mae,
   allTfs <- unique(colData(mae[[chIPExp]])$tf_name)
   if(!(tfName %in% allTfs)){
     stop(paste("Transcription factor provided -", tfName,
-    "- has no corresponding experiments in the provided MultiAssayExperiment
+               "- has no corresponding experiments in the provided MultiAssayExperiment
     object.\n Tfs are named in the following way:",
-    paste(head(allTfs), collapse=","), "..."))
+               paste(head(allTfs), collapse=","), "..."))
   }
 
   features <- match.arg(features, choices=c("Binding_Patterns",
@@ -327,7 +333,8 @@ tfFeatures <- function(mae,
                                             "Cofactor_Binding",
                                             "CTCF_Signal",
                                             "Cooccuring_Motifs",
-                                            "Associated_Motifs"),
+                                            "Associated_Motifs",
+                                            "Associated_Motif_Activity"),
                         several.ok=TRUE)
   featMats <- list()
 
@@ -447,9 +454,7 @@ tfFeatures <- function(mae,
       labels <- .convertToMatrix(labels)
     }
     else{
-      # TODO: motif naming
-      tfCol <- paste(tfName, "motif", sep="_")
-      labels <- assays(mae[[motifExp]])[[matchAssayName]][,tfCol,drop=FALSE]
+      labels <- assays(mae[[motifExp]])[[matchAssayName]][,tfName,drop=FALSE]
       labels <- .convertToMatrix(labels)
     }
 
@@ -472,11 +477,56 @@ tfFeatures <- function(mae,
   else{
     matchScores <- assays(mae[[motifExp]])[[matchAssayName]]
     selMotifs <- unique(grep(paste(c(tfName, tfCofactors),collapse="|"),
-                        colnames(matchScores), value=TRUE))
+                             colnames(matchScores), value=TRUE))
   }
   names(selMotifs) <- paste(assocMotifPrefix, 1:length(selMotifs), sep="_")
   whichIsTf <- grep(paste0(tfName, "([:_]|$)"), selMotifs)
   names(selMotifs)[whichIsTf] <- paste(tfMotifPrefix,1:length(whichIsTf),sep="_")
+
+  if("Associated_Motif_Activity" %in% features){
+    message("Select motifs with associated activity")
+
+    if(!exists("labels")){
+      # get (except from test experiments) ChIP-labels of TF
+      chIPCols <- colnames(mae[[chIPExp]])
+      tfCols <- chIPCols[colData(mae[[chIPExp]])[[tfNameCol]]==tfName]
+      isTesting <- subset(sampleMap(mae), assay==chIPExp & get(isTestCol))$colname
+      tfCols <- intersect(chIPCols[!(chIPCols %in% isTesting)], tfCols)
+      if(length(tfCols)>0){
+        labels <- assays(mae[[chIPExp]])[[peakAssayName]][,tfCols,drop=FALSE]
+        labels <- .convertToMatrix(labels)
+      }
+      else{
+        labels <- assays(mae[[motifExp]])[[matchAssayName]][,tfName,drop=FALSE]
+        labels <- .convertToMatrix(labels)
+      }
+    }
+
+    actAssoc <- assays(mae[[assocExp]])[[assocPearsonPrefix]]
+    tfMotifCols <- grep(paste(c(tfName, tfCofactors),collapse="|"),
+                        colnames(actAssoc), value=TRUE)
+
+    # select motifs co-occuring around ChIP-peaks or motif matches of TF of interest
+    actAssoc <- actAssoc[,!c(colnames(actAssoc) %in% tfMotifCols), drop=FALSE]
+
+    colDataMotifs <- colData(mae[[motifExp]])
+    colDataMotifs <- subset(colDataMotifs, motif %in% colnames(matchScores))
+    colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif,
+                                               colnames(matchScores))),,
+                                   drop=FALSE]
+
+    maxScores <- colDataMotifs[[maxScoreCol]]
+    selActMotifs <- .selectMotifs(actAssoc, rep(1, ncol(actAssoc)), labels,
+                                  addThr=0, nMotifs=nMotifs)
+    selActMotifs <- unique(c(selActMotifs, tfMotifCols))
+
+    names(selActMotifs) <- paste(assocActPrefix, 1:length(selActMotifs), sep="_")
+    whichIsTf <- grep(paste0(tfName, "([:_]|$)"), selActMotifs)
+    names(selActMotifs)[whichIsTf] <- paste(tfActPrefix,
+                                            1:length(whichIsTf),sep="_")
+  }else{
+    selActMotifs <- NULL
+  }
 
   # Add CTCF-Features()
   if("CTCF_Signal" %in% features & tolower(tfName)!="ctcf"){
@@ -518,7 +568,7 @@ tfFeatures <- function(mae,
   # add cofactors for later use
   colDataTf <- colData(mae[[tfFeat]])
   if(is.null(colDataTf[[tfCofactorsCol]])){
-      colDataTf[[tfCofactorsCol]] <- replicate(nrow(colDataTf), list)}
+    colDataTf[[tfCofactorsCol]] <- replicate(nrow(colDataTf), list)}
 
   colData(mae[[tfFeat]])[[tfCofactorsCol]] <-
     fifelse(colDataTf[[tfNameCol]]==tfName, list(tfCofactors),
@@ -526,12 +576,23 @@ tfFeatures <- function(mae,
 
   # add associated motifs to colData
   if(is.null(colDataTf[[preSelMotifCol]])){
-      colDataTf[[preSelMotifCol]] <- replicate(nrow(colDataTf), list)}
+    colDataTf[[preSelMotifCol]] <- replicate(nrow(colDataTf), list)}
 
-  colData(mae[[tfFeat]])[[preSelMotifCol]] <-
-  fifelse(colDataTf[[tfNameCol]]==tfName,
-          list(selMotifs),
-          colDataTf[[preSelMotifCol]])
+  if(!is.null(selMotifs)){
+    colData(mae[[tfFeat]])[[preSelMotifCol]] <-
+      fifelse(colDataTf[[tfNameCol]]==tfName,
+              list(selMotifs),
+              colDataTf[[preSelMotifCol]])}
+
+  # add motifs with associated activity to colData
+  if(is.null(colDataTf[[preSelActCol]])){
+    colDataTf[[preSelActCol]] <- replicate(nrow(colDataTf), list)}
+
+  if(!is.null(selActMotifs)){
+    colData(mae[[tfFeat]])[[preSelActCol]] <-
+      fifelse(colDataTf[[tfNameCol]]==tfName,
+              list(selActMotifs),
+              colDataTf[[preSelActCol]])}
 
   return(mae)
 }

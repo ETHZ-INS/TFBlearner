@@ -93,7 +93,11 @@ maeTest <- suppressMessages({prepData(example_coords,
                                        chIPData=exampleChIP,
                                        testSet="A549")})
 maeTest <- siteFeatures(maeTest)
-maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN")
+maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN",
+                      features=c("Binding_Patterns", "Promoter_Association",
+                                 "C_Score", "Cooccuring_Motifs",
+                                 "Cofactor_Binding", "CTCF_Signal",
+                                 "Associated_Motifs"))
 maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
                               features=c("Inserts", "Weighted_Inserts"),
                               addLabels=TRUE,
@@ -104,11 +108,12 @@ exampleATAC2 <- list(A549=system.file("extdata", "example_atac_A549.bed", packag
                      HepG2=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner")) # dummy type for some tests
 
 maeTest2 <- suppressMessages({prepData(example_coords,
-                                      motifData=exampleMotif,
-                                      atacData=exampleATAC2,
-                                      chIPData=exampleChIP,
-                                      testSet="A549")})
+                                       motifData=exampleMotif,
+                                       atacData=exampleATAC2,
+                                       chIPData=exampleChIP,
+                                       testSet="A549")})
 maeTest2 <- siteFeatures(maeTest2)
+maeTest2 <- suppressSdWarning(panContextFeatures, list(mae=maeTest2))
 maeTest2 <- tfFeatures(maeTest2, tfName="CTCF", tfCofactors="JUN")
 
 maeTestHdf5 <- suppressMessages({prepData(example_coords,
@@ -119,7 +124,11 @@ maeTestHdf5 <- suppressMessages({prepData(example_coords,
                                        saveHdf5=TRUE,
                                        outDir="./test_data")})
 maeTestHdf5 <- siteFeatures(maeTestHdf5)
-maeTestHdf5 <- tfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN")
+maeTestHdf5 <- tfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN",
+                          features=c("Binding_Patterns", "Promoter_Association",
+                                     "C_Score", "Cooccuring_Motifs",
+                                     "Cofactor_Binding", "CTCF_Signal",
+                                     "Associated_Motifs"))
 maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
                                  features=c("Inserts", "Weighted_Inserts",
                                              "Cofactor_Inserts"),
