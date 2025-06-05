@@ -143,7 +143,8 @@ predictTfBinding <- function(models,
       colnames(predMat) <- contextNames
       predMat
     })
-    coords <- rowRanges(fm)[rowRanges(fm)@elementMetadata[[annoCol]]==1]
+    anyLvl <- unique(rowRanges(fm)@elementMetadata[[annoCol]])[1]
+    coords <- rowRanges(fm)[rowRanges(fm)@elementMetadata[[annoCol]]==anyLvl]
     names(preds) <- setdiff(cnPreds, annoCol)
     preds <- SummarizedExperiment(assays=preds,
                                   rowRanges=coords)

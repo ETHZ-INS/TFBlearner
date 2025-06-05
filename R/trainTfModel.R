@@ -316,6 +316,8 @@
      {
        nPosAvail <- nrow(weightsSampDt)+length(resizePos)
        nPos <- fifelse(nPosAvail>5e4, 5e4, nPosAvail)
+     }else{
+       nPos <- min(nPosAvail, nPos)
      }
      nPosAdd <- nPos-length(resizePos)
 
@@ -837,8 +839,7 @@
     stop(paste("Feature matrix has been computed for", fmTfName, "and model trained for", tfName))
   }
 
-  preds <- predictTfBinding(modsBagged, fm,
-                                  sparsify=FALSE, BPPARAM=BPPARAM)
+  preds <- predictTfBinding(modsBagged, fm, sparsify=FALSE, BPPARAM=BPPARAM)
 
   # get preds in matrix form
   assayNames <- names(assays(preds))

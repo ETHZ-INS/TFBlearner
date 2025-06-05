@@ -27,7 +27,7 @@ test_that("Arguments check: Basic training setup",{
   coords <- refCoords[sample(1:length(refCoords),
                       floor(nrow(fm)/2), replace=TRUE)]
   coords <- c(coords, coords)
-  coords@elementMetadata[[annoCol]] <- cellTypeCol
+  coords@elementMetadata[[annoCol]] <- cellTypeCol[,1,drop=TRUE]
   fm <- SummarizedExperiment(assays=list(features=fm),
                              rowRanges=coords)
   metadata(fm)[[annoCol]] <- unique(cellTypeCol[,1,drop=TRUE])
@@ -56,8 +56,7 @@ test_that("Arguments check: Basic training setup",{
   saveModels(mods, outPath=modFilePath)
   expect_true(file.exists(modFilePath))
   modLoad <- loadModels(modFilePath)
-  expect_contains(names(modLoad), c(modsBaggedNames,
-                                    "stacking_strategy"))
+  expect_contains(names(modLoad), c(modsBaggedNames, "stacking_strategy"))
   expect_equal(mods[[modelMedWeightName]]$sparse_thr,
                modLoad[[modelMedWeightName]]$sparse_thr)
   expect_equal(mods[[modelMedWeightName]]$tf,
@@ -87,7 +86,7 @@ test_that("Correct assignment of positive and negative fractions during training
   coords <- refCoords[sample(1:length(refCoords),
                              floor(nrow(fm)/2), replace=TRUE)]
   coords <- c(coords, coords)
-  coords@elementMetadata[[annoCol]] <- cellTypeCol
+  coords@elementMetadata[[annoCol]] <- cellTypeCol[,1,drop=TRUE]
   fm <- SummarizedExperiment(assays=list(features=fm),
                              rowRanges=coords)
   metadata(fm)[[annoCol]] <- unique(cellTypeCol[,1,drop=TRUE])
