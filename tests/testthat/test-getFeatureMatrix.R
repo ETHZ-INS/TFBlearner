@@ -1,5 +1,15 @@
 test_that("Feature Matrix: Basic functionality", {
   fm <- getFeatureMatrix(maeTest, tfName="CTCF",
+                         addLabels=TRUE,
+                         saveHdf5=FALSE)
+  contexts <- getContexts(maeTest, tfName="CTCF", which="Both")
+
+  expect_s4_class(assays(fm)$features, "CsparseMatrix")
+  expect_equal(nrow(fm), length(contexts)*length(example_coords))
+})
+
+test_that("Feature Matrix: Basic functionality without labels", {
+  fm <- getFeatureMatrix(maeTest, tfName="CTCF",
                          addLabels=FALSE,
                          saveHdf5=FALSE)
   contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
@@ -47,32 +57,63 @@ test_that("Feature Matrix: Correct context selection - only for training context
   contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
   trainContexts <- setdiff(contexts, testContext)
 
+  obsRanges <-  rowRanges(fm)
+  mcols(obsRanges) <- NULL
+  names(obsRanges) <- NULL
+
+  expRanges <- rep(rowRanges(maeTest[[atacExp]]), length(trainContexts))
+  mcols(expRanges) <- NULL
+
   expect_equal(as.character(levels(rowRanges(fm)@elementMetadata[[annoCol]])),
                trainContexts)
   expect_equal(nrow(fm), length(trainContexts)*length(example_coords))
-  expRanges <- rep(rowRanges(maeTest[[atacExp]]), length(trainContexts))
-  expect_equal(ranges(rowRanges(fm)), ranges(expRanges), ignore_attr=TRUE)
-  expect_equal(rowRanges(fm)@seqnames, expRanges@seqnames, ignore_attr=TRUE)
+  expect_equal(obsRanges, expRanges, ignore_attr=TRUE)
   expect_equal(metadata(fm)[[annoCol]], trainContexts)
 })
 
 test_that("Feature Matrix: Correct context selection - only for specified context", {
   annoCol <- "context"
-  fm <- getFeatureMatrix(maeTest, tfName="CTCF",
+  tfName <- "CTCF"
+  fm <- getFeatureMatrix(maeTest, tfName=tfName,
                          whichCol="Col",
                          colSel="A549",
                          addLabels=FALSE,
                          annoCol=annoCol,
                          saveHdf5=FALSE)
 
+  obsRanges <- rowRanges(fm)
+  mcols(obsRanges) <- NULL
+  names(obsRanges) <- NULL
+  expRanges <- rowRanges(maeTest[[atacExp]])
+  mcols(expRanges) <- NULL
+  names(expRanges) <- NULL
+
   expect_equal(nrow(fm), length(example_coords))
   expect_equal(as.character(levels(rowRanges(fm)@elementMetadata[[annoCol]])),
                "A549")
-  expect_equal(rowRanges(fm)@seqnames, rowRanges(maeTest[[atacExp]])@seqnames)
-  expect_equal(ranges(rowRanges(fm)), ranges(rowRanges(maeTest[[atacExp]])))
+  expect_equal(obsRanges, expRanges)
   expect_equal(metadata(fm)[[annoCol]], "A549")
   expect_equal(metadata(fm)[[tfCofactorsCol]], "JUN")
-  expect_contains(names(metadata(fm)), assocMotifPrefix)
+})
+
+test_that("Feature Matrix: Correct metadata assignment", {
+
+  annoCol <- "context"
+  tfName <- "CTCF"
+  fm <- getFeatureMatrix(maeTest, tfName=tfName,
+                         whichCol="Col",
+                         colSel="A549",
+                         addLabels=FALSE,
+                         annoCol=annoCol,
+                         saveHdf5=FALSE)
+
+  expect_contains(names(metadata(fm)), preSelMotifCol)
+  preSelMotifs <- metadata(fm)[[preSelMotifCol]]
+  expect_equal(preSelMotifs[[paste(tfMotifPrefix, 1, sep="_")]], tfName)
+
+  expect_contains(names(metadata(fm)), preSelActCol)
+  preSelActMotifs <- metadata(fm)[[preSelActCol]]
+  expect_equal(preSelActMotifs[[paste(tfActPrefix, 1, sep="_")]], tfName)
 })
 
 test_that("Feature Matrix: Column names corresponding to R conventions", {

@@ -509,24 +509,18 @@ tfFeatures <- function(mae,
     # select motifs co-occuring around ChIP-peaks or motif matches of TF of interest
     actAssoc <- actAssoc[,!c(colnames(actAssoc) %in% tfMotifCols), drop=FALSE]
 
-    colDataMotifs <- colData(mae[[motifExp]])
-    colDataMotifs <- subset(colDataMotifs, motif %in% colnames(matchScores))
-    colDataMotifs <- colDataMotifs[order(match(colDataMotifs$motif,
-                                               colnames(matchScores))),,
-                                   drop=FALSE]
-
-    maxScores <- colDataMotifs[[maxScoreCol]]
     selActMotifs <- .selectMotifs(actAssoc, rep(1, ncol(actAssoc)), labels,
                                   addThr=0, nMotifs=nMotifs)
     selActMotifs <- unique(c(selActMotifs, tfMotifCols))
-
-    names(selActMotifs) <- paste(assocActPrefix, 1:length(selActMotifs), sep="_")
-    whichIsTf <- grep(paste0(tfName, "([:_]|$)"), selActMotifs)
-    names(selActMotifs)[whichIsTf] <- paste(tfActPrefix,
-                                            1:length(whichIsTf),sep="_")
   }else{
-    selActMotifs <- NULL
+    actAssoc <- assays(mae[[assocExp]])[[assocPearsonPrefix]]
+    selActMotifs <- unique(grep(paste(c(tfName, tfCofactors),collapse="|"),
+                             colnames(actAssoc), value=TRUE))
   }
+  names(selActMotifs) <- paste(assocActPrefix, 1:length(selActMotifs), sep="_")
+  whichIsTf <- grep(paste0(tfName, "([:_]|$)"), selActMotifs)
+  names(selActMotifs)[whichIsTf] <- paste(tfActPrefix,
+                                          1:length(whichIsTf),sep="_")
 
   # Add CTCF-Features()
   if("CTCF_Signal" %in% features & tolower(tfName)!="ctcf"){

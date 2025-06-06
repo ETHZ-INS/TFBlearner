@@ -30,7 +30,7 @@
 #' @export
 contextTfFeatures <- function(mae,
                               tfName,
-                              addLabels=FALSE,
+                              addLabels=TRUE,
                               whichCol=c("All", "OnlyTrain", "Col"), # evt. rename these arguments
                               colSel=NULL,
                               features=c("Inserts",

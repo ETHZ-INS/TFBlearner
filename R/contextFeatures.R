@@ -250,7 +250,9 @@ panContextFeatures <- function(mae,
     rs <- .marginSum(atacMat, margin="row")
     topVarSites <- setdiff(order(-varFeat[,1])[1:nVarSites], which(rs==0))
 
-    rowData(mae[[atacExp]])[[topVarSitesName]] <- list(topVarSites)
+    rowData(mae[[atacExp]])[[topVarSitesName]] <- fifelse(1:nrow(atacMat) %in% topVarSites,
+                                                          TRUE, FALSE)
+    rowData(mae[[atacExp]])[[atacVarFeatName]] <- varFeat[,1,drop=TRUE]
     subInd <- topVarSites
   }
   else{

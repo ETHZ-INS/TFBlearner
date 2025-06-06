@@ -20,8 +20,8 @@ tfCofactorPrefix <- "tfCofactor"
 tfMotifPrefix <- "tf_motif"
 assocMotifPrefix <- "associated_motif"
 
-tfActPrefix <- "activity_tf"
-assocActPrefix <- "associated_activity"
+tfActPrefix <- "tf_motif"
+assocActPrefix <- "associated_motif"
 
 # ATAC-experiment --------------------------------------------------------------
 
@@ -48,6 +48,7 @@ totalInsertsName <- "total_inserts"
 
 typeOverlapSuffix <- "overlaps"
 typeInsertsSuffix <- "inserts"
+contextFeat <- "contextFeat"
 
 # ChIP-experiment --------------------------------------------------------------
 
@@ -72,13 +73,15 @@ motifNameCol <- "motif"
 # will be removed
 matchRangesExp <- "match_ranges"
 
-# Activity-experiment ----------------------------------------------------------
+# pan-context / Activity-experiment ---------------------------------------------
 
 actExp <- "chromVARAct"
 assocExp <- "assocAct"
 
 devAssay <- "deviations"
 normDevAssay <- "normDev"
+
+panContextFeat <- "panContextFeat"
 
 # siteFeat-experiment ----------------------------------------------------------
 

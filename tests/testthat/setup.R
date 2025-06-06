@@ -93,15 +93,18 @@ maeTest <- suppressMessages({prepData(example_coords,
                                        chIPData=exampleChIP,
                                        testSet="A549")})
 maeTest <- siteFeatures(maeTest)
+maeTest <- suppressSdWarning(panContextFeatures, list(mae=maeTest,
+                                                      features=c("Max_ATAC_Signal",
+                                                                 "ATAC_Variance")))
 maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN",
                       features=c("Binding_Patterns", "Promoter_Association",
                                  "C_Score", "Cooccuring_Motifs",
                                  "Cofactor_Binding", "CTCF_Signal",
                                  "Associated_Motifs"))
 maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
-                              features=c("Inserts", "Weighted_Inserts"),
-                              addLabels=TRUE,
-                              BPPARAM=SerialParam())
+                             features=c("Inserts", "Weighted_Inserts"),
+                             addLabels=TRUE,
+                             BPPARAM=SerialParam())
 
 exampleATAC2 <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
                      K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"),
@@ -115,6 +118,7 @@ maeTest2 <- suppressMessages({prepData(example_coords,
 maeTest2 <- siteFeatures(maeTest2)
 maeTest2 <- suppressSdWarning(panContextFeatures, list(mae=maeTest2))
 maeTest2 <- tfFeatures(maeTest2, tfName="CTCF", tfCofactors="JUN")
+maeTest2 <- contextTfFeatures(maeTest2, tfName="CTCF")
 
 maeTestHdf5 <- suppressMessages({prepData(example_coords,
                                        motifData=exampleMotif,
@@ -124,6 +128,9 @@ maeTestHdf5 <- suppressMessages({prepData(example_coords,
                                        saveHdf5=TRUE,
                                        outDir="./test_data")})
 maeTestHdf5 <- siteFeatures(maeTestHdf5)
+maeTestHdf5 <- suppressSdWarning(panContextFeatures, list(mae=maeTestHdf5,
+                                                      features=c("Max_ATAC_Signal",
+                                                                 "ATAC_Variance")))
 maeTestHdf5 <- tfFeatures(maeTestHdf5, tfName="CTCF", tfCofactors="JUN",
                           features=c("Binding_Patterns", "Promoter_Association",
                                      "C_Score", "Cooccuring_Motifs",
