@@ -7,7 +7,7 @@
 contextTfFeatures(
   mae,
   tfName,
-  addLabels = FALSE,
+  addLabels = TRUE,
   whichCol = c("All", "OnlyTrain", "Col"),
   colSel = NULL,
   features = c("Inserts", "Weighted_Inserts", "ChromVAR_Scores"),

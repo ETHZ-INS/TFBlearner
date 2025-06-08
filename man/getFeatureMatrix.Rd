@@ -54,3 +54,7 @@ Assay is either saved as \link[Matrix:Matrix-class]{Matrix::Matrix} or as \link[
 \description{
 Compiles feature matrix based on pre-computed features stored in experiments of the provided \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object.
 }
+\details{
+Columns in the feature matrix returned are named the following:
+\verb{<featureType>_<featureName>} depending of the feature followed by (\verb{<motifSuffix>, <i>, <normedSuffix>}).
+}

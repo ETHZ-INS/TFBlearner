@@ -1,143 +1,137 @@
-# In order to have one point to easily change the naming of assays & experiments
+# Feature matrix columns are named in the following way.
 
-# general column-names & prefix ------------------------------------------------
+# <featureType>_<featureName> depending of the feature followed by (<motifSuffix>, <i>, <normedSuffix>)
 
-tfNameCol <- "tf_name"
+# feature-types: ---------------------------------------------------------------
 
-# cofactor / motif
-tfCofactorsCol <- "tf_cofactors"
-preSelMotifCol <- "preselected_motifs"
-preSelActCol <- "preselected_motif_activity"
-
-isTestCol <- "is_testing"
-isTrainCol <- "is_training"
-featTypeCol <- "feature_type"
-
-# prefices
-promoterPrefix <- "promoter"
-tfCofactorPrefix <- "tfCofactor"
-
-tfMotifPrefix <- "tf_motif"
-assocMotifPrefix <- "associated_motif"
-
-tfActPrefix <- "tf_motif"
-assocActPrefix <- "associated_motif"
-
-# ATAC-experiment --------------------------------------------------------------
-
-# experiment-name:
-atacExp <- "ATAC"
-atacPromeExp <- "ATAC_promoters"
-
-# coldata-names:
-chromVarExpName <- "ChromVAR_expectations"
-mdsDimFeatName <- "MDS_Context"
-
-# rowdata-names:
-atacVarFeatName <- "ATAC_Variance"
-maxAtacFeatName <- "Max_ATAC_Signal"
-
-# metadata-names
-chromVarBgName <- "ChromVAR_background_peaks"
-
-# assay-names / prefices:
-# typeNames are defined via argument of .getFragType
-totalOverlapsName <- "total_overlaps"
-normTotalOverlapsName <- "norm_total_overlaps"
-totalInsertsName <- "total_inserts"
-
-typeOverlapSuffix <- "overlaps"
-typeInsertsSuffix <- "inserts"
-contextFeat <- "contextFeat"
-
-# ChIP-experiment --------------------------------------------------------------
-
-# experiment-name:
-chIPExp <- "ChIP"
-
-# assay-names:
-peakAssayName <- "peaks"
-
-# Motif-experiment -------------------------------------------------------------
-
-# experiment-name:
-motifExp <- "Motifs"
-
-# assay-names:
-matchAssayName <- "match_scores"
-
-# coldata-names:
-maxScoreCol <- "max_score"
-motifNameCol <- "motif"
-
-# will be removed
-matchRangesExp <- "match_ranges"
-
-# pan-context / Activity-experiment ---------------------------------------------
-
-actExp <- "chromVARAct"
-assocExp <- "assocAct"
-
-devAssay <- "deviations"
-normDevAssay <- "normDev"
-
-panContextFeat <- "panContextFeat"
-
-# siteFeat-experiment ----------------------------------------------------------
-
-# experiment-name:
 siteFeat <- "siteFeat"
-
-# assay-names:
-consScoreFeatName <- "conservation_scores"
-cpgDensFeatName <- "cpg_density"
-gcContFeatName <- "gc_content"
-widthFeatName <- "width"
-
-topVarSitesName <- "top_var_sites"
-
-# tfFeat-experiment ------------------------------------------------------------
-
-# experiment-name:
+contextFeat <- "contextFeat"
+panContextFeat <- "panContextFeat"
 tfFeat <- "tfFeat"
-
-# assay-names / prefices:
-cScoreFeatName <- "c_score"
-ctcfSigFeatName <- "CTCF_signal"
-motifMatchesFeatName <- "motif_matches" # associated motif-matching scores
-
-tfPatternPrefix <- "pattern_tf"
-contextPatternPrefix <- "pattern_context"
-assocCohenPrefix <- "Cohen_Kappa"
-assocPearsonPrefix <- "Pearson"
-
-cofactorBindingPrefix <- "cofactor_binding"
-coTfMotifPrefix <- "n_cooccuring_motifs_tf"
-coCofactorMotifPrefix <- "n_cooccuring_motifs_tfCofactor"
-
-# contextTfFeat-experiment -----------------------------------------------------
-
-# experiment-name
-
 contextTfFeat <- "contextTfFeat"
 
-# assay-names /prefices:
-insertFeatName <- "insert_counts"
-wInsertsFeatName <- "weighted_insert_counts"
-devFeatName <- "chi2_dev_profile"
+# base-experiment-names --------------------------------------------------------
+motifExp <- "Motifs"
+atacExp <- "ATAC"
+atacPromExp <- "ATAC.Promoters"
+chIPExp <- "ChIP"
+assocExp <- "Activity.Association"
+actExp <- "chromVAR.Activity"
 
-chromVarAssocSuffix <-  "ChromVAR_ATAC"
-chromVarScoreSuffix <- "ChromVAR_score"
-labelFeatName <- "label"
+# various often used affixes ---------------------------------------------------
 
-maxAtacScaledPrefix <- "maxATAC_scaled"
+motifAffix <- "Motif"
+pearsonAffix <- "Pearson"
+cohenAffix <- "CohenKappa"
+promoterAffix <- "promoter"
+coMotifAffix <- "co"
+exMotifAffix <- "ex"
+overlapsAffix <- "overlaps"
+insertsAffix <- "inserts"
+normedAffix <- "normed"
+gcNormedAffix <- "normedGC"
+normedMaxAffix <- "normedMaxATAC"
+predPrefix <- "pred"
 
-# getInsertionProfiles return names --------------------------------------------
+# base-assay-names -------------------------------------------------------------
+matchAssay <- "matchScores"
+devAssay <- "deviations"
+normDevAssay <- "normedDev"
+peakAssay <- "peaks"
+assocAssay <- paste0(tolower(pearsonAffix), "Activity")
 
-retScoresName <- "motifScores"
-reProfileName <- "profile"
+# for fragment overlap & insert counts
+# => see totalOverlapsName/overlapTypeFeatNames and totalInsertsName/insertTypeFeatNames
 
-# Training ---------------------------------------------------------------------
+# col-/rowData names -----------------------------------------------------------
+
+tfNameCol <- "tfName"
+motifNameCol <- "motifName"
+preSelMotifCol <- paste0("presel", motifAffix)
+preSelActCol <- paste0("preselAct", motifAffix)
+isTestCol <- "isTesting"
+isTrainCol <- "isTraining"
+featTypeCol <- "featureType"
+tfCofactorsCol <- "tfCofactors"
+topVarSitesCol <- "topVarSite"
+chromVarExpCol <- "chromVarExpecations"
+chromVarBgCol <- "chromVarBackgrounds"
+maxScoreCol <- "maxScore"
+
+# return names -----------------------------------------------------------------
+
+retScoresName <- "motifInsertCounts"
+reProfileName <- "insertProfiles"
+
+# metaData names ---------------------------------------------------------------
+
+# motif-suffixes
+tfCofactorPrefix <- "tfCofactor"
+tfCofactorMotifPrefix <- paste0(tfCofactorPrefix, motifAffix)
+assocActPrefix <- paste0("assocation",motifAffix,"Activity")
+tfMotifPrefix <- paste0("tf", motifAffix)
+priorMotifPrefix <- paste0("prior", motifAffix) # motifs chosen based on matching names
+selMotifPrefix <- paste0("selected", motifAffix)
+ctcfMotifPrefix <- paste0("ctcf", motifAffix)
+
+# feature-names ----------------------------------------------------------------
+# the same logic applies in code, if more than the affices or feature names
+# need to be changed, e.g. the order of the affices,
+# then it would have to be also changed at the respective places in the code
+
+# siteFeats
+consScoreFeatName <- "conservationScores"
+cpgDensFeatName <- "cpgDensity"
+gcContFeatName <- "gcContent"
+widthFeatName <- "width"
+
+# tfFeats
+promFeatName <- paste0(promoterAffix, c(pearsonAffix, cohenAffix))
+motifFeatName <- paste0(tolower(motifAffix), "Match")
+actAssocFeatName <- assocActPrefix
+coBindFeatName <- "coBind"
+coCountFeatName <- "coMotifCount"
+cScoreFeatName <- "cScore"
+ctcfFeatName <- "ctcfBind"
+patContextFeatName <- "patternContext"
+patTfFeatName <- "patternTf"
+
+# panContextFeats
+atacVarFeatName <- "atacVariance"
+maxAtacFeatName <- "atacMax"
+
+# contextFeats
+mdsDimFeatName <- "mdsContext"
+totalOverlapsFeatName <- paste("total", overlapsAffix, sep=".")
+totalInsertsFeatName <-  paste("total", insertsAffix, sep=".")
+typeNames <- c("nucleosomefree", "mononucleosome",
+               "dinucleosome", "multinucleosome")
+overlapTypeFeatNames <- paste(typeNames, overlapsAffix, sep=".")
+insertTypeFeatNames <- paste(typeNames, insertsAffix, sep=".")
+
+# contextTfFeats
+insertFeatName <- "inserts"
+wInsertsFeatName <- "weightedInserts"
+devFeatName <- "chi2DevProfile"
+chromVarFeatName <- "chromVAR.Activity"
+labelName <- "label"
+
+# feature-matrix column names --------------------------------------------------
+# some feature matrix column names which get used over and over
+
+
+# labelBinCol
+
+# column-labels
+labelColName <- paste(contextTfFeat, labelName, sep="_")
+countColName <- paste(contextFeat, totalOverlapsFeatName, normedAffix, sep="_")
+motifFeatColName <- paste(tfFeat, motifFeatName, tfMotifPrefix, 1, sep="_")
+maxATACColName <- paste(panContextFeat, maxAtacFeatName, sep="_")
+gcContentColName <- paste(siteFeat, gcContFeatName)
+cScoreColName <- paste(tfFeat, cScoreFeatName, sep="_")
+binLabelName <- "labelBin"
+
+# model component names --------------------------------------------------------
 
 modelTopWeightName <- "top_weighted_pos"
 modelMedWeightName <- "med_weighted_pos"
@@ -153,7 +147,4 @@ stackModelBoostTree <- "boostTree"
 
 stackingStratEntry <- "stacking_strategy"
 
-# Prediction -------------------------------------------------------------------
-binLabelName <- "label_bin"
-predPrefix <- "pred"
-stackedSuffix <- "stacked"
+

@@ -47,5 +47,5 @@ test_that("Preselected motifs are saved in colData", {
 
   preSelActMotifs <- colData(maeTest2[[tfFeat]])[[preSelActCol]][[1]]
   expect_true(is.vector(preSelActMotifs))
-  expect_equal(preSelActMotifs[[paste(tfActPrefix, 1, sep="_")]], "JUN")
+  expect_equal(preSelActMotifs[[paste(tfMotifPrefix, 1, sep="_")]], "JUN")
 })

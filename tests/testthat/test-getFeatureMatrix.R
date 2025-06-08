@@ -113,7 +113,7 @@ test_that("Feature Matrix: Correct metadata assignment", {
 
   expect_contains(names(metadata(fm)), preSelActCol)
   preSelActMotifs <- metadata(fm)[[preSelActCol]]
-  expect_equal(preSelActMotifs[[paste(tfActPrefix, 1, sep="_")]], tfName)
+  expect_equal(preSelActMotifs[[paste(tfMotifPrefix, 1, sep="_")]], tfName)
 })
 
 test_that("Feature Matrix: Column names corresponding to R conventions", {
@@ -157,4 +157,52 @@ test_that("Feature Matrix: error if features have not been computed for provided
                                   colSel=c("K562", "A549"),
                                   addLabels=FALSE,
                                   saveHdf5=FALSE))
+})
+
+test_that("Feature Matrix: columns are named correctly", {
+  annoCol <- "context"
+  fm <- getFeatureMatrix(maeTest, tfName="CTCF",
+                         addLabels=TRUE,
+                         annoCol=annoCol,
+                         saveHdf5=FALSE)
+
+  lDt <- listFeatures()
+  enumFeats <- unlist(tstrsplit(colnames(fm), split="_"))
+  enumFeats <- as.integer(enumFeats[grepl("^[-+]?[0-9]+$", enumFeats)])
+  maxEnum <- max(enumFeats)
+  colNamesAll <- lapply(1:maxEnum, gsub, pattern="<i>",
+                        unlist(lDt$feature_matrix_column_names))
+  colNamesAll <- unlist(colNamesAll)
+  colNamesAll <- c(colNamesAll,
+                   paste(colNamesAll, normedAffix, sep="_"),
+                   paste(colNamesAll, normedMaxAffix, sep="_"),
+                   paste(colNamesAll, gcNormedAffix, sep="_"))
+
+  expect_setequal(setdiff(colnames(fm), colNamesAll),
+                  c(annoCol, labelColName))
+})
+
+
+test_that("Feature Matrix: correct features are normalized", {
+  annoCol <- "context"
+  fm <- getFeatureMatrix(maeTest, tfName="CTCF",
+                         addLabels=TRUE,
+                         annoCol=annoCol,
+                         saveHdf5=FALSE)
+
+  lDt <- listFeatures()
+  lDt <- subset(lDt, !context_normed)
+  enumFeats <- unlist(tstrsplit(colnames(fm), split="_"))
+  enumFeats <- as.integer(enumFeats[grepl("^[-+]?[0-9]+$", enumFeats)])
+  maxEnum <- max(enumFeats)
+  colNamesAll <- lapply(1:maxEnum, gsub, pattern="<i>",
+                        unlist(lDt$feature_matrix_column_names))
+  colNamesAll <- unlist(colNamesAll)
+  colNamesAll <- c(colNamesAll,
+                   paste(colNamesAll, normedAffix, sep="_"),
+                   paste(colNamesAll, normedMaxAffix, sep="_"),
+                   paste(colNamesAll, gcNormedAffix, sep="_"))
+
+  normedCols <- colnames(fm)[grepl(normedAffix,colnames(fm))]
+  expect_length(setdiff(normedCols, colNamesAll), 0)
 })

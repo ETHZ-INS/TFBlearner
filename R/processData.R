@@ -87,24 +87,6 @@
   return(seqDat)
 }
 
-.getType <- function(atacFrag, cuts=c("nucleosome_free"=0L,
-                                      "mononucleosome"=120L,
-                                      "dinucleosome"=300L,
-                                      "multinucleosome"=500L),
-                     label=FALSE) {
-  atacFrag[,width:=end-start]
-  if(label){
-    labels <- names(cuts)
-  }
-  else{
-    labels <- FALSE
-  }
-  atacFrag[,frag_type:=cut(width, breaks=c(cuts, Inf), labels=labels,
-                      right=TRUE, include.lowest=TRUE)]
-  atacFrag$width <- NULL
-  return(atacFrag)
-}
-
 .mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
                         saveHdf5=FALSE,
                         outDir=NULL,
@@ -217,7 +199,7 @@
 
     if(saveHdf5){
       dataList <- list(motifScore)
-      names(dataList) <- matchAssayName
+      names(dataList) <- matchAssay
       .writeToHdf5(dataList,
                    paste0(file.path(outDir, name), ".h5"),
                    storage="integer")
@@ -252,7 +234,7 @@
   motifColData[,origin:=unlist(data[get(motifNameCol)])]
 
   assayList <- list(motifScores)
-  names(assayList) <- matchAssayName
+  names(assayList) <- matchAssay
   motifSe <- SummarizedExperiment(assays=assayList,
                                   rowRanges=refCoords,
                                   colData=motifColData)
@@ -350,7 +332,7 @@
     atacFrag <- lapply(d, .processData, shift=shift,
                        seqLevelStyle=seqlevelsStyle(refCoords))
     atacFrag <- rbindlist(atacFrag)
-    atacFrag <- .getType(atacFrag, label=TRUE)
+    atacFrag <- .getType(atacFrag)
 
     # inserts counts
     atacFrag <- split(atacFrag, by="frag_type")
@@ -364,6 +346,7 @@
       else{
         ins <- data.table(chr=character(), start=numeric(), end=numeric(),
                           insert_counts=numeric())
+        setnames(ins, "insertFeatName", insertFeatName)
       }
       ins$frag_type <- factor(type)
       ins
@@ -377,28 +360,28 @@
                                         byCols="frag_type",
                                         BPPARAM=SerialParam())
     atacTotalOvs <- Matrix::Matrix(Matrix::rowSums(atacTypeOvs), ncol=1)
-    colnames(atacTotalOvs) <- totalOverlapsName
+    colnames(atacTotalOvs) <- totalOverlapsFeatName
     typeNames <- colnames(atacTypeOvs)
     atacTypeOvs <- lapply(typeNames,
                           function(col) atacTypeOvs[,col, drop=FALSE])
-    names(atacTypeOvs) <- paste(typeNames, typeOverlapSuffix, sep="_")
+    names(atacTypeOvs) <- paste(typeNames, overlapsAffix, sep=".")
 
     atacTypeIns <- genomicRangesMapping(refCoords,
                                         atacIns,
-                                        scoreCol="insert_counts",
+                                        scoreCol=insertFeatName,
                                         byCols="frag_type",
                                         aggregationFun=sum,
                                         BPPARAM=SerialParam())
     atacTotalIns <- Matrix::Matrix(Matrix::rowSums(atacTypeIns), ncol=1)
-    colnames(atacTotalIns) <- totalInsertsName
+    colnames(atacTotalIns) <- totalInsertsFeatName
     atacTypeIns <- lapply(typeNames,
                           function(col) atacTypeIns[,col, drop=FALSE])
-    names(atacTypeIns) <- paste(typeNames, typeInsertsSuffix, sep="_")
+    names(atacTypeIns) <- paste(typeNames, insertsAffix, sep=".")
 
     atacTotalOvs <- list(atacTotalOvs)
-    names(atacTotalOvs) <- totalOverlapsName
+    names(atacTotalOvs) <- totalOverlapsFeatName
     atacTotalIns <- list(atacTotalIns)
-    names(atacTotalIns) <- totalInsertsName
+    names(atacTotalIns) <- totalInsertsFeatName
 
     atacAssays <- c(atacTotalOvs,
                     atacTypeOvs,
@@ -532,7 +515,7 @@
 
     if(saveHdf5){
       dataList <- list(chIPPeaks)
-      names(dataList) <- peakAssayName
+      names(dataList) <- peakAssay
       .writeToHdf5(dataList,
                    paste0(file.path(outDir, unique(names(d))), ".h5"),
                    storage="double")
@@ -564,7 +547,7 @@
     return(ds)})]
 
   assayList <- list(chIPPeaks)
-  names(assayList) <- peakAssayName
+  names(assayList) <- peakAssay
   chIPSe <- SummarizedExperiment(assays=assayList,
                                  rowRanges=refCoords,
                                  colData=chIPColData)

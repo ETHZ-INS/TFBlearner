@@ -27,17 +27,13 @@ predictTfBinding <- function(models,
                              numThreads=40,
                              BPPARAM=SerialParam()){
 
-  fmTfName <- metadata(fm)$tf_name
+  fmTfName <- metadata(fm)[[tfNameCol]]
   modTfName <- models[[1]]$params$tf
   if(fmTfName!=modTfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and model trained for", modTfName))
   }
   featMat <- assays(fm)$features
-
   data <- featMat
-  labelCol <- paste(contextTfFeat, labelFeatName, sep="_")
-  contextCol <- annoCol
-  cScoreCol <- paste(tfFeat, cScoreFeatName, sep="_")
 
   npDt <- data.table(ind=1:nrow(data))
   if(!is.null(chunk) & is.numeric(chunk)){
@@ -58,17 +54,15 @@ predictTfBinding <- function(models,
   modelsBag <- models[modelNamesBag]
   nWorker <- BPPARAM$workers
   preds <- bpmapply(function(model, name, data,
-                             npDt, chunk,
-                             labelCol, contextCol,
-                             cScoreCol){
+                             npDt, chunk, contextColName){
     data.table::setDTthreads(floor(numThreads/nWorker))
 
     allFeats <- listFeatures()
     colsToRemove <- unlist(subset(allFeats,
                                   !included_in_training)$feature_matrix_column_names)
-    colsToRemove <- c(colsToRemove, labelCol, contextCol)
+    colsToRemove <- c(colsToRemove, labelColName, contextColName)
     if(name!=modelAllName){
-      colsToRemove <- setdiff(colsToRemove, cScoreCol)
+      colsToRemove <- setdiff(colsToRemove, cScoreColName)
     }
 
     if(!is.null(chunk) & is.numeric(chunk)){
@@ -97,28 +91,26 @@ predictTfBinding <- function(models,
     data=data,
     npDt=npDt,
     chunk=chunk,
-    labelCol=labelCol,
-    contextCol=contextCol,
-    cScoreCol=cScoreCol),
+    contextColName=annoCol),
   BPPARAM=BPPARAM)
 
   preds <- Reduce(cbind, preds[-1], preds[[1]])
   colnames(preds) <- paste(predPrefix, names(modelsBag), sep="_")
 
-  if(labelCol %in% colnames(data)){
+  if(labelColName %in% colnames(data)){
     message("Adding labels")
-    label <- data[,labelCol]
+    label <- data[,labelColName]
     labelBin <- fifelse(label>0,1L,0L)
     labelBin <- fifelse(label<0,-1L,labelBin)
     labelBin <- Matrix(labelBin, ncol=1)
     colnames(labelBin) <- binLabelName
 
-    outPreds <- list(preds, labelBin, data[,labelCol], data[,contextCol])
-    cnPreds <- c(colnames(preds), binLabelName, labelCol, contextCol)
+    outPreds <- list(preds, labelBin, data[,labelColName], data[,annoCol])
+    cnPreds <- c(colnames(preds), binLabelName, labelColName, annoCol)
   }
   else{
-    outPreds <- list(preds, data[,contextCol])
-    cnPreds <- c(colnames(preds), contextCol)
+    outPreds <- list(preds, data[,annoCol])
+    cnPreds <- c(colnames(preds), annoCol)
   }
 
   preds <- Matrix::Matrix(Reduce(cbind, outPreds[-1], outPreds[[1]]))
@@ -171,9 +163,7 @@ predictTfBinding <- function(models,
 
   tfName <- models[[1]]$params$tf
   stackingStrat <- models[[stackingStratEntry]]
-  labelCol <- paste(contextTfFeat, labelFeatName, sep="_")
-  cScoreCol <- paste(tfFeat, cScoreFeatName, sep="_")
-  predCol <- paste(predPrefix, stackedSuffix, sep="_")
+
   stackedModelName <- paste(modelStackedSuffix, stackingStrat, sep="_")
   modelStacked <- models[[stackedModelName]]
 
@@ -198,10 +188,8 @@ predictTfBinding <- function(models,
 
     # get feature for stacked model
     colSel <- c(paste(siteFeat, widthFeatName, sep="_"),
-                annoCol, totalOverlapsName,
-                paste(siteFeat, gcContFeatName),
-                labelCol,
-                paste(assocMotifPrefix, tfName, sep="_"))
+                annoCol, countColName, gcContentColName,
+                labelColName, motifFeatColName)
     colSel <- intersect(colSel,colnames(fm))
     assaysPred <- lapply(colSel,function(col){
       assays(fm)$features[,col,drop=FALSE]})
@@ -222,7 +210,7 @@ predictTfBinding <- function(models,
     preds <- predictTfBinding(models, fmStack, simplified=FALSE, ...)
     preds <- preds[,paste(predPrefix, stackingStrat, sep="_"), drop=FALSE]
   }
-  colnames(preds) <- predCol
+  colnames(preds) <- paste(predPrefix, stackedSuffix, sep="_")
 
   return(preds)
 }

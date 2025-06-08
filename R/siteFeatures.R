@@ -99,14 +99,14 @@ siteFeatures <- function(mae,
   }
 
   # get gc content of promoter coordinates
-  if(atacPromeExp %in% names(experiments(mae))){
+  if(atacPromExp %in% names(experiments(mae))){
     # prune to standard chromosomes
-    promCoords <- rowRanges(mae[[atacPromeExp]])
-    mae[[atacPromeExp]] <- keepStandardChromosomes(mae[[atacPromeExp]],
+    promCoords <- rowRanges(mae[[atacPromExp]])
+    mae[[atacPromExp]] <- keepStandardChromosomes(mae[[atacPromExp]],
                                                    pruning.mode="coarse")
 
     gcProm <- Repitools::gcContentCalc(promCoords, genome)
-    rowData(mae[[atacPromeExp]])[[gcContFeatName]] <- gcProm
+    rowData(mae[[atacPromExp]])[[gcContFeatName]] <- gcProm
   }
 
   names(featMats) <- paste(siteFeat, names(featMats), sep="_")

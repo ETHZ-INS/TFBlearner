@@ -27,11 +27,11 @@
   if(is.character(se)) se <- readRDS(se)
 
   # subsample
-  atac <- as(assay(se, totalOverlapsName), "sparseMatrix")
+  atac <- as(assay(se, totalOverlapsFeatName), "sparseMatrix")
   set.seed(seed)
 
-  exp <- rowData(atacSe)[[chromVarExpName]]
-  bg <-  metadata(atacSe)[[chromVarBgName]]
+  exp <- rowData(atacSe)[[chromVarExpCol]]
+  bg <-  metadata(atacSe)[[chromVarBgCol]]
 
   if(is.null(exp) | is.null(bg)){
 
@@ -71,14 +71,14 @@
     tmp <- as(sapply(seq_len(ncol(tmp)), \(j){
       x2 <- tmp[,j]>threshold1
       if(sum(x2)>=minMatches) return(x2)
-      tmp[,j]>as.integer(round(se$max_score[i[j]]/2L))
+      tmp[,j]>as.integer(round(se[[maxScoreCol]][i[j]]/2L))
     }), "sparseMatrix")
     colnames(tmp) <- colnames(se)[i]
     computeDeviations(atac, tmp, background_peaks=bg, expectation=exp)
   })
   dev <- do.call(rbind, dev)
   colData(dev) <- colData(atac)
-  rowData(dev)$motif_maxScore <- se$max_score
+  rowData(dev)[[maxScoreCol]] <- se[[maxScoreCol]]
   dev <- dev[rowSums(is.na(assay(dev)))<ncol(dev),]
   assay(dev,devAssay)[is.na(assay(dev, devAssay))] <- 0
   assay(dev, normDevAssay) <- scale(assay(dev, devAssay))
@@ -92,7 +92,7 @@
 #' and local accessibility. Stored are pearson correlations times 1000, rounded.
 #'
 #' @param cvSe The ChromVAR deviations SE, containing a `r normDevAssay` assay.
-#' @param atacSe The ATAC SE, containing a `total_overlaps` assay.
+#' @param atacSe The ATAC SE, containing a `r totalOverlapsFeatName` assay.
 #' @param h5path The path to the output H5 file.
 #' @param sparTh Absolute sparsification threshold, default 200L (-0.2 to 0.2
 #'   pearson correlations are set to zero).
@@ -105,19 +105,18 @@
   if(is.character(cvSe)) cvSe <- readRDS(cvSe)
   if(is.character(atacSe)) atacSe <- readRDS(atacSe)
   atacMat <- TFBlearner:::.GCSmoothQuantile(
-    counts=as.matrix(assay(atacSe, totalOverlapsName)),
+    counts=as.matrix(assay(atacSe, totalOverlapsFeatName)),
     gc=rowData(atacSe)[[gcContFeatName]])
   atacMat <- t(as.matrix(atacMat))
 
   threads <- floor(getDTthreads()/BPPARAM$workers)
   ascStats <- BiocParallel::bplapply(rownames(cvSe),
                                      function(motif, cvSe, atacMat,
-                                              assayName, colPrefix,
                                               sparTh, threads,
                                               saveHdf5, outDir){
 
                                        data.table::setDTthreads(threads)
-                                       x <- as.integer(round(1000*cor(atacMat, assay(cvSe, assayName)[motif,])))
+                                       x <- as.integer(round(1000*cor(atacMat, assay(cvSe, normDevAssay)[motif,])))
                                        q <- as.integer(round(quantile(x, prob=c(0,0.1,0.2,0.8,0.9,1), na.rm=TRUE)))
                                        x[abs(x)<sparTh] <- 0L
                                        asc <- Matrix::Matrix(x, ncol=1)
@@ -125,7 +124,7 @@
 
                                        if(saveHdf5){
                                          dataList <- list(asc)
-                                         names(dataList) <- colPrefix
+                                         names(dataList) <- assocAssay
                                          .writeToHdf5(dataList,
                                                       paste0(file.path(outDir, motif), ".h5"),
                                                       storage="integer")
@@ -133,8 +132,6 @@
                                        return(asc)},
                                      cvSe=cvSe, atacMat=atacMat,
                                      sparTh=sparTh,
-                                     assayName=normDevAssay,
-                                     colPrefix=assocPearsonPrefix,
                                      thread=threads,
                                      saveHdf5=saveHdf5, outDir=outDir,
                                      BPPARAM=BPPARAM)
@@ -154,7 +151,7 @@
   colnames(ascStats) <- rownames(cvSe)
 
   assaysAsc <- list(ascStats)
-  names(assaysAsc) <- assocPearsonPrefix
+  names(assaysAsc) <- assocAssay
   ascSe <- SummarizedExperiment(assays=assaysAsc, rowRanges=rowRanges(atacSe))
 
   return(ascSe)
@@ -240,7 +237,7 @@ panContextFeatures <- function(mae,
   gcContent <- as.numeric(assays(mae[[siteFeat]])[[paste(siteFeat, gcContFeatName, sep="_")]])
   rowData(mae[[atacExp]])[[gcContFeatName]] <- gcContent
 
-  atacMat <- .convertToMatrix(assays(mae[[atacExp]])$total_overlaps)
+  atacMat <- .convertToMatrix(assays(mae[[atacExp]])[[totalOverlapsFeatName]])
   nVarSites <- min(nVarSites, nrow(atacMat))
 
   if("ATAC_Variance" %in% features){
@@ -250,7 +247,7 @@ panContextFeatures <- function(mae,
     rs <- .marginSum(atacMat, margin="row")
     topVarSites <- setdiff(order(-varFeat[,1])[1:nVarSites], which(rs==0))
 
-    rowData(mae[[atacExp]])[[topVarSitesName]] <- fifelse(1:nrow(atacMat) %in% topVarSites,
+    rowData(mae[[atacExp]])[[topVarSitesCol]] <- fifelse(1:nrow(atacMat) %in% topVarSites,
                                                           TRUE, FALSE)
     rowData(mae[[atacExp]])[[atacVarFeatName]] <- varFeat[,1,drop=TRUE]
     subInd <- topVarSites
@@ -263,6 +260,7 @@ panContextFeatures <- function(mae,
 
   if("MDS_Context" %in% features){
     message("Get MDS-Dimensions")
+    if(ncol(atacMatSub)>2){
     mdsDim <- .getContextProjection(atacMatSub, subSample=NULL)
     mdsDim <- as.data.table(mdsDim, keep.rownames=TRUE)
 
@@ -270,6 +268,10 @@ panContextFeatures <- function(mae,
     co <- match(mdsDim$rn, colData(mae[[atacExp]])[[annoCol]])
     colData(mae[[atacExp]]) <-  cbind(colData(mae[[atacExp]]),
                                       mdsDim[co,])
+    }
+    else{
+      message("Too view cellular contexts to compute MDS-dimensions. Skipping...")
+    }
   }
 
   if("Max_ATAC_Signal" %in% features){
@@ -296,8 +298,8 @@ panContextFeatures <- function(mae,
     mae <- .addFeatures(mae, actSe, colsToMap=colnames(actSe), prefix=actExp)
 
     # add expectations to rowdata in case context is added
-    rowData(mae[[atacExp]])[res$id, chromVarExpName] <- res$exp
-    metadata(mae[[atacExp]])[[chromVarBgName]] <- res$bg
+    rowData(mae[[atacExp]])[res$id, chromVarExpCol] <- res$exp
+    metadata(mae[[atacExp]])[[chromVarBgCol]] <- res$bg
 
     message("Get association between site-specific ATAC-signal and chromVAR activity estimates")
     ascSe <- .CV2localAssociation(actSe, mae[[atacExp]],

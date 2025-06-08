@@ -50,20 +50,12 @@
   return(marginQuant)
 }
 
-.getType <- function(atacFrag, cuts=c("nucleosome_free"=0,
-                                      "mononucleosome"=120,
-                                      "dinucleosome"=300,
-                                      "multinucleosome"=500),
-                     label=FALSE) {
+.getType <- function(atacFrag) {
+  cuts=c(0L,120L,300L,500L)
   atacFrag[,width:=end-start]
-  if(label){
-    labels <- names(cuts)
-  }
-  else{
-    labels <- FALSE
-  }
-  atacFrag[,frag_type:=cut(width, breaks=c(cuts, Inf), labels=labels,
+  atacFrag[,frag_type:=cut(width, breaks=c(cuts, Inf), labels=typeNames,
                            right=TRUE, include.lowest=TRUE)]
+  atacFrag$width <- NULL
   return(atacFrag)
 }
 

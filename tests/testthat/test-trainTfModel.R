@@ -18,10 +18,10 @@ test_that("Arguments check: Basic training setup",{
   tfName <- "YY1"
   annoCol <- "context"
   colnames(fm) <- c(paste("feature", 1:10, sep="_"),
-                    paste(assocMotifPrefix, tfName, sep="_"),
-                    paste(contextTfFeat, labelFeatName, sep="_"),
+                    motifFeatColName,
+                    labelColName,
                     annoCol,
-                    totalOverlapsName,
+                    countColName,
                     paste(siteFeat, widthFeatName, sep="_"))
   fm <- as(fm, "CsparseMatrix")
   coords <- refCoords[sample(1:length(refCoords),
@@ -31,7 +31,7 @@ test_that("Arguments check: Basic training setup",{
   fm <- SummarizedExperiment(assays=list(features=fm),
                              rowRanges=coords)
   metadata(fm)[[annoCol]] <- unique(cellTypeCol[,1,drop=TRUE])
-  metadata(fm)$tf_name <- tfName
+  metadata(fm)[[tfNameCol]] <- tfName
   mods <- NULL
   modsBaggedNames <- c(modelTopWeightName,
                        modelMedWeightName,
@@ -77,10 +77,10 @@ test_that("Correct assignment of positive and negative fractions during training
   tfName <- "YY1"
   annoCol <- "context"
   colnames(fm) <- c(paste("feature", 1:10, sep="_"),
-                    paste(assocMotifPrefix, tfName, sep="_"),
-                    paste(contextTfFeat, labelFeatName, sep="_"),
+                    motifFeatColName,
+                    labelColName,
                     annoCol,
-                    totalOverlapsName,
+                    countColName,
                     paste(siteFeat, widthFeatName, sep="_"))
   fm <- as(fm, "CsparseMatrix")
   coords <- refCoords[sample(1:length(refCoords),
@@ -90,7 +90,7 @@ test_that("Correct assignment of positive and negative fractions during training
   fm <- SummarizedExperiment(assays=list(features=fm),
                              rowRanges=coords)
   metadata(fm)[[annoCol]] <- unique(cellTypeCol[,1,drop=TRUE])
-  metadata(fm)$tf_name <- tfName
+  metadata(fm)[[tfNameCol]] <- tfName
 
   mod <- trainTfModel(tfName, fm, evalRounds=1,
                       tuneHyperparams=FALSE, stackingStrat="last",

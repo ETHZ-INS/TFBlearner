@@ -1,8 +1,8 @@
 test_that("Context-features: chromVAR-Activity scores precomputation functionality", {
   experiments(maeTest2)[[actExp]] <- NULL
   experiments(maeTest2)[[assocExp]] <- NULL
-  colData(maeTest2[[atacExp]])[[chromVarExpName]] <- NULL
-  metadata(maeTest2[[atacExp]])[[chromVarBgName]] <- NULL
+  colData(maeTest2[[atacExp]])[[chromVarExpCol]] <- NULL
+  metadata(maeTest2[[atacExp]])[[chromVarBgCol]] <- NULL
   maeTest2 <- suppressSdWarning(panContextFeatures, list(mae=maeTest2))
 
   expect_s4_class(maeTest2, "MultiAssayExperiment")
@@ -10,16 +10,16 @@ test_that("Context-features: chromVAR-Activity scores precomputation functionali
   expect_contains(names(experiments(maeTest2)), assocExp)
   expect_contains(names(experiments(maeTest2)), assocExp)
   expect_contains(colnames(rowData(maeTest2[[atacExp]])),
-                  c(chromVarExpName))
+                  c(chromVarExpCol))
   expect_contains(names(metadata(maeTest2[[atacExp]])),
-                  chromVarBgName)
+                  chromVarBgCol)
 })
 
 test_that("Context-features: pan-context feature computations", {
   experiments(maeTest2)[[actExp]] <- NULL
   experiments(maeTest2)[[assocExp]] <- NULL
-  colData(maeTest2[[atacExp]])[[chromVarExpName]] <- NULL
-  metadata(maeTest2[[atacExp]])[[chromVarBgName]] <- NULL
+  colData(maeTest2[[atacExp]])[[chromVarExpCol]] <- NULL
+  metadata(maeTest2[[atacExp]])[[chromVarBgCol]] <- NULL
   maeTest2 <- suppressSdWarning(panContextFeatures, list(mae=maeTest2))
 
   expect_contains(colnames(rowData(maeTest2[[atacExp]])), atacVarFeatName)
@@ -42,8 +42,8 @@ test_that("Context-features: Message re-using precomputed chromVAR-Activity scor
 test_that("Context-features: Save assocations as .h5-file", {
   experiments(maeTest2)[[actExp]] <- NULL
   experiments(maeTest2)[[assocExp]] <- NULL
-  colData(maeTest2[[atacExp]])[[chromVarExpName]] <- NULL
-  metadata(maeTest2[[atacExp]])[[chromVarBgName]] <- NULL
+  colData(maeTest2[[atacExp]])[[chromVarExpCol]] <- NULL
+  metadata(maeTest2[[atacExp]])[[chromVarBgCol]] <- NULL
 
   outDir <-  tempdir()
   fileName  <- paste0(paste(assocExp, "mapped", sep="_"), ".h5")

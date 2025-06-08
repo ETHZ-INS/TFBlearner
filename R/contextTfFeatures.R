@@ -101,7 +101,7 @@ contextTfFeatures <- function(mae,
     labelCols <- colDataChIP$combination
     names(labelCols) <- colDataChIP[[annoCol]]
     labels <- lapply(labelCols, function(col){
-      as(assays(mae[[chIPExp]])[[peakAssayName]][,col,drop=TRUE],
+      as(assays(mae[[chIPExp]])[[peakAssay]][,col,drop=TRUE],
          "CsparseMatrix")})
   }
   else{
@@ -147,14 +147,13 @@ contextTfFeatures <- function(mae,
     # aggregate features across ranges of interest
     insFeats <- lapply(scoreCols, function(scoreCol){
       feats <- genomicRangesMapping(coords,
-                                    insRes$motifScores,
+                                    insRes[[retScoresName]],
                                     scoreCol=scoreCol,
                                     byCols="type",
                                     aggregationFun=aggregationFun,
                                     BPPARAM=BPPARAM)
-      colnames(feats) <- fifelse(colnames(feats)=="0",
-                                 paste("tf", scoreCol, "margin", sep="_"),
-                                 paste("tf", scoreCol, "within", sep="_"))
+      colnames(feats) <- paste(paste(scoreCol, colnames(feats), sep="."),
+                               tfMotifPrefix, 1, sep="_")
       if(scoreCol==devFeatName){
         feats <- list(Matrix::Matrix(rowSums(feats), ncol=1))
         names(feats) <- devFeatName
@@ -168,7 +167,9 @@ contextTfFeatures <- function(mae,
     insFeats <- do.call(c, insFeats)
 
     if(!is.null(labels)){
-      insFeats <- append(insFeats, list("label"=Matrix::Matrix(labels)))
+      labels <- list(Matrix::Matrix(labels))
+      names(labels) <- labelName
+      insFeats <- append(insFeats, labels)
     }
 
     return(insFeats)
@@ -189,7 +190,7 @@ contextTfFeatures <- function(mae,
       warning("ChromVAR activity estimates can not be added if tfFeatures() with `Associated_Motif_Activity` and panContextFeatures() have not been called before")}
     else{
       selActMotifs <- unlist(subset(colData(mae[[tfFeat]]),
-                             get(tfNameCol)==tfName)[[preSelActCol]])
+                                    get(tfNameCol)==tfName)[[preSelActCol]])
       devMat <- t(assays(mae[[actExp]])[[normDevAssay]][selActMotifs, contexts])
       devMat <- as.matrix(devMat)
 
@@ -200,7 +201,7 @@ contextTfFeatures <- function(mae,
       names(devMats) <- contexts
 
       # add to features
-      actFeatNames <-  paste(chromVarScoreSuffix, names(selActMotifs), sep="_")
+      actFeatNames <-  paste(chromVarFeatName, names(selActMotifs), sep="_")
       feats <- lapply(contexts, function(context){
         devMat <- devMats[[context]]
         dev2Mat <- lapply(colnames(devMat), function(col){

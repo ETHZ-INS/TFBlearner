@@ -39,8 +39,8 @@ ChromVAR activity scores and associations to the ATAC-signal will be computed as
 }
 \value{
 \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object with columns added to rowData of the ATAC experiment ("ATAC_Variance", "Max_ATAC_Signal")
-or the column data of the ATAC  experiment ("MDS_Context"). If not present in the object experiments for the chromVAR activity scores (name: chromVARAct)
-and its association to the ATAC-signal of a site across contexts (name: assocAct) are added.
+or the column data of the ATAC  experiment ("MDS_Context"). If not present in the object experiments for the chromVAR activity scores (name: chromVAR.Activity)
+and its association to the ATAC-signal of a site across contexts (name: Activity.Association) are added.
 }
 \description{
 Either site or cellular-context-specific features which are computed based on ATAC-seq data of all contexts combined.

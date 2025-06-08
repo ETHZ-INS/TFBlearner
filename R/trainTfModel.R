@@ -31,7 +31,7 @@
                              isWeighted,
                              colsToRemove,
                              data,
-                             contexts,
+                             annoCol,
                              measure,
                              earlyStoppingRounds,
                              evalRounds,
@@ -77,11 +77,11 @@
    task$set_col_roles("weights", add_to="weight", remove_from="feature")
 
    if(loContext){
-     task$set_col_roles("context", add_to="group", remove_from="feature")
+     task$set_col_roles(annoCol, add_to="group", remove_from="feature")
      rs <- mlr3::rsmp("loo")
    }
    else{
-     task$set_col_roles("context", remove_from="feature")
+     task$set_col_roles(annoCol, remove_from="feature")
      rs <- mlr3::rsmp("cv", folds=5)
    }
    rs$instantiate(task)
@@ -184,10 +184,7 @@
                           trainSet, posFrac=0.25, weighted=isWeighted,
                           seed=seed)
 
-   colsSel <- !(colnames(featMat) %in% c(annoCol,
-                                         paste(contextTfFeat,
-                                               labelFeatName, sep="_"),
-                                         colsToRemove))
+   colsSel <- !(colnames(featMat) %in% c(annoCol, labelColName, colsToRemove))
 
    trainData <- lgb.Dataset(data=as.matrix(featMat[trainSet,colsSel,drop=FALSE]),
                             label=labels[trainSet],
@@ -384,8 +381,6 @@
                          weights,
                          labels,
                          nModels,
-                         motifName,
-                         countCol="total_overlaps",
                          posFrac=0.25,
                          seed){
 
@@ -423,8 +418,8 @@
 
    negFact <- (1-posFrac)/posFrac
    negIds <- which(labels==0)
-   motifScores <- featMat[,motifName]
-   atacFrags <- featMat[,countCol]
+   motifScores <- featMat[,motifFeatColName]
+   atacFrags <- featMat[,countColName]
    ids <- 1:nrow(featMat)
 
    .chooseNeg <- function(motifScores, atacFrags, ids,
@@ -545,7 +540,7 @@
   stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
                                                       "wMean", "boostTree"))
 
-  fmTfName <- metadata(fm)$tf_name
+  fmTfName <- metadata(fm)[[tfNameCol]]
   if(fmTfName!=tfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and not for", tfName))
   }
@@ -580,13 +575,6 @@
                                                   "classif.logloss"))
   if(measureName=="classif.aucpr"){
     mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)}
-
-  # column-labels
-  labelCol <- paste(contextTfFeat, labelFeatName, sep="_")
-  cellTypeCol <- annoCol
-  countCol <- totalOverlapsName
-  motifName <- paste(assocMotifPrefix, tfName, sep="_")
-
   measure <- msr(measureName)
 
   data.table::setDTthreads(numThreads)
@@ -595,28 +583,28 @@
   # remove rows with missing values in essential columns -----------------------
   message("Preparing training data")
 
-  featMat <- featMat[!is.na(featMat[,labelCol]) &
-                     !is.na(featMat[,countCol]) &
-                     !is.na(featMat[,motifName]),]
+  featMat <- featMat[!is.na(featMat[,labelColName]) &
+                     !is.na(featMat[,countColName]) &
+                     !is.na(featMat[,motifFeatColName]),]
 
   # remove peak-flanks
-  featMat <- featMat[!featMat[,labelCol]<0, ]
+  featMat <- featMat[!featMat[,labelColName]<0, ]
 
   # weights of sites -----------------------------------------------------------
-  contexts <- unique(featMat[,cellTypeCol])
-  scalFact <- max(featMat[,labelCol])
-  weights <- featMat[,labelCol]/scalFact
+  contexts <- unique(featMat[,annoCol])
+  scalFact <- max(featMat[,labelColName])
+  weights <- featMat[,labelColName]/scalFact
 
   if(!loContext | length(contexts)==1){
     # scale to weight positives of contexts overall the same
-    weightsDt <- data.table(w=weights, con=featMat[,cellTypeCol])
+    weightsDt <- data.table(w=weights, con=featMat[,annoCol])
     weightsDt[,sum_w:=sum(w), by=.(con)]
     weightsDt[,scaled_w:=(w/sum(w))*1e3, by=.(con)]
     weights <- weightsDt$scaled_w
   }
   else if(loContext)
   {
-    weightsDt <- data.table(w=weights, con=featMat[,cellTypeCol])
+    weightsDt <- data.table(w=weights, con=featMat[,annoCol])
     weightsDt$ind <- 1:nrow(weightsDt)
     weightsDt <- subset(weightsDt, w>0)
     weightsDt[,n_pos:=.N, by=con]
@@ -647,33 +635,29 @@
 
   # label and weight the instances
   weights <- fifelse(weights==0,1,weights)
-  label <- featMat[,labelCol,drop=TRUE]
-  labelInd <- which(featMat[,labelCol, drop=TRUE]>0)
+  label <- featMat[,labelColName,drop=TRUE]
+  labelInd <- which(featMat[,labelColName, drop=TRUE]>0)
   labels <- rep(0, nrow(featMat))
   labels[labelInd] <- 1
 
   # determine feature columns
   allFeats <- TFBlearner::listFeatures()
-  colsToRemove <- unlist(subset(allFeats, !included_in_training)$feature_matrix_column_names)
-  colsToRemove <- c(colsToRemove, labelCol)
+  colsToRemove <- unlist(subset(allFeats,
+                             !included_in_training)$feature_matrix_column_names)
+  colsToRemove <- c(colsToRemove, labelColName)
   colsToRemoveUnWeighted <- colsToRemove
-  colsToRemoveWeighted <- setdiff(colsToRemove,
-                                  paste(tfFeat, cScoreFeatName, sep="_"))
+  colsToRemoveWeighted <- setdiff(colsToRemove, cScoreColName)
 
   setsWeighted <- .chooseBags(featMat,
                               weights,
                               labels,
                               nModels=3,
-                              countCol=countCol,
-                              motifName=motifName,
                               posFrac=posFrac,
                               seed=seed)
   setsUnweighted <- .chooseBags(featMat,
                                 rep(1, length(weights)),
                                 labels,
                                 nModels=1,
-                                countCol=countCol,
-                                motifName=motifName,
                                 posFrac=posFrac,
                                 seed=seed)
   sets <- c(setsWeighted, setsUnweighted)
@@ -687,8 +671,8 @@
   res <- BiocParallel::bpmapply(.getTunersBagged, sets, isWeighted,
                                 colsToRemove,
                                 MoreArgs=list(data=featMat,
+                                              annoCol=annoCol,
                                               labels=labels,
-                                              contexts=contexts,
                                               measure=measure,
                                               weights=weights,
                                               earlyStoppingRounds=earlyStoppingRounds,
@@ -834,7 +818,7 @@
   stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
                                                       "wMean", "boostTree"))
   tfName <- modsBagged[[1]]$params$tf
-  fmTfName <- metadata(fm)$tf_name
+  fmTfName <- metadata(fm)[[tfNameCol]]
   if(fmTfName!=tfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and model trained for", tfName))
   }
@@ -880,10 +864,8 @@
 
   set.seed(seed)
   contextCol <- annoCol
-  labelCol <- paste(contextTfFeat, labelFeatName, sep="_")
-
   preds <- preds[preds[,binLabelName]>=0,]
-  preds <- preds[,setdiff(colnames(preds), labelCol)]
+  preds <- preds[,setdiff(colnames(preds), labelColName)]
 
   if(!is.null(subSample) & is.numeric(subSample)){
     subSample <- min(subSample, nrow(preds))
@@ -920,13 +902,9 @@
   message("Training stacked model")
   mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)
 
-  labelCol <-  paste(contextTfFeat, labelFeatName, sep="_")
   contextCol <- annoCol
-
-  colSel <- c(contextCol, totalOverlapsName,
-              paste(siteFeat, gcContFeatName),
-              labelCol,
-              paste(assocMotifPrefix, tfName, sep="_"))
+  colSel <- c(contextCol, countColName, gcContentColName,
+              labelColName, motifFeatColName)
   colSel <- intersect(colSel, colnames(featMat))
   fmStack <- featMat[,colSel,drop=FALSE]
 
@@ -939,21 +917,19 @@
   fmStack <- cbind(fmStack,
                    preds[,predCols])
 
-  labelsStack <- fmStack[,labelCol]
+  labelsStack <- fmStack[,labelColName]
   nonFlank <- labelsStack>=0 & !is.na(labelsStack)
   fmStack <- fmStack[nonFlank,] # remove flanking regions for training
   labelsBinStack <- labelsStack[nonFlank]
   labelsBinStack <- fifelse(labelsBinStack>0,1,0)
   contexts <- fmStack[,contextCol,drop=TRUE]
-  colSel <- setdiff(colnames(fmStack), c(labelCol))
+  colSel <- setdiff(colnames(fmStack), c(labelColName))
 
   # select hyperparameters
   set <- .chooseBags(fmStack,
                      rep(1, length(weights)),
                      labelsBinStack,
                      nModels=1,
-                     countCol=totalOverlapsName,
-                     motifName=paste(assocMotifPrefix, tfName, sep="_"),
                      posFrac=0.25,
                      seed=seed)
   set <- set[[1]]
@@ -961,11 +937,11 @@
                          colsToRemove=NULL,
                          isWeighted=FALSE,
                          data=as.matrix(fmStack[,colSel]), # is that conversion needed?
+                         annoCol=annoCol,
                          earlyStoppingRounds=earlyStoppingRounds,
                          evalRounds=evalRounds,
                          numThreads=numThreads,
                          measure=msr("classif.aucpr"),
-                         contexts=contexts,
                          labels=labelsBinStack,
                          seed=seed)
 

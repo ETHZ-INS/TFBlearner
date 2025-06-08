@@ -285,6 +285,8 @@ getInsertionProfiles <- function(atacData,
   motifScores <- cbind(motifScores,
                        motifData[motifScores$motif_match_id,
                                  c("start", "end", "chr"), with=FALSE])
+  motifScores[,type:=factor(fifelse(type=="0", "margin", "within"),
+                            levels=c("margin", "within"))]
 
   if("tot_count" %in% colnames(motifScores)){
   setnames(motifScores, c("tot_count"), insertFeatName)}

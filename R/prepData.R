@@ -304,6 +304,16 @@ addATACData <- function(mae, atacData,
 
   if(computeFeatures){
     if(is.null(tfName)) stop("Please provide a TF to compute the features for")
+
+    # addLabels as an arg?
+    # if chromVAR feats should be recomputed
+    # chromVAR-ATAC assoc
+
+    # if(reCompute){
+    #   experiments(mae)[[actExp]] <- NULL
+    #   experiments(mae)[[assocExp]] <- NULL
+    #   mae <- panContextFeatures(mae)
+    # }
     mae <- contextTfFeatures(mae, tfName=tfName, whichCol="Col",
                              colSel=unique(names(atacData)), ...)
   }
@@ -327,11 +337,11 @@ addATACData <- function(mae, atacData,
 #' or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
 #' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
 #' @param chIPData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
-#' or paths to .bam/.bed files containing ChIP-seq peaks, names being the combination of cellular context and TF labels (e.g. K562_YY1).
-#' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column) and optionally a column with observational weights (weightCol)
-#' and/or a uncertainty label (isUncertainCol).
+#' or paths to .bam/.bed files containing ChIP-seq peaks, names being the combination of cellular context and TF labels (e.g. `K562_YY1`).
+#' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column) and optionally a column with observational weights (`weightCol`)
+#' and/or an uncertainty label (`isUncertainCol`).
 #' @param testSet Vector of cellular context labels used for testing.
-#' @param promoterCoords Optionally coordinates of promoters of transcription factor genes.
+#' @param promoterCoords Optionally coordinates of promoters of transcription factor genes. Needs to contain a column in the metadata named `r tfNameCol`.
 #' @param aggregationFun Function to aggregate
 #' @param scoreCol Optional, column name of motif-matching data containing matching scores.
 #' @param weightCol Optional, column name of ChIP-seq data containing observational weights for peaks.
@@ -384,7 +394,7 @@ prepData <- function(refCoords,
                         isUncertainCol=isUncertainCol,
                         saveHdf5=saveHdf5, outDir=outDir,
                         BPPARAM=BPPARAM)
-  covTfs <- unique(colData(chIPSe)$tf_name)
+  covTfs <- unique(colData(chIPSe)[[tfNameCol]])
   chIPMap <- data.frame(primary=colData(chIPSe)[[annoCol]],
                         colname=colData(chIPSe)[["combination"]],
                         stringsAsFactors=FALSE)
@@ -425,7 +435,7 @@ prepData <- function(refCoords,
                               colname=colData(atacPromSe)[[annoCol]],
                               stringsAsFactors=FALSE)
     listMap <- list(atacMap, chIPMap, motifMap, atacPromMap)
-    expNames <- c(atacExp, chIPExp, motifExp, atacPromeExp)
+    expNames <- c(atacExp, chIPExp, motifExp, atacPromExp)
     names(listMap) <- expNames
     objList <- list(atacSe, chIPSe, motifSe, atacPromSe)
     names(objList) <- expNames

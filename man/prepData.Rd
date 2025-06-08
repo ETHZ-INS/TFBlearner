@@ -37,13 +37,13 @@ or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellu
 Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).}
 
 \item{chIPData}{Named list of \link[data.table:data.table]{data.table::data.table}/data.frame/\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges}
-or paths to .bam/.bed files containing ChIP-seq peaks, names being the combination of cellular context and TF labels (e.g. K562_YY1).
-Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column) and optionally a column with observational weights (weightCol)
-and/or a uncertainty label (isUncertainCol).}
+or paths to .bam/.bed files containing ChIP-seq peaks, names being the combination of cellular context and TF labels (e.g. \code{K562_YY1}).
+Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column) and optionally a column with observational weights (\code{weightCol})
+and/or an uncertainty label (\code{isUncertainCol}).}
 
 \item{testSet}{Vector of cellular context labels used for testing.}
 
-\item{promoterCoords}{Optionally coordinates of promoters of transcription factor genes.}
+\item{promoterCoords}{Optionally coordinates of promoters of transcription factor genes. Needs to contain a column in the metadata named tfName.}
 
 \item{aggregationFun}{Function to aggregate}
 

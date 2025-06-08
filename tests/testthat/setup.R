@@ -100,9 +100,11 @@ maeTest <- tfFeatures(maeTest, tfName="CTCF", tfCofactors="JUN",
                       features=c("Binding_Patterns", "Promoter_Association",
                                  "C_Score", "Cooccuring_Motifs",
                                  "Cofactor_Binding", "CTCF_Signal",
-                                 "Associated_Motifs"))
+                                 "Associated_Motifs",
+                                 "Associated_Motif_Activity"))
 maeTest <- contextTfFeatures(maeTest, tfName="CTCF", subSample=20,
-                             features=c("Inserts", "Weighted_Inserts"),
+                             features=c("Inserts", "Weighted_Inserts",
+                                        "ChromVAR_Scores"),
                              addLabels=TRUE,
                              BPPARAM=SerialParam())
 
@@ -147,4 +149,3 @@ maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
 fmSe <- getFeatureMatrix(maeTest, tfName="CTCF",
                          addLabels=TRUE,
                          saveHdf5=FALSE)
-fmTest <- assays(fmSe)$features
