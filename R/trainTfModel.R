@@ -175,14 +175,24 @@
    valSet <-  sample(set, floor(length(set)*0.15))
    trainSet <- setdiff(set, valSet)
 
-   valSet <- .addUnused(weights, labels, set, valSet,
-                        posFrac=posFracMed, nPos=8000,
-                        weighted=isWeighted, seed=seed)
+   # sample additional points with similar weight for validation
+   valAdd <- .addInst(weights, labels, set,
+                      setdiff(set, c(valSet, trainSet)),
+                      posFrac=posFracMed, nPos=8000, seed=seed)
+   valSet <- c(valSet, valAdd)
+   valSub <- .ensureFrac(labels[valSet], weights[valSet],
+                         posFrac=posFracMed, randSamp=!isWeighted, seed=seed)
+   valSet <- valSet[valSub]
 
-   # add training datapoints keeping similar weight distributions
-   trainSet <- .addUnused(weights, labels, unique(c(set, valSet)),
-                          trainSet, posFrac=0.25, weighted=isWeighted,
-                          seed=seed)
+   # sample additional points with similar weight for training
+   nPosAdd <- 5e4-sum(labels[trainSet]==1)
+   trainAdd <- .addInst(weights, labels, set,
+                        setdiff(set, c(valSet, trainSet)),
+                        posFrac=0.25, nPos=nPosAdd, seed=seed)
+   trainSet <- c(trainSet, trainAdd)
+   trainSub <- .ensureFrac(labels[trainSet], weights[trainSet],
+                           posFrac=0.25, randSamp=!isWeighted, seed=seed)
+   trainSet <- trainSet[trainSub]
 
    colsSel <- !(colnames(featMat) %in% c(annoCol, labelColName, colsToRemove))
 
@@ -260,34 +270,64 @@
    return(mod)
  }
 
- .addUnused <- function(weights,
-                        labels,
-                        usedSet,
-                        resizeSet,
-                        posFrac,
-                        nPos=NULL,
-                        weighted=FALSE,
-                        seed){
+ .ensureFrac <- function(labels, weights, posFrac=0.25, randSamp=FALSE,
+                         seed=42){
+    set.seed(seed)
 
+    posSet <- which(labels==1)
+    # order according to weights
+    posSet <- posSet[order(weights[posSet], decreasing=TRUE)]
+    negSet <- which(labels==0)
+    nPos <- length(posSet)
+    nNeg <- length(negSet)
+
+    nNegExp <- floor(((1-posFrac)/posFrac)*nPos)
+    if(nNegExp<=nNeg){
+      negCorSet <- sample(negSet, nNegExp)
+      posCorSet <- posSet
+    }
+    else{
+      nPosExp <- floor((posFrac/(1-posFrac))*nNeg)
+      nPosExp <- max(nPosExp,1)
+      if(!randSamp){
+        posCorSet <- posSet[1:nPosExp]
+      }
+      else{
+        posCorSet <- sample(posSet, nPosExp)
+      }
+      negCorSet <- negSet
+    }
+
+    corSet <- c(negCorSet, posCorSet)
+    corSet <- sample(corSet)
+
+    return(corSet)
+ }
+
+ # test for weighted and unweighted case !!
+ .addInst <- function(weights, labels, refSet, availSet,
+                      nPos=1000, posFrac=0.01,
+                      seed=42){
    set.seed(seed)
 
-   # weights of selected sets
-   usedPos <- usedSet[which(labels[usedSet]==1)]
-   weightsRefDt <- data.table(bin=cut(weights[usedPos], breaks=10),
-                              w=weights[usedPos],
+   if(length(availSet)==0) return(c())
+
+   # reference positives
+   refPosSet <- refSet[which(labels[refSet]==1)]
+   weightsRefDt <- data.table(bin=cut(weights[refPosSet], breaks=10),
+                              w=weights[refPosSet],
                               ordered=TRUE)
-   binRefDt <- weightsRefDt[,.(n=.N,
-                               frac=.N/nrow(weightsRefDt),
-                               lb=min(w),
-                               ub=max(w)), by=bin]
+   binRefDt <- weightsRefDt[,.(n=.N, frac=.N/nrow(weightsRefDt),
+                               lb=min(w), ub=max(w)), by=bin]
    binRefDt$bin <- factor(binRefDt$bin, ordered=TRUE)
    setkey(binRefDt, lb, ub)
 
-   # weights of unused positives
-   notUsed <- setdiff(which(labels==1), usedPos)
-   weightsSampDt <- data.table(w_s=weights[notUsed],
-                               w_e=weights[notUsed],
-                               i=notUsed)
+   # available positives
+   availPosSet <- setdiff(availSet[which(labels[availSet]==1)], refPosSet)
+   if(length(availPosSet)==0) return(c())
+   weightsSampDt <- data.table(w_s=weights[availPosSet],
+                               w_e=weights[availPosSet],
+                               i=availPosSet)
    weightsSampDt <- foverlaps(weightsSampDt,
                               binRefDt,
                               by.x=c("w_s", "w_e"),
@@ -297,85 +337,55 @@
                               nomatch=NULL)
    weightsSampDt$bin <- factor(weightsSampDt$bin, ordered=TRUE)
 
-   # positives in set to resize
-   resizePos <- resizeSet[which(labels[resizeSet]==1)]
-
+   # check that is similar weight distribution
    if(nrow(weightsSampDt>0)){
-       matchLevels <- head(levels(binRefDt$bin), n=1)==head(levels(weightsSampDt$bin), n=1) &
-                      tail(levels(binRefDt$bin), n=1)==tail(levels(weightsSampDt$bin), n=1)}
+     levelEndsRef <- c(head(levels(binRefDt$bin), n=1),
+                       tail(levels(binRefDt$bin), n=1))
+     levelEndsSamp <- c(head(levels(weightsSampDt$bin), n=1),
+                        tail(levels(weightsSampDt$bin), n=1))
+     matchLevels <- all(levelEndsRef==levelEndsSamp)}
    else{
-       matchLevels <- FALSE
+     matchLevels <- FALSE
    }
 
-   if(matchLevels){
+  if(matchLevels){
+    # check number of available per bin
+    weightsSampDt[,n_samp:=floor(frac*nPos)]
+    weightsSampDt[,n_avail:=.N, by=bin]
 
-     if(is.null(nPos))
-     {
-       nPosAvail <- nrow(weightsSampDt)+length(resizePos)
-       nPos <- fifelse(nPosAvail>5e4, 5e4, nPosAvail)
-     }else{
-       nPos <- min(nPosAvail, nPos)
-     }
-     nPosAdd <- nPos-length(resizePos)
+    # adapt number to sample in case
+    underPopBinsDt <- weightsSampDt[n_samp>n_avail,]
+    if(nrow(underPopBinsDt)>0){
+      underPopBinsDt[,missing_frac:=n_samp/n_avail]
+      underPopBinDt <- subset(underPopBinsDt,
+                              missing_frac==max(underPopBinsDt$missing_frac))
+      nMinAvail <- data.table::first(underPopBinDt$n_avail)
+      underPopFrac <- data.table::first(underPopBinDt$frac)
+      nPosAdd <- floor(nMinAvail/underPopFrac)
+      weightsSampDt[,n_samp:=floor(frac*nPosAdd)]
+    }
+    # sample additional positives
+    sampPos <- weightsSampDt[,.SD[sample(.N, unique(n_samp))], by=bin][["i"]]
+    nPos <- length(sampPos)
+  }
+  else{
+    return(c())
+  }
 
-     # sample the additional positives
-     if(!weighted & nPosAdd>0){
-       resizePosAdd <- sample(weightsSampDt$i, nPosAdd)
-     }
-     else if(nPosAdd>0){
-       weightsSampDt[,n_samp:=floor(frac*nPosAdd)]
-       weightsSampDt[,n_avail:=.N, by=bin]
+  # sample negatives
+  nNeg <- floor(((1-posFrac)/posFrac)*nPos)
+  availNegSet <- setdiff(availSet[which(labels[availSet]==0)], refSet)
 
-       underPopBinsDt <- weightsSampDt[n_samp>n_avail,]
-       if(nrow(underPopBinsDt)>0){
-         underPopBinsDt[,missing_frac:=n_samp/n_avail]
+  if(nNeg>length(availNegSet)){
+    nNeg <- length(availNegSet)
+    nPos <- floor((posFrac/(1-posFrac))*nNeg)
+  }
+  sampNeg <- sample(availNegSet, nNeg)
+  sampPos <- sampPos[1:nPos]
+  sampSet <- c(sampNeg, sampPos)
 
-         underPopBinDt <- subset(underPopBinsDt,
-                                 missing_frac==max(underPopBinsDt$missing_frac))
-         nMinAvail <- data.table::first(underPopBinDt$n_avail)
-         underPopFrac <- data.table::first(underPopBinDt$frac)
-
-         nPosAdd <- floor(nMinAvail/underPopFrac)
-         weightsSampDt[,n_samp:=floor(frac*nPosAdd)]
-       }
-
-       addPos <- weightsSampDt[,.SD[sample(.N, unique(n_samp))], by=bin]
-       resizePosAdd <- addPos$i
-     }
-     else resizePosAdd <- c()
-
-     # add positives used already
-     resizePos <- c(resizePosAdd, resizePos)
-     nPosTot <- length(resizePos)
-     if(nPosTot>nPos) resizePos <- sample(resizePos, nPos)
-   }
-   else{
-     # get requested number of positives
-     if(!is.null(nPos)){
-        nPosTot <- length(resizePos)
-      if(nPos<nPosTot) resizePos <- sample(resizePos, nPos)
-     }
-   }
-
-   nPosSamp <- length(resizePos)
-
-   # sample negatives to obtain the desired rate of positives
-   nNeg <- ((1-posFrac)/posFrac)*nPosSamp
-   resizeNeg <-  resizeSet[which(labels[resizeSet]==0)]
-   nNegSamp <- nNeg-length(resizeNeg)
-
-   if(nNegSamp>0){
-     allNeg <- setdiff(which(labels==0), c(usedSet, resizeNeg))
-     resizeNegAdd <- sample(allNeg, nNegSamp)
-     resizeNeg <- c(resizeNeg, resizeNegAdd)
-   }
-   else{
-     resizeNeg <- sample(resizeNeg, nNeg)
-   }
-
-   resizeSet <- c(resizePos, resizeNeg)
-   return(resizeSet)
- }
+  return(sampSet)
+}
 
  .chooseBags <- function(featMat,
                          weights,
@@ -688,6 +698,7 @@
 
   message("Training Model")
   ptm <- proc.time()
+
   fits <- BiocParallel::bpmapply(.fitModel,
                                  res,
                                  sets,

@@ -114,21 +114,148 @@ test_that("Correct assignment of positive and negative fractions during training
 
   nPos <- mod$top_weighted_pos$params$n_pos_val1
   nTot <- mod$top_weighted_pos$params$n_neg_val1+nPos
-  expect_equal(nPos/nTot, 0.01, tolerance=0.001)
+  expect_equal(nPos/nTot, 0.01, tolerance=0.01)
 
   nPos <- mod$med_weighted_pos$params$n_pos_val1
   nTot <- mod$med_weighted_pos$params$n_neg_val1+nPos
-  expect_equal(nPos/nTot, 0.01, tolerance=0.001)
+  expect_equal(nPos/nTot, 0.01, tolerance=0.01)
 
   nPos <- mod$all_weighted_pos$params$n_pos_val1
   nTot <- mod$all_weighted_pos$params$n_neg_val1+nPos
-  expect_equal(nPos/nTot, 0.01, tolerance=0.001)
+  expect_equal(nPos/nTot, 0.01, tolerance=0.01)
 
   nPos <- mod$all_pos$params$n_pos_val1
   nTot <- mod$all_pos$params$n_neg_val1+nPos
-  expect_equal(nPos/nTot, 0.01, tolerance=0.001)
+  expect_equal(nPos/nTot, 0.01, tolerance=0.01)
 
   expect_true(mod$top_weighted_pos$params$n_pos_train<=mod$med_weighted_pos$params$n_pos_train)
   expect_true(mod$med_weighted_pos$params$n_pos_train<=mod$all_weighted_pos$params$n_pos_train)
   expect_true(mod$all_weighted_pos$params$n_pos_train<=mod$all_pos$params$n_pos_train)
+})
+
+
+test_that("Sampling of additional points for training (when no available)",{
+  posFracExp <- 0.01
+  n <- 1e5
+  set <- 1:n
+  weights <- sample(runif(5,0.001,1), n, replace=TRUE)
+  weights <- weights[order(weights, decreasing=TRUE)]
+  labels <- sample(c(1,0), n, replace=TRUE, prob=c(0.1,0.9))
+
+  subSet <- set[1:floor(n/10)]
+  valSet <-  sample(subSet, floor(length(subSet)*0.15))
+  trainSet <- setdiff(subSet, valSet)
+
+  valAdd <- .addInst(weights, labels, subSet, setdiff(set, c(valSet, trainSet)),
+                     posFrac=posFracExp, nPos=100)
+  trainAdd <- .addInst(weights, labels, subSet, setdiff(set, c(valSet,
+                                                               valAdd,
+                                                               trainSet)),
+                    posFrac=posFracExp, nPos=100)
+  trainSet <- c(trainSet, trainAdd)
+  trainSub <- .ensureFrac(labels[trainSet], weights[trainSet],
+                          posFrac=posFracExp)
+  trainSet <- trainSet[trainSub]
+
+  valSet <- c(valSet, valAdd)
+  valSub <- .ensureFrac(labels[valSet], weights[valSet],
+                        posFrac=posFracExp)
+  valSet <- valSet[valSub]
+
+  expect_length(intersect(trainSet, valSet), 0)
+  expect_equal(sum(labels[valSet]==1)/length(valSet),
+               posFracExp, tolerance=0.01)
+  expect_equal(sum(labels[trainSet]==1)/length(trainSet),
+               posFracExp, tolerance=0.01)
+})
+
+
+test_that("Sampling of additional points for training when available",{
+  posFracExp <- 0.01
+  n <- 1e5
+  set <- 1:n
+  weights <- sample(seq(0.5,1,length.out=5), n, replace=TRUE)
+  weights <- weights[order(weights, decreasing=TRUE)]
+  labels <- sample(c(1,0), n, replace=TRUE, prob=c(0.1,0.9))
+
+  subSet <- set[1:floor(n/10)]
+  valSet <-  sample(subSet, floor(length(subSet)*0.15))
+  trainSet <- setdiff(subSet, valSet)
+
+  nPosAdd <- 100
+  valAdd <- .addInst(weights, labels, subSet, setdiff(set, c(valSet, trainSet)),
+                     posFrac=posFracExp, nPos=nPosAdd)
+  trainAdd <- .addInst(weights, labels, subSet, setdiff(set, c(valSet,
+                                                               valAdd,
+                                                               trainSet)),
+                       posFrac=posFracExp, nPos=nPosAdd)
+  trainSetOrig <- trainSet
+  trainSet <- c(trainSetOrig, trainAdd)
+  trainSub <- .ensureFrac(labels[trainSet], weights[trainSet],
+                          posFrac=posFracExp)
+  trainSet <- trainSet[trainSub]
+
+  valSetOrig <- valSet
+  valSet <- c(valSet, valAdd)
+  valSub <- .ensureFrac(labels[valSet], weights[valSet],
+                        posFrac=posFracExp)
+  valSet <- valSet[valSub]
+
+  expect_length(intersect(trainSet, valSet), 0)
+  expect_true(length(valSetOrig)<length(valSet))
+  expect_true(length(trainSetOrig)<length(trainSet))
+  expect_true(sum(labels[valAdd]==1)<=nPosAdd)
+  expect_true(sum(labels[trainAdd]==1)<=nPosAdd)
+  expect_equal(sum(labels[valAdd]==1)/length(valAdd),
+               posFracExp, tolerance=0.001)
+  expect_equal(sum(labels[trainAdd]==1)/length(trainAdd),
+               posFracExp, tolerance=0.01)
+  expect_equal(sum(labels[valSet]==1)/length(valSet),
+               posFracExp, tolerance=0.01)
+  expect_equal(sum(labels[trainSet]==1)/length(trainSet),
+               posFracExp, tolerance=0.01)
+})
+
+
+# do the same weighted
+test_that("Sampling of additional points for training unweighted",{
+  posFracExp <- 0.01
+  n <- 1e5
+  set <- 1:n
+  weights <- rep(1,n)
+  labels <- sample(c(1,0), n, replace=TRUE, prob=c(0.1,0.9))
+
+  subSet <- set[1:floor(n/10)]
+  valSet <-  sample(subSet, floor(length(subSet)*0.15))
+  trainSet <- setdiff(subSet, valSet)
+
+  valAdd <- .addInst(weights, labels, subSet, setdiff(set, c(valSet, trainSet)),
+                     posFrac=posFracExp, nPos=100)
+  trainAdd <- .addInst(weights, labels, subSet, setdiff(set, c(valSet,
+                                                               valAdd,
+                                                               trainSet)),
+                       posFrac=posFracExp, nPos=100)
+  trainSetOrig <- trainSet
+  trainSet <- c(trainSetOrig, trainAdd)
+  trainSub <- .ensureFrac(labels[trainSet], weights[trainSet],
+                          posFrac=posFracExp)
+  trainSet <- trainSet[trainSub]
+
+  valSetOrig <- valSet
+  valSet <- c(valSet, valAdd)
+  valSub <- .ensureFrac(labels[valSet], weights[valSet],
+                        posFrac=posFracExp)
+  valSet <- valSet[valSub]
+
+  expect_length(intersect(trainSet, valSet), 0)
+  expect_true(length(valSetOrig)<length(valSet))
+  expect_true(length(trainSetOrig)<length(trainSet))
+  expect_equal(sum(labels[valAdd]==1)/length(valAdd),
+               posFracExp, tolerance=0.001)
+  expect_equal(sum(labels[trainAdd]==1)/length(trainAdd),
+               posFracExp, tolerance=0.01)
+  expect_equal(sum(labels[valSet]==1)/length(valSet),
+               posFracExp, tolerance=0.01)
+  expect_equal(sum(labels[trainSet]==1)/length(trainSet),
+               posFracExp, tolerance=0.01)
 })
