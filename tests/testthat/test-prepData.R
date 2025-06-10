@@ -149,17 +149,69 @@ test_that("Coldata check - addATACData", {
   expect_true(!("MCF7" %in% trainCons))
 })
 
-test_that("Features check - addATACData", {
+test_that("Features simple check - addATACData", {
   atacData <- exampleATAC
   names(atacData) <- c("MCF7", "JURKAT")
 
-  maeAdd <- addATACData(maeTest, atacData, shift=FALSE,
-                        tfName="CTCF",
-                        computeFeatures=TRUE,
-                        features=c("Inserts"))
+  maeAdd <- suppressSdWarning(addATACData,
+                              list(mae=maeTest, atacData=atacData,
+                                   shift=FALSE,
+                                   computeFeatures="simple"))
 
+  # check that col / row data preserved
+  expect_true(all(c(atacVarFeatName, maxAtacFeatName)
+                  %in% colnames(rowData(maeAdd[[atacExp]]))))
   expect_contains(colnames(maeAdd[[contextTfFeat]]),
                   c("MCF7_CTCF", "JURKAT_CTCF"))
+})
+
+test_that("Features simple check including MDS-projection - addATACData", {
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- suppressSdWarning(addATACData,
+                              list(mae=maeTest2, atacData=atacData,
+                                   shift=FALSE,
+                                   computeFeatures="simple"))
+
+  # check that col / row data preserved
+  expect_true(all(c(atacVarFeatName, maxAtacFeatName)
+                  %in% colnames(rowData(maeAdd[[atacExp]]))))
+  expect_contains(colnames(maeAdd[[contextTfFeat]]),
+                  c("MCF7_CTCF", "JURKAT_CTCF"))
+  mdsDims <- paste(mdsDimFeatName, 1:2,sep="_")
+  expect_contains(colnames(colData(maeAdd[[atacExp]])), mdsDims)
+  expect_equal(nrow(colData(maeAdd[[atacExp]])), 5)
+  expect_equal(sum(is.na(colData(maeAdd[[atacExp]])[,mdsDims])), 0)
+})
+
+test_that("Features from scratch check - addATACData", {
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- suppressSdWarning(addATACData,
+                              list(mae=maeTest, atacData=atacData,
+                                   shift=FALSE,
+                                   computeFeatures="scratch"))
+
+  # check that col / row data preserved
+  expect_true(all(c(atacVarFeatName, maxAtacFeatName)
+                  %in% colnames(rowData(maeAdd[[atacExp]]))))
+  expect_contains(colnames(maeAdd[[contextTfFeat]]),
+                  c("MCF7_CTCF", "JURKAT_CTCF"))
+})
+
+test_that("Features none check - addATACData", {
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- suppressSdWarning(addATACData,
+                              list(mae=maeTest, atacData=atacData,
+                                   shift=FALSE,
+                                   computeFeatures="none"))
+
+  expect_true(all(c(atacVarFeatName, maxAtacFeatName)
+                  %in% colnames(rowData(maeAdd[[atacExp]]))))
 })
 
 test_that("Features check  HDF5- addATACData", {
@@ -167,9 +219,7 @@ test_that("Features check  HDF5- addATACData", {
   names(atacData) <- c("MCF7", "JURKAT")
 
   maeAdd <- addATACData(maeTestHdf5, atacData, shift=FALSE,
-                        tfName="CTCF",
-                        computeFeatures=TRUE,
-                        features=c("Inserts"))
+                        computeFeatures="simple")
 
   expect_contains(colnames(maeAdd[[contextTfFeat]]),
                   c("MCF7_CTCF", "JURKAT_CTCF"))

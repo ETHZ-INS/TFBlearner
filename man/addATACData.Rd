@@ -8,17 +8,16 @@ addATACData(
   mae,
   atacData,
   testSet = NULL,
-  computeFeatures = FALSE,
-  tfName = NULL,
+  computeFeatures = c("simple", "scratch", "none"),
   annoCol = "context",
   shift = FALSE,
+  seed = 42,
   BPPARAM = SerialParam(),
   ...
 )
 }
 \arguments{
-\item{mae}{\link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} as construced by \code{\link[=prepData]{prepData()}} containing Motif, ATAC-, ChIP-seq. If features should be computed
-the object also needs to contain site-specific features as obtained by \code{\link[=siteFeatures]{siteFeatures()}} and transcription factor-specific features as obtained by \code{\link[=tfFeatures]{tfFeatures()}}.}
+\item{mae}{\link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} as construced by \code{\link[=prepData]{prepData()}} containing Motif, ATAC-, ChIP-seq.}
 
 \item{atacData}{Named list of \link[data.table:data.table]{data.table::data.table}/data.frame/\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges}
 or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
@@ -26,22 +25,31 @@ Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
 
 \item{testSet}{Vector of cellular context labels used for testing.}
 
-\item{computeFeatures}{If features should be computed (\code{\link[=contextTfFeatures]{contextTfFeatures()}}).}
+\item{computeFeatures}{If and how features for the newly added ATAC-seq dataset should be computed.
 
-\item{tfName}{Name of transcription factor to compute context-specific features for.}
+Option \code{simple}: Features for newly added ATAC-seq dataset will be computed based on pre-computed chromVAR expectations & backgrounds in \code{rowData} of the ATAC experiment.
+
+Option \code{scratch}: features will be re-computed from scratch including the added ATAC-seq dataset.
+ChromVAR expectations and backgrounds will be recomputed by re-running \code{\link[=panContextFeatures]{panContextFeatures()}}.
+
+Option \code{none}: No features will be recomputed for the added cellular context.
+
+For both \code{simple} & \code{scratch}, context-tf-features for the newly added context will be computed for the same TFs as for the cellular contexts already contained in the object.}
 
 \item{annoCol}{Name of column indicating cellular contexts in colData.}
 
 \item{shift}{Only for ATAC-seq data, if Tn5 insertion bias should be considered (only if a strand column is provided).}
 
+\item{seed}{Integer value for setting the seed for random number generation with \link[base:Random]{base::set.seed}.}
+
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}}.}
 
-\item{...}{Additional arguments passed to \code{\link[=contextTfFeatures]{contextTfFeatures()}}.}
+\item{...}{Additional arguments passed to \code{\link[=contextTfFeatures]{contextTfFeatures()}} and \code{\link[=panContextFeatures]{panContextFeatures()}} (in case \code{computeFeatures="scratch"}).}
 }
 \value{
 \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} with added ATAC-seq experiments (and cellular context and TF-specific features if \code{computeFeatures=TRUE}).
 }
 \description{
-Adds additional columns for provided ATAC-seq datasets in the ATAC-seq experiments and
-computes features if required.
+Adds additional columns for provided ATAC-seq datasets in the ATAC experiment and
+computes features if requested.
 }

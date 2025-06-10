@@ -57,6 +57,7 @@ topVarSitesCol <- "topVarSite"
 chromVarExpCol <- "chromVarExpecations"
 chromVarBgCol <- "chromVarBackgrounds"
 maxScoreCol <- "maxScore"
+mdsSubRowCol <- "mdsSubRows"
 
 # return names -----------------------------------------------------------------
 
@@ -65,7 +66,9 @@ reProfileName <- "insertProfiles"
 
 # metaData names ---------------------------------------------------------------
 
-# motif-suffixes
+mdsDimStatsEntry <- "MDSRes"
+
+# motif-suffixes ---------------------------------------------------------------
 tfCofactorPrefix <- "tfCofactor"
 tfCofactorMotifPrefix <- paste0(tfCofactorPrefix, motifAffix)
 assocActPrefix <- paste0("assocation",motifAffix,"Activity")
@@ -137,6 +140,8 @@ modelTopWeightName <- "top_weighted_pos"
 modelMedWeightName <- "med_weighted_pos"
 modelAllWeigthName <- "all_weighted_pos"
 modelAllName <- "all_pos"
+modelNames <- c(modelTopWeightName, modelMedWeightName,
+                modelAllWeigthName, modelAllName)
 modelStackedSuffix <- "stacked"
 
 # stacking strategy names

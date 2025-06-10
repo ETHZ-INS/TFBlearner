@@ -191,7 +191,7 @@ contextTfFeatures <- function(mae,
     else{
       selActMotifs <- unlist(subset(colData(mae[[tfFeat]]),
                                     get(tfNameCol)==tfName)[[preSelActCol]])
-      devMat <- t(assays(mae[[actExp]])[[normDevAssay]][selActMotifs, contexts])
+      devMat <- t(assays(mae[[actExp]])[[normDevAssay]][selActMotifs, contexts, drop=FALSE])
       devMat <- as.matrix(devMat)
 
       devMats <- lapply(1:length(contexts), function(i){

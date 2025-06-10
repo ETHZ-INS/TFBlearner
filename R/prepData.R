@@ -245,25 +245,32 @@ NULL
 #' @keywords PWMatrixList
 NULL
 
-
 #' Add further ATAC-seq datasets to object
 #'
-#' Adds additional columns for provided ATAC-seq datasets in the ATAC-seq experiments and
-#' computes features if required.
+#' Adds additional columns for provided ATAC-seq datasets in the `r atacExp` experiment and
+#' computes features if requested.
 #'
 #' @name addATACData
-#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq. If features should be computed
-#' the object also needs to contain site-specific features as obtained by [TFBlearner::siteFeatures()] and transcription factor-specific features as obtained by [TFBlearner::tfFeatures()].
+#' @param mae [MultiAssayExperiment::MultiAssayExperiment-class] as construced by [TFBlearner::prepData()] containing Motif, ATAC-, ChIP-seq.
 #' @param atacData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
 #' or paths to .bam/.bed files containing ATAC-seq fragments, names being the cellular contexts labels.
 #' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
 #' @param testSet Vector of cellular context labels used for testing.
-#' @param computeFeatures If features should be computed ([TFBlearner::contextTfFeatures()]).
-#' @param tfName Name of transcription factor to compute context-specific features for.
+#' @param computeFeatures If and how features for the newly added ATAC-seq dataset should be computed.
+#'
+#' Option `simple`: Features for newly added ATAC-seq dataset will be computed based on pre-computed chromVAR expectations & backgrounds in `rowData` of the `r atacExp` experiment.
+#'
+#' Option `scratch`: features will be re-computed from scratch including the added ATAC-seq dataset.
+#' ChromVAR expectations and backgrounds will be recomputed by re-running [TFBlearner::panContextFeatures()].
+#'
+#' Option `none`: No features will be recomputed for the added cellular context.
+#'
+#' For both `simple` & `scratch`, context-tf-features for the newly added context will be computed for the same TFs as for the cellular contexts already contained in the object.
 #' @param annoCol Name of column indicating cellular contexts in colData.
 #' @param shift Only for ATAC-seq data, if Tn5 insertion bias should be considered (only if a strand column is provided).
+#' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
-#' @param ... Additional arguments passed to [TFBlearner::contextTfFeatures()].
+#' @param ... Additional arguments passed to [TFBlearner::contextTfFeatures()] and [TFBlearner::panContextFeatures()] (in case `computeFeatures="scratch"`).
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] with added ATAC-seq experiments (and cellular context and TF-specific features if `computeFeatures=TRUE`).
 #' @import MultiAssayExperiment
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
@@ -272,12 +279,23 @@ NULL
 #' @importFrom GenomeInfoDb seqlevelsStyle
 addATACData <- function(mae, atacData,
                         testSet=NULL,
-                        computeFeatures=FALSE,
-                        tfName=NULL,
+                        computeFeatures=c("simple", "scratch", "none"),
                         annoCol="context",
                         shift=FALSE,
+                        seed=42,
                         BPPARAM=SerialParam(), ...){
+  set.seed(seed)
   .checkObject(mae)
+  computeFeatures <- match.arg(computeFeatures)
+
+  # get precomputed stats
+  mdsDimFeats <- paste(mdsDimFeatName, 1:2, sep="_")
+  compMDS <- all(mdsDimFeats %in% colnames(colData(mae[[atacExp]])))
+  if(compMDS){
+    mdsDims <- colData(mae[[atacExp]])[,mdsDimFeats]
+  }
+  exp <- rowData(mae[[atacExp]])[[chromVarExpCol]]
+  bg <- metadata(mae[[atacExp]])[[chromVarBgCol]]
 
   coords <- rowRanges(mae[[motifExp]])
   seAtac <- .mapSeqData(atacData, coords, type="ATAC", annoCol=annoCol,
@@ -302,22 +320,94 @@ addATACData <- function(mae, atacData,
   colData(mae)[[isTrainCol]] <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
                                        !colData(mae)[[isTestCol]],TRUE, FALSE)
 
-  if(computeFeatures){
-    if(is.null(tfName)) stop("Please provide a TF to compute the features for")
+  if(computeFeatures!="none"){
+    if(contextTfFeat %in% names(experiments(mae))){
+      tfs <- unique(colData(mae[[contextTfFeat]])[[tfNameCol]])
+    }
 
-    # addLabels as an arg?
-    # if chromVAR feats should be recomputed
-    # chromVAR-ATAC assoc
+    # get feature to compute
+    lDt <- listFeatures()
+    lPanDt <- subset(lDt, feature_type=="pan-context-Feature")
+    lPanFeatures <- unlist(tstrsplit(unlist(lPanDt$feature_matrix_column_names),
+                                     split="_", keep=2))
+    preFeats <- colnames(rowData(mae[[atacExp]]))
+    panConFeats <- lPanDt[lPanFeatures %in% preFeats, ]$feature_name
+    if(compMDS){panConFeats <- c(panConFeats, "MDS_Context")}
 
-    # if(reCompute){
-    #   experiments(mae)[[actExp]] <- NULL
-    #   experiments(mae)[[assocExp]] <- NULL
-    #   mae <- panContextFeatures(mae)
-    # }
-    mae <- contextTfFeatures(mae, tfName=tfName, whichCol="Col",
-                             colSel=unique(names(atacData)), ...)
+    panConFeats <- intersect(panConFeats,
+                             eval(formals(TFBlearner::panContextFeatures)$features))
+
+    if(computeFeatures=="scratch" | !(actExp %in% names(experiments(mae)))){
+       experiments(mae)[[actExp]] <- NULL
+       experiments(mae)[[assocExp]] <- NULL
+
+       extraArgs <- list(...)
+       extraArgs$features <- NULL
+       mae <- do.call(TFBlearner::panContextFeatures,
+                      c(list(mae=mae,
+                             seed=seed,
+                             features = panConFeats), extraArgs))
+    }
+    else{
+      if(compMDS){
+        atacMat <- .convertToMatrix(assays(mae[[atacExp]])[[totalOverlapsFeatName]])
+        idx <- rowData(mae[[atacExp]])[[mdsSubRowCol]]
+        atacMat <- atacMat[idx,]
+        atacOrigMat <- atacMat[,setdiff(colnames(atacMat),
+                                        names(atacData)), drop=FALSE]
+        mdsOrig <- metadata(mae)[[mdsDimStatsEntry]]
+        mdsDimsNew <- mdsDims
+        for(context in names(atacData)){
+          mdsRow <- .projectOnMDS(mdsOrig, t(atacOrigMat),
+                                  atacMat[,context,drop=TRUE])
+          mdsRow <- t(data.frame(mdsRow))
+          colnames(mdsRow) <- mdsDimFeats
+          rownames(mdsRow) <- context
+          mdsDimsNew <- rbind(mdsDimsNew, mdsRow)
+        }
+        co <- match(rownames(mdsDimsNew), colData(mae[[atacExp]])[[annoCol]])
+        colData(mae[[atacExp]])[,mdsDimFeats] <- mdsDimsNew[co,]
+      }
+
+      rowData(seAtac)[[chromVarExpCol]] <- exp
+      metadata(seAtac)[[chromVarBgCol]] <- bg
+      res <- .CVwrapper(atacSe=seAtac, motifSe=mae[[motifExp]],
+                        seed=seed, ...)
+      dev <- res$dev
+
+      actSe <- SummarizedExperiment(assays=assays(dev))
+      mae <- .addFeatures(mae, actSe, colsToMap=colnames(actSe), prefix=actExp)
+    }
+
+    if(contextTfFeat %in% names(experiments(mae))){
+
+      # get which features to recompute
+      lconTfDt <- subset(lDt, feature_type=="context-tf-Feature")
+      lconTfDt[,feat_name_affix:=tstrsplit(feature_matrix_column_names,
+                                           split="_", keep=2)]
+      preFeats <- unlist(tstrsplit(names(assays(mae[[contextTfFeat]])),
+                                            split="_", keep=2))
+      conTfFeats <- subset(lconTfDt, feat_name_affix %in% preFeats)$feature_name
+      conTfFeats <- intersect(conTfFeats,
+                              eval(formals(TFBlearner::contextTfFeatures)$features))
+
+      extraArgs <- list(...)
+      extraArgs$features <- NULL
+      for(context in names(atacData)){
+        for(tf in tfs){
+          labelledContexts <- getContexts(mae, tfName=tf, which="Both")
+          addLabels <- fifelse(context %in% labelledContexts, TRUE, FALSE)
+          mae <- do.call(TFBlearner::contextTfFeatures,
+                         c(list(mae=mae,
+                                tfName=tf,
+                                whichCol="Col",
+                                colSel=context,
+                                features=conTfFeats,
+                                seed=seed,
+                                addLabels=addLabels), extraArgs))}
+      }
+    }
   }
-
   return(mae)
 }
 

@@ -7,7 +7,7 @@
 #' @param fm [SummarizedExperiment::RangedSummarizedExperiment-class] object containing features as obtained by [TFBlearner::getFeatureMatrix].
 #' @param annoCol Name of column indicating cellular contexts.
 #' @param simplified If predictions should be returned as a [SummarizedExperiment::RangedSummarizedExperiment-class] object.
-#' @param chunk If predictions should be performed on chunks of the data to lower the memory footprint (chunk-size: 1e5)
+#' @param chunk Size of chunks if predictions should be performed in chunks to lower the memory footprint. If is `NULL` no chunking is applied.
 #' @param sparsify Should predictions be sparsified. Very small binding probabilities will be rounded to zero.
 #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
 #' are specified as parallel back-ends, `floor(numThreads/nWorker)` threads are used per worker.
@@ -121,7 +121,7 @@ predictTfBinding <- function(models,
     predsStacked <- .predictTfBindingStacked(models, fm,
                                              predsBagged=preds,
                                              annoCol=annoCol)
-    predsStackedCol <- paste(predPrefix, stackedSuffix, sep="_")
+    predsStackedCol <- paste(predPrefix, modelStackedSuffix, sep="_")
     preds <- cbind(preds, predsStacked[,predsStackedCol, drop=FALSE])
   }
 
@@ -210,7 +210,7 @@ predictTfBinding <- function(models,
     preds <- predictTfBinding(models, fmStack, simplified=FALSE, ...)
     preds <- preds[,paste(predPrefix, stackingStrat, sep="_"), drop=FALSE]
   }
-  colnames(preds) <- paste(predPrefix, stackedSuffix, sep="_")
+  colnames(preds) <- paste(predPrefix, modelStackedSuffix, sep="_")
 
   return(preds)
 }

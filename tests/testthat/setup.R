@@ -146,6 +146,8 @@ maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
 
 # Training & Prediction testing ------------------------------------------------
 
-fmSe <- getFeatureMatrix(maeTest, tfName="CTCF",
+fmTest <- getFeatureMatrix(maeTest, tfName="CTCF",
                          addLabels=TRUE,
                          saveHdf5=FALSE)
+modTest <- trainTfModel(tfName="CTCF", fmTest, evalRounds=2,
+                        stackingStrat="wMean")

@@ -56,7 +56,6 @@
     # in case bg atac & subInd have been computed beforehand
     idx <- which(!is.na(exp))
     exp <- exp[idx]
-    bg <- bg[idx]
     atac <- atac[idx,]
   }
 
@@ -77,7 +76,7 @@
     computeDeviations(atac, tmp, background_peaks=bg, expectation=exp)
   })
   dev <- do.call(rbind, dev)
-  colData(dev) <- colData(atac)
+  colData(dev) <- colData(atacSe)
   rowData(dev)[[maxScoreCol]] <- se[[maxScoreCol]]
   dev <- dev[rowSums(is.na(assay(dev)))<ncol(dev),]
   assay(dev,devAssay)[is.na(assay(dev, devAssay))] <- 0
@@ -157,22 +156,35 @@
   return(ascSe)
 }
 
-.getContextProjection <- function(atacMat, subSample=1e4){
-  if(!is.null(subSample)){
-    atacMat <- atacMat[sample(1:nrow(atacMat), min(subSample, nrow(atacMat))), ]
-  }
-  atacMat <- t(atacMat)
+.projectOnMDS <- function(mdsres, origData, newData){
+  if(!is.matrix(newData)) newData <- t(newData)
+  nD <- as.numeric(as.matrix(pdist::pdist(origData, newData))^2)
+  b <- -(nD - rowMeans(mdsres$sqDist) - mean(nD) + mean(mdsres$sqDist))/2
+  as.numeric((t(mdsres$eigenvectors) %*% b)/sqrt(mdsres$eigenvalues))
+}
 
-  # Taken from stackexchange:
-  # https://stats.stackexchange.com/questions/31565/compute-a-cosine-dissimilarity-matrix-in-r
-  sim <- atacMat / sqrt(rowSums(atacMat * atacMat))
-  sim <- sim %*% t(sim)
-  dSim <- as.dist(1-sim)
-  mdsRes <- stats::cmdscale(dSim)
-  colnames(mdsRes) <- paste(mdsDimFeatName, 1:2, sep="_")
-  rownames(mdsRes) <- rownames(atacMat)
+.getContextProjection <- function(atacMat, k=2){
+  D <- as.matrix(dist(atacMat)^2)
+  n <- nrow(atacMat)
 
-  return(mdsRes)
+  # double centering
+  H <- diag(n) - matrix(1, n, n)/n
+  B <- -(H %*% D %*% H)/2
+
+  # eigen decomposition
+  eig <- eigen(B)
+  values <- eig$values[1:k]
+  vectors <- eig$vectors[,1:k]
+  coords <- vectors %*% diag(sqrt(values))
+  colnames(coords) <- paste(mdsDimFeatName, 1:2, sep="_")
+  rownames(coords) <- rownames(atacMat)
+
+  list(
+    sqDist = D,
+    coords = coords,
+    eigenvalues = values,
+    eigenvectors = vectors
+  )
 }
 
 .getVariableSites <- function(atacMat){
@@ -247,13 +259,16 @@ panContextFeatures <- function(mae,
     rs <- .marginSum(atacMat, margin="row")
     topVarSites <- setdiff(order(-varFeat[,1])[1:nVarSites], which(rs==0))
 
-    rowData(mae[[atacExp]])[[topVarSitesCol]] <- fifelse(1:nrow(atacMat) %in% topVarSites,
-                                                          TRUE, FALSE)
+    isVarSite <- fifelse(1:nrow(atacMat) %in% topVarSites, TRUE, FALSE)
+    rowData(mae[[atacExp]])[[topVarSitesCol]] <- isVarSite
+    rowData(mae[[atacExp]])[[mdsSubRowCol]] <- isVarSite
     rowData(mae[[atacExp]])[[atacVarFeatName]] <- varFeat[,1,drop=TRUE]
     subInd <- topVarSites
   }
   else{
     subInd <- sample(1:length(refCoords), nVarSites)
+    isSubSite <- fifelse(1:nrow(atacMat) %in% subInd, TRUE, FALSE)
+    rowData(mae[[atacExp]])[[mdsSubRowCol]] <- isSubSite
   }
 
   atacMatSub <- atacMat[subInd,]
@@ -261,13 +276,13 @@ panContextFeatures <- function(mae,
   if("MDS_Context" %in% features){
     message("Get MDS-Dimensions")
     if(ncol(atacMatSub)>2){
-    mdsDim <- .getContextProjection(atacMatSub, subSample=NULL)
-    mdsDim <- as.data.table(mdsDim, keep.rownames=TRUE)
+      mdsRes <- .getContextProjection(t(atacMatSub))
+      mdsDim <- as.data.table(mdsRes$coords, keep.rownames=TRUE)
+      metadata(mae)[[mdsDimStatsEntry]] <- mdsRes
 
-    # add to colData of ATAC
-    co <- match(mdsDim$rn, colData(mae[[atacExp]])[[annoCol]])
-    colData(mae[[atacExp]]) <-  cbind(colData(mae[[atacExp]]),
-                                      mdsDim[co,])
+      # add to colData of ATAC
+      co <- match(mdsDim$rn, colData(mae[[atacExp]])[[annoCol]])
+      colData(mae[[atacExp]]) <-  cbind(colData(mae[[atacExp]]), mdsDim[co,])
     }
     else{
       message("Too view cellular contexts to compute MDS-dimensions. Skipping...")
