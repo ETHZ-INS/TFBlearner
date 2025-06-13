@@ -345,7 +345,7 @@ tfFeatures <- function(mae,
   featMats <- list()
 
   # validate MultiAssayExperiment object
-  .checkObject(mae, checkFor="Site")
+  .checkObject(mae, checkFor=c("site", "context"))
 
   # reference coordinates
   coords <- rowRanges(mae[[motifExp]])

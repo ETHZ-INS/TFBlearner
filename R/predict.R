@@ -1,9 +1,9 @@
 #' Predicts transcription-factor binding
 #'
-#' Predicts bindings with each model in the bag (as obtained by [TFBlearner::trainBagged]) seperately.
+#' Predicts bindings with each model in the bag (as obtained by [TFBlearner::trainTfModel]) seperately.
 #'
 #' @name predictTfBinding
-#' @param models List of tree-based gradient boosting [lightgbm::lightgbm] models as obtained by [TFBlearner::trainBagged]
+#' @param models List of tree-based gradient boosting [lightgbm::lightgbm] models as obtained by [TFBlearner::trainTfModel].
 #' @param fm [SummarizedExperiment::RangedSummarizedExperiment-class] object containing features as obtained by [TFBlearner::getFeatureMatrix].
 #' @param annoCol Name of column indicating cellular contexts.
 #' @param simplified If predictions should be returned as a [SummarizedExperiment::RangedSummarizedExperiment-class] object.
@@ -147,10 +147,10 @@ predictTfBinding <- function(models,
 
 #' Predicts transcription-factor binding
 #'
-#' Predicts bindings for the stacked model as obtained by [TFBlearner::trainStacked]
+#' Predicts bindings for the stacked model.
 #'
 #' @name .predictTfBindingStacked
-#' @param modelStacked Stacked model as obtained by [TFBlearner::trainStacked].
+#' @param models Models as obtained by [TFBlearner::trainTfModel].
 #' @param fm [SummarizedExperiment::RangedSummarizedExperiment-class] object containing features as obtained by [TFBlearner::getFeatureMatrix].
 #' @param predsBagged Predictions of the single models in the bag. Only needed if the stacked model has been obtained with the weighted mean strategy.
 #' @param annoCol Name of column indicating cellular contexts.

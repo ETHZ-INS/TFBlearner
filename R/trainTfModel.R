@@ -484,7 +484,7 @@
  #' Training transcription factor-specific tree-based gradient boosting Models
  #'
  #' Trains a bag of four tree-based gradient boosting models of the [lightgbm::lightgbm] library and stacked model combining the predictions of the latter.
- #' Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the [mlr3tuning] library.
+ #' Hyperparameter selection is performed for each model seperately using model-based optimization by deploying the [mlr3tuning](https://mlr3tuning.mlr-org.com) library.
  #' The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), whichs
  #' contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
  #'
@@ -780,14 +780,14 @@
 
 #' Training transcription factor-specific tree-based gradient boosting Models
 #'
-#' Trains a stacked model provided a bag of four tree-based gradient boosting models as obtained by [TFBlearner::trainBagged].
+#' Trains a stacked model provided a bag of four tree-based gradient boosting models as obtained by [TFBlearner::trainTfModel].
 #' For different stacking strategies can be used.
 #' The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository [https://github.com/mlr-org/mlr3extralearners](https://github.com/mlr-org/mlr3extralearners), which
 #' contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
 #'
 #' @name .trainStacked
 #' @param fm [SummarizedExperiment::RangedSummarizedExperiment-class] object containing features & labels as obtained by [TFBlearner::getFeatureMatrix]. Ideally not used for training the bagged models.
-#' @param modsBagged Bag of models trained on different stratas of the data, as obtained by [TFBlearner::trainBagged].
+#' @param modsBagged Bag of models trained on different stratas of the data, as obtained by [TFBlearner::trainTfModel].
 #' @param stackingStrat Stacking strategy to use. `last`, chooses the the model which has been trained on all (most) positives not using
 #' observational weights for the ChIP-seq peaks. `wLast` using the last model which has seen most positives and has been trained with observational weights.
 #' `wMean` weighted mean all models based on performance on the feature matrix provided.
