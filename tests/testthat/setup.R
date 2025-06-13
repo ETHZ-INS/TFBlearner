@@ -2,8 +2,8 @@ library(data.table)
 library(GenomicRanges)
 library(BiocParallel)
 library(GenomeInfoDb)
-library(BSgenome.Hsapiens.UCSC.hg38)
-library(phastCons100way.UCSC.hg38)
+suppressWarnings({library(BSgenome.Hsapiens.UCSC.hg38)})
+suppressWarnings({library(phastCons100way.UCSC.hg38)})
 
 refCoords <- readRDS(test_path("./test_data/refCoords_test.rds"))
 
@@ -74,8 +74,8 @@ assayTableTestLarge[, end:=round(start+runif(nLarge, 1,100))]
 
 # example data for mae for feature functions -----------------------------------
 
-load(file.path(system.file("data", package="TFBlearner"), "example_coords.rda"))
-load(file.path(system.file("data", package="TFBlearner"), "example_pwms.rda"))
+data("example_coords")
+data("example_pwms")
 
 exampleATAC <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
                     K562=system.file("extdata", "example_atac_K562.bed", package = "TFBlearner"))
