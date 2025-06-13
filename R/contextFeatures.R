@@ -92,14 +92,16 @@
 #'
 #' @param cvSe The ChromVAR deviations SE, containing a `r normDevAssay` assay.
 #' @param atacSe The ATAC SE, containing a `r totalOverlapsFeatName` assay.
-#' @param h5path The path to the output H5 file.
 #' @param sparTh Absolute sparsification threshold, default 200L (-0.2 to 0.2
 #'   pearson correlations are set to zero).
-#'
+#' @param saveHdf5 If chromVar activity scors and associations experiments should be saved as HDF5 files.
+#' @param outDir Directory to save HDF5 file to.
+#' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @importFrom rhdf5 h5createFile h5createDataset h5write h5closeAll
-#' @returns Nothing
-.CV2localAssociation <- function(cvSe, atacSe, outDir, sparTh=200L,
+#' @returns [SummarizedExperiment::RangedSummarizedExperiment-class] object containg assocations between ATAC-seq signal and chromVAR-devations.
+.CV2localAssociation <- function(cvSe, atacSe, sparTh=200L,
                                  saveHdf5=TRUE,
+                                 outDir=getwd(),
                                  BPPARAM=SerialParam()){
   if(is.character(cvSe)) cvSe <- readRDS(cvSe)
   if(is.character(atacSe)) atacSe <- readRDS(atacSe)
@@ -218,6 +220,7 @@
 #' and its association to the ATAC-signal of a site across contexts (name: `r assocExp`) are added.
 #' @import MultiAssayExperiment
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam register
+#' @importFrom pdist pdist
 #' @importFrom chromVAR getBackgroundPeaks computeDeviations computeExpectations
 #' @importFrom rhdf5 H5Fcreate h5createDataset h5writeDataset h5delete h5write h5ls H5Fopen H5Fclose H5garbage_collect
 #' @importClassesFrom HDF5Array HDF5Array
@@ -235,7 +238,7 @@ panContextFeatures <- function(mae,
                                outDir=getwd(),
                                BPPARAM=SerialParam(), ...){
 
-  .checkObject(mae, checkFor="Site")
+  .checkObject(mae, checkFor="site")
 
   threads <- floor(getDTthreads())/BPPARAM$workers
   data.table::setDTthreads(threads)

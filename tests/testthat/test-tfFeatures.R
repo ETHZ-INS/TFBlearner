@@ -1,3 +1,14 @@
+test_that("TF-features: Site & (pan)context-features are there", {
+  experiments(maeTest)[[actExp]] <- NULL
+  experiments(maeTest)[[assocExp]] <- NULL
+  expect_error(tfFeatures(maeTest, tfName="CTCF"),
+               regexp="Context-specific")
+
+  experiments(maeTest)[[siteFeat]] <- NULL
+  expect_error(tfFeatures(maeTest, tfName="CTCF"),
+               regexp="Site-specific features")
+})
+
 test_that("TF-features: Basic functionality", {
   experiments(maeTest)[[tfFeat]] <- NULL
   maeTest <- tfFeatures(maeTest, tfName="CTCF",

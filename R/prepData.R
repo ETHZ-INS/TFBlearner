@@ -1,9 +1,11 @@
 .checkObject <- function(mae,
-                         checkFor=c("None", "Site", "TF", "Context"),
+                         checkFor=c("none", "site", "context",
+                                    "tf", "tf-context"),
                          tfName=NULL){
 
-  if("None" %in% checkFor) checkFor <- "None"
-  checkFor <- match.arg(checkFor, choices=c("None", "Site", "TF", "Context"),
+  if("none" %in% checkFor) checkFor <- "none"
+  checkFor <- match.arg(checkFor, choices=c("none", "site",
+                                            "context", "tf", "tf-context"),
                         several.ok=TRUE)
 
   if(!(is(mae, "MultiAssayExperiment"))){
@@ -13,7 +15,7 @@
 
   expectedExperiments <- c(atacExp, chIPExp, motifExp)
   experimentNames <- names(experiments(mae))
-  if(length(intersect(experimentNames, expectedExperiments))!=3){
+  if(!all(expectedExperiments %in% experimentNames)){
     stop("Object provided needs to be a MultiAssayExperiment Object containing
           experiments: ATAC, ChIP and Motifs.
           For obtaining a object in the correct form use prepData()")
@@ -29,32 +31,38 @@
           For obtaining a object in the correct form use prepData()")
   }
 
-  if("Site" %in% checkFor){
-    if(sum(grepl(siteFeat, experimentNames, ignore.case=TRUE))==0){
+  if("site" %in% checkFor){
+    if(!(siteFeat %in% experimentNames)){
       stop("Site-specific features as obtained by using siteFeatures() on the object
             are required for further use.")
     }
   }
 
-  if("TF" %in% checkFor){
+  if("context" %in% checkFor){
+    if(!all(c(actExp, assocExp) %in% experimentNames)){
+      stop("Context-specific & pan-context features as obtained by using panContextFeatures() on the object
+            are required for further use.")
+    }
+  }
+
+  if("tf" %in% checkFor){
     if(is.null(tfName)){
       warning("Please provide the name of a TF for which to check if features are present")}
-    if(sum(grepl(tfFeat, experimentNames, ignore.case=TRUE))==0 ||
-       !(tfName %in% colnames(mae[[tfFeat]]))){
+    if(!(tfFeat %in% experimentNames) || !(tfName %in% colnames(mae[[tfFeat]]))){
       stop(paste0("TF-features as obtained by using tfFeatures(tfName=",tfName,",...) are required for further use."))
     }
   }
 
-  if("Context" %in% checkFor){
+  if("tf-context" %in% checkFor){
     if(is.null(tfName)){
       warning("Please provide the name of a TF for which to check if features are present")}
-    if(sum(grepl(contextTfFeat, experimentNames, ignore.case=TRUE))==0){
+    if(!(contextTfFeat %in% experimentNames)){
       stop("Context-features as obtained by using contextTffeatures() on the object
             are required for further use.")
     }
     else{
-      tfs <- tstrsplit(colnames(mae[[contextTfFeat]]), split="_", keep=2)
-      if(!(tfName %in% unlist(tfs))){
+      tfs <- colData(mae[[contextTfFeat]])[[tfNameCol]]
+      if(!(tfName %in% tfs)){
         stop(paste0("Context-features as obtained by using contextTffeatures(tfName=",tfName,",...), are required for further use."))
       }
 

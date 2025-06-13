@@ -43,7 +43,7 @@ contextTfFeatures <- function(mae,
                               BPPARAM=SerialParam(),
                               ...){
 
-  .checkObject(mae, checkFor=c("Site", "TF"), tfName=tfName)
+  .checkObject(mae, checkFor=c("site", "context", "tf"), tfName=tfName)
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   whichContexts <- fifelse(addLabels, "Both", "ATAC")

@@ -133,7 +133,8 @@ getFeatureMatrix <- function(mae,
                              prefix=NULL,
                              annoCol="context"){
 
-  .checkObject(mae, checkFor=c("Site", "TF", "Context"), tfName=tfName)
+  .checkObject(mae, checkFor=c("site", "context", "tf", "tf-context"),
+               tfName=tfName)
 
   norm <- match.arg(norm, choices=c("robust", "min-max",
                                     "column", "none"))
