@@ -23,7 +23,8 @@ getInsertionProfiles(
 containing ATAC-seq fragment coordinates (i.e. chr/seqnames, start, end and optionally a strand column). List names will be used as sample names.
 If a single object is provided and it contains a column named "sample", insertion counts will be computed for each sample separately.}
 
-\item{motifRanges}{\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges} object containing coordinates of motif-matches.}
+\item{motifRanges}{\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges} object containing coordinates of motif-matches.
+Needs to contain a metadata column \code{motif_id} if insertion profiles should be computed for several motifs separately.}
 
 \item{margin}{Margin around motif-matches to consider for computing Tn5 insertion events}
 
@@ -32,7 +33,8 @@ If a single object is provided and it contains a column named "sample", insertio
 \item{calcProfile}{If insertion footprint profiles should be computed.}
 
 \item{profiles}{Pre-computed insertion footprint profile to compute weighted insertion counts in case \code{calcProfile=FALSE}.
-Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").}
+Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w") summing to one across all the coordinates.
+If provided for several motifs, should be a list of profiles with names corresponding to motif names.}
 
 \item{symmetric}{If transcription factor footprint profiles should be symmetric around the motif matches. Only used if \code{calcProfile=TRUE}.}
 
