@@ -718,8 +718,13 @@
 
   message(paste("Time elapsed for training the model:", round((proc.time()-ptm)[3],1), "\n"))
 
-  fits <- lapply(fits, function(mod){mod$params$tf <- tfName
-                                     mod})
+  selMotifs <- metadata(fm)[["preselMotif"]]
+  selActMotifs <- metadata(fm)[["preselActMotif"]]
+  fits <- lapply(fits, function(mod){
+    mod$params$tf <- tfName
+    mod$params[[preSelMotifCol]] <- selMotifs
+    mod$params[[preSelActCol]] <- selActMotifs
+    mod})
   names(fits) <- c(modelTopWeightName,
                    modelMedWeightName,
                    modelAllWeigthName,
@@ -979,10 +984,12 @@
 #' @name saveModels
 #' @param models List of models as obtained by [TFBlearner::trainTfModel].
 #' @param outPath Path for saving the models.
+#' @import data.table
 #' @importFrom lightgbm lgb.save
 #' @export
 saveModels <- function(models, outPath){
 
+  outName <- basename(outPath)
   outDir <- dirname(outPath)
   stackingStrat <- models[[stackingStratEntry]]
   stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
@@ -1018,6 +1025,19 @@ saveModels <- function(models, outPath){
       ml2[[modelName]] <- singleModelName
     }
   }
+
+  selMotifs <- models[[modelAllName]]$params[[preSelMotifCol]]
+  selActMotifs <- models[[modelAllName]]$params[[preSelActCol]]
+  motifDt <- data.table(motifs=c(selMotifs, selActMotifs),
+                        motif_class=c(names(selMotifs), names(selActMotifs)),
+                        type=c(rep(preSelMotifCol, length(selMotifs)),
+                               rep(preSelActCol, length(selActMotifs))))
+
+  outMotifsName <- gsub(".txt", ".tsv", outName)
+  outMotifsName <- paste("motifs", outMotifsName, sep="_")
+  write.table(motifDt, col.names=TRUE, row.names=FALSE, quote=FALSE,
+              file.path(outDir, outMotifsName), sep="\t")
+
   allMl2 <- unlist(lapply(ml2, readLines))
   lapply(ml2, file.remove)
   writeLines(allMl2, outPath)
@@ -1034,7 +1054,8 @@ saveModels <- function(models, outPath){
 #' @export
 loadModels <- function(modelPath){
 
-  outDir <- dirname(modelPath)
+  modelName <- basename(modelPath)
+  modelDir <- dirname(modelPath)
   models <- readLines(modelPath)
   endParameters <- "end of parameters"
   endModel <- "end of model"
@@ -1050,10 +1071,25 @@ loadModels <- function(modelPath){
   stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
   if(stackingStrat!="wMean"){modelNames <- c(modelnames, stackedModel)}
 
+  # read preselected motifs
+  modelMotifsName <- gsub(".txt", ".tsv", modelName)
+  modelMotifsName <- paste("motifs", modelMotifsName, sep="_")
+  motifDt <- fread(file.path(modelDir, modelMotifsName))
+
+  selMotifs <- subset(motifDt, type==preSelMotifCol)
+  namesSelMotifs <- selMotifs$motif_class
+  selMotifs <- selMotifs$motifs
+  names(selMotifs) <- namesSelMotifs
+
+  selActMotifs <- subset(motifDt, type==preSelActCol)
+  namesSelActMotifs <- selActMotifs$motif_class
+  selActMotifs <- selActMotifs$motifs
+  names(selActMotifs) <- namesSelActMotifs
+
   ml2 <- list()
   for(modelName in modelNames){
     models <- readLines(modelPath)
-    singleModelName <- paste0(file.path(outDir, modelName), ".txt")
+    singleModelName <- paste0(file.path(modelDir, modelName), ".txt")
 
     # read single model
     endParamLine <- which(models==endParameters)[1]
@@ -1078,10 +1114,14 @@ loadModels <- function(modelPath){
     lgbModel$params$sparse_thr <- unlist(tstrsplit(models[(endModelLine-(sub-1))],
                                                    split=": ", keep=2,
                                                    type.convert=TRUE))
+
     # delete other models
     otherModels <- models[-(1:(endModelLine+2))]
     modelPath <- tempModelPath
     writeLines(otherModels, modelPath)
+
+    lgbModel$params[[preSelMotifCol]] <- selMotifs
+    lgbModel$params[[preSelActCol]] <- selActMotifs
     ml2[[modelName]] <- lgbModel
   }
 

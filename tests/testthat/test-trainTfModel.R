@@ -66,6 +66,44 @@ test_that("Arguments check: Basic training setup",{
   file.remove(modFilePath)
 })
 
+
+test_that("Saving and loading motif information",{
+
+  # check that contained in models
+  expect_contains(names(modTest[[modelAllName]]$params),
+                  c(preSelMotifCol, preSelActCol))
+  tfMotifName <- paste(tfMotifPrefix, 1, sep="_")
+  expect_equal(modTest[[modelAllName]]$params[[preSelMotifCol]][[tfMotifName]],
+               modTest[[modelAllName]]$params$tf)
+  expect_contains(names(modTest[[modelTopWeightName]]$params),
+                  c(preSelMotifCol, preSelActCol))
+  expect_equal(modTest[[modelTopWeightName]]$params[[preSelMotifCol]][[tfMotifName]],
+               modTest[[modelTopWeightName]]$params$tf)
+
+  # check saving
+  outDir <- tempdir()
+  modFilePath <- file.path(outDir, "testModels.txt")
+  saveModels(modTest, outPath=modFilePath)
+  expect_true(file.exists(modFilePath))
+  motifFilePath <- file.path(outDir, "motifs_testModels.tsv")
+  expect_true(file.exists(motifFilePath))
+
+  # check correct loading
+  modLoad <- loadModels(modFilePath)
+  expect_contains(names(modLoad[[modelAllName]]$params),
+                  c(preSelMotifCol, preSelActCol))
+  tfMotifName <- paste(tfMotifPrefix, 1, sep="_")
+  expect_equal(modLoad[[modelAllName]]$params[[preSelMotifCol]][[tfMotifName]],
+               modLoad[[modelAllName]]$params$tf)
+  expect_contains(names(modLoad[[modelTopWeightName]]$params),
+                  c(preSelMotifCol, preSelActCol))
+  expect_equal(modLoad[[modelTopWeightName]]$params[[preSelMotifCol]][[tfMotifName]],
+               modLoad[[modelTopWeightName]]$params$tf)
+
+  file.remove(modFilePath)
+  file.remove(motifFilePath)
+})
+
 test_that("Correct assignment of positive and negative fractions during training",{
   fm <- Matrix(runif(1e6), ncol=10)
   motifScore <- Matrix(runif(1e5, 0.5, 10), ncol=1)
