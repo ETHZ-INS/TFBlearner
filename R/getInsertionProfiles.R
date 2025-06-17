@@ -74,11 +74,13 @@
 #' containing ATAC-seq fragment coordinates (i.e. chr/seqnames, start, end and optionally a strand column). List names will be used as sample names.
 #' If a single object is provided and it contains a column named "sample", insertion counts will be computed for each sample separately.
 #' @param motifRanges [GenomicRanges::GRanges-class] object containing coordinates of motif-matches.
+#' Needs to contain a metadata column `motif_id` if insertion profiles should be computed for several motifs separately.
 #' @param margin Margin around motif-matches to consider for computing Tn5 insertion events
 #' @param shift If Tn5 insertion bias should be considered (only if strand column is provided).
 #' @param calcProfile If insertion footprint profiles should be computed.
 #' @param profiles Pre-computed insertion footprint profile to compute weighted insertion counts in case `calcProfile=FALSE`.
-#' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
+#' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w") summing to one across all the coordinates.
+#' If provided for several motifs, should be a list of profiles with names corresponding to motif names.
 #' @param symmetric If transcription factor footprint profiles should be symmetric around the motif matches. Only used if `calcProfile=TRUE`.
 #' @param stranded If insertion footprint profiles should be computed taking strandedness of fragments into account.
 #' @param subSample If fragments should be sub-sampled for speed-up.
@@ -139,6 +141,9 @@ getInsertionProfiles <- function(atacData,
 
   commonChr <- intersect(unique(motifData$chr),unique(atacFrag$chr))
   chrLevels <- commonChr
+  if(length(chrLevels)==0){
+    stop("No common chromosomes found in atacData and motifRanges")
+  }
 
   atacFrag <- subset(atacFrag, chr %in% chrLevels)
   motifData <- subset(motifData, chr %in% chrLevels)
@@ -213,34 +218,29 @@ getInsertionProfiles <- function(atacData,
 
     # calculate weights
     setorder(atacProfiles, motif_id, rel_pos)
-    atacProfiles[,w:=smooth(pos_count_global, twiceit=TRUE), by=motif_id]
-    atacProfiles[,w_count:=pos_count_global/max(pos_count_global), by=motif_id]
     if(max(atacProfiles$pos_count_global)>0){
-      atacProfiles[,w_count:=pos_count_global/max(pos_count_global), by=motif_id]
-      atacProfiles[,w_count_smooth:=smooth(w_count), by=motif_id]}
-
-    if(sum(atacProfiles$w)==0){
-      # in case of very low coverage
-      atacProfiles[,w:=pos_count_global/sum(pos_count_global), by=motif_id]
+      atacProfiles[,w:=pos_count_global/max(pos_count_global), by=motif_id]
+      atacProfiles[,w_smooth:=smooth(w), by=motif_id]}
+    else{
+      atacProfiles[,w:=1]
     }
 
     if(symmetric){
       atacProfiles[,w:=rev(w)+w, by=motif_id]
-      atacProfiles[,w_count:=rev(w_count)+w_count, by=motif_id]
-      atacProfiles[,w_count_smooth:=rev(w_count_smooth)+w_count_smooth,
-                   by=motif_id]
+      if("w_smooth" %in% colnames(atacProfiles)){
+        atacProfiles[,w_smooth:=rev(w_smooth)+w_smooth, by=motif_id]}
     }
 
-    # TODO: still needed?
-    #atacProfiles[,w:=length(w)*w/sum(w), by=motif_id]
     atacProfiles[,w:=w/sum(w), by=motif_id]
+    if("w_smooth" %in% colnames(atacProfiles)){
+      atacProfiles[,w_smooth:=w_smooth/sum(w_smooth), by=motif_id]}
   }
   else{
     atacProfiles <- profiles
+    if(is.list(atacProfiles)){
+      message("Using precomputed profiles")
+      atacProfiles <- rbindlist(atacProfiles, idcol="motif_id")}
   }
-
-  # TODO: still needed?
-  #if(!is.null(atacProfiles)) atacProfiles[,exp:=w/sum(w), by=.(motif_id)]
 
   # get match scores
   motifScores <- BiocParallel::bpmapply(function(md,af,

@@ -65,6 +65,48 @@ test_that("Symmetric profile calculation check", {
   expect_identical(wNeg$w, wPos$w)
 })
 
+test_that("Using precomputed profiles", {
+
+  profile <- data.table(rel_pos=-200:200,w=1)
+  profile[,w:=w/sum(w)]
+  profiles <- list("JUN"=profile, "YY1"=profile, "USF1"=profile)
+
+  motifCoords1 <- motifCoords
+  motifCoords1$motif_id <- "YY1"
+  motifCoords2 <- motifCoords
+  motifCoords2$motif_id <- "JUN"
+  motifCoords <- c(motifCoords1, motifCoords2)
+
+  insRes <- NULL
+  expect_message(insRes <- getInsertionProfiles(assayTableTestLarge, motifCoords,
+                                                calcProfile=FALSE,
+                                                symmetric=TRUE,
+                                                profiles=profiles,
+                                                margin=10),
+                 regexp="Using precomputed profiles")
+  profiles <- rbindlist(profiles, idcol="motif_id")
+  expect_equal(insRes$insertProfiles, profiles)
+})
+
+test_that("No matching inserts", {
+  margin <- 10
+  atacFrag <- data.table(chr="chr1", start=100, end=200, sample="sample1")
+  insRes <- NULL
+  expect_no_error(insRes <- getInsertionProfiles(atacFrag,
+                                                 motifCoords,
+                                                 calcProfile=TRUE,
+                                                 symmetric=TRUE,
+                                                 margin=margin))
+  nPos <- 2*margin+1
+  expect_equal(insRes[[reProfileName]]$w, rep(1/nPos, nPos))
+
+  atacFrag <- data.table(chr="chr5", start=100, end=200, sample="sample1")
+  expect_error(getInsertionProfiles(atacFrag, motifCoords,
+                                    calcProfile=TRUE, symmetric=TRUE,
+                                    margin=margin),
+               regexp="No common chromosomes")
+})
+
 test_that("Simplified output format", {
   setnames(assayTableTestLarge, "group", "sample")
   insRes <- getInsertionProfiles(assayTableTestLarge, motifCoords,
