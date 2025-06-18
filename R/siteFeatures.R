@@ -4,8 +4,11 @@
 {
   # CpG content
   seqlevelsStyle(refRanges) <- "UCSC"
-  cpgDens <- Repitools::cpgDensityCalc(refRanges, genome)
-  gcCont <- Repitools::gcContentCalc(refRanges, genome)
+
+  seqs <- Biostrings::getSeq(genome, refRanges)
+  diFreq <- Biostrings::dinucleotideFrequency(x=seqs, as.prob=TRUE)
+  cpgDens <- diFreq[,"CG"]+diFreq[,"GC"]
+  gcCont <- Biostrings::letterFrequency(x=seqs, letters="GC", as.prob=TRUE)
 
   # PhastCon scores
   phastScores <- gscores(phast, refRanges, scores.only=TRUE)
@@ -14,7 +17,7 @@
 
   seqFeat <- list(phast_scores=Matrix::Matrix(phastScores, ncol=1),
                   cpg_density=Matrix::Matrix(cpgDens, ncol=1),
-                  gc_cont=Matrix::Matrix(gcCont, ncol=1))
+                  gc_cont=Matrix::Matrix(gcCont))
 
   names(seqFeat) <- c(consScoreFeatName, cpgDensFeatName, gcContFeatName)
 
@@ -38,7 +41,7 @@
 #' @param ... Arguments to be passed to [TFBlearner::genomicRangesMapping] for aggregation of annoData.
 #' @return [MultiAssayExperiment::MultiAssayExperiment-class] object with an experiment containing site-specific features added to [MultiAssayExperiment::experiments].
 #' @import MultiAssayExperiment
-#' @importFrom Repitools cpgDensityCalc gcContentCalc
+#' @importFrom Biostrings getSeq dinucleotideFrequency letterFrequency
 #' @importFrom GenomicScores gscores
 #' @importFrom GenomeInfoDb seqlevelsStyle
 #' @export
