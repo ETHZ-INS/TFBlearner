@@ -26,9 +26,9 @@ prepData(
 \item{refCoords}{Coordinates across which to aggregate ATAC-, ChIP-seq and motif data.
 Constitutes the rowRanges of the RangedSummarizedExperiment object.}
 
-\item{motifData}{Named list of \link[data.table:data.table]{data.table::data.table}/data.frame/\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges}
-or paths to .bam/.bed files containing motif-matching scores, names being the motif names.
-Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column).
+\item{motifData}{Named list of \link[data.table:data.table]{data.table::data.table}/data.frame/\link[GenomicRanges:GRanges-class]{GenomicRanges::GRanges} containing motif matches.
+Ideally this argument is obtained by calling \link{prepMotifs}.
+Needs to contain genomic coordinates (e.g. a chr/seqnames, start and end column), a score column (motif matching score).
 Ideally motifs corresponding to TFs for which \code{chIPData} is present are named the same in both arguments
 (e.g \code{motifData=list(JUN=...)}, \code{chIPData=list(K562_JUN=...)}.}
 

@@ -57,6 +57,8 @@ topVarSitesCol <- "topVarSite"
 chromVarExpCol <- "chromVarExpecations"
 chromVarBgCol <- "chromVarBackgrounds"
 maxScoreCol <- "maxScore"
+scoreCol <- "score"
+coOccurenceCol <- "cooccurences"
 mdsSubRowCol <- "mdsSubRows"
 
 # return names -----------------------------------------------------------------

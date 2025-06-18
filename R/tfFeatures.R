@@ -433,10 +433,19 @@ tfFeatures <- function(mae,
 
     coCounts <- lapply(tfs, function(tf){
       mmPath <- subset(colData(mae[[motifExp]]), get(motifNameCol)==tf)$origin
-      mm <- readRDS(mmPath)
+      mm <- as.data.table(readRDS(mmPath))
       mm$motif <- tf
+
+      if(coOccurenceCol %in% colnames(mm)){
+        aggregationFun <- sum
+      }
+      else{
+        aggregationFun <- NULL
+      }
       mmc <- genomicRangesMapping(coords, mm, byCols="motif",
-                                  scoreCol="cooccurences", aggregationFun=sum)})
+                                  scoreCol=coOccurenceCol,
+                                  aggregationFun=aggregationFun)
+    })
 
     # ensure correct naming
     namesCoCounts <- lapply(tfs, function(tf){
