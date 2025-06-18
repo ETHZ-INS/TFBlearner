@@ -74,7 +74,8 @@
                                  target="label",
                                  positive="1")
 
-   task$set_col_roles("weights", add_to="weight", remove_from="feature")
+   task$set_col_roles("weights", add_to="weights_learner",
+                      remove_from="feature")
 
    if(loContext){
      task$set_col_roles(annoCol, add_to="group", remove_from="feature")
@@ -1019,6 +1020,7 @@ saveModels <- function(models, outPath){
       }
       writeLines(paste("extra parameter stacking strategy:",
                        stackingStrat), con)
+
       writeLines("end of model", con)
       writeLines("\n", con)
       close(con)
