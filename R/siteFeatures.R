@@ -108,8 +108,9 @@ siteFeatures <- function(mae,
     mae[[atacPromExp]] <- keepStandardChromosomes(mae[[atacPromExp]],
                                                    pruning.mode="coarse")
 
-    gcProm <- Repitools::gcContentCalc(promCoords, genome)
-    rowData(mae[[atacPromExp]])[[gcContFeatName]] <- gcProm
+    promSeqs <- Biostrings::getSeq(genome, promCoords)
+    gcProm <- Biostrings::letterFrequency(x=promSeqs, letters="GC", as.prob=TRUE)
+    rowData(mae[[atacPromExp]])[[gcContFeatName]] <- gcProm[,1]
   }
 
   names(featMats) <- paste(siteFeat, names(featMats), sep="_")
