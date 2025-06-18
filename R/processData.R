@@ -346,7 +346,7 @@
       else{
         ins <- data.table(chr=character(), start=numeric(), end=numeric(),
                           insert_counts=numeric())
-        setnames(ins, "insertFeatName", insertFeatName)
+        setnames(ins, "insert_counts", insertFeatName)
       }
       ins$frag_type <- factor(type)
       ins
