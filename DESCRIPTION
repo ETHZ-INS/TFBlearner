@@ -42,7 +42,6 @@ Imports:
         ranger,
         RcppML,
         rgenoud,
-        Repitools,
         Rsamtools,
         rhdf5,
         sparseMatrixStats,
