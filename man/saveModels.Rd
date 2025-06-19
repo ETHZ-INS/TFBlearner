@@ -4,12 +4,12 @@
 \alias{saveModels}
 \title{Saves models on disk.}
 \usage{
-saveModels(models, outPath)
+saveModels(models, filePath)
 }
 \arguments{
 \item{models}{List of models as obtained by \link{trainTfModel}.}
 
-\item{outPath}{Path for saving the models.}
+\item{filePath}{Path for saving the models.}
 }
 \description{
 Saves models obtained by \link{trainTfModel} on disk.

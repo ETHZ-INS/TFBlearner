@@ -1039,19 +1039,17 @@ saveModels <- function(models, filePath){
 
   selMotifs <- models[[modelAllName]]$params[[preSelMotifCol]]
   selActMotifs <- models[[modelAllName]]$params[[preSelActCol]]
-  motifDt <- data.table(motifs=c(selMotifs, selActMotifs),
-                        motif_class=c(names(selMotifs), names(selActMotifs)),
-                        type=c(rep(preSelMotifCol, length(selMotifs)),
-                               rep(preSelActCol, length(selActMotifs))))
-
-  outMotifsName <- gsub(".txt", ".tsv", outName)
-  outMotifsName <- paste("motifs", outMotifsName, sep="_")
-  write.table(motifDt, col.names=TRUE, row.names=FALSE, quote=FALSE,
-              file.path(outDir, outMotifsName), sep="\t")
 
   allMl2 <- unlist(lapply(ml2, readLines))
   lapply(ml2, file.remove)
   writeLines(allMl2, filePath)
+
+  con <- file(filePath, open="a")
+  writeLines("Associated Motifs:", con=con)
+  dput(selMotifs, file=con)
+  writeLines("Motifs with associated Activity:", con=con)
+  dput(selActMotifs, file=con)
+  close(con)
 }
 
 #' Loads models from disk.
@@ -1083,19 +1081,12 @@ loadModels <- function(filePath){
   if(stackingStrat!="wMean"){modelNames <- c(modelNames, stackedModel)}
 
   # read preselected motifs
-  modelMotifsName <- gsub(".txt", ".tsv", modelName)
-  modelMotifsName <- paste("motifs", modelMotifsName, sep="_")
-  motifDt <- fread(file.path(modelDir, modelMotifsName))
-
-  selMotifs <- subset(motifDt, type==preSelMotifCol)
-  namesSelMotifs <- selMotifs$motif_class
-  selMotifs <- selMotifs$motifs
-  names(selMotifs) <- namesSelMotifs
-
-  selActMotifs <- subset(motifDt, type==preSelActCol)
-  namesSelActMotifs <- selActMotifs$motif_class
-  selActMotifs <- selActMotifs$motifs
-  names(selActMotifs) <- namesSelActMotifs
+  con <- file(filePath, open="r")
+  modParams <- readLines(con=con)
+  nLines <- length(modParams)
+  selMotifs <- eval(parse(text=modParams[nLines-2]))
+  selActMotifs <- eval(parse(text=modParams[nLines]))
+  close(con)
 
   ml2 <- list()
   for(modelName in modelNames){

@@ -53,7 +53,7 @@ test_that("Arguments check: Basic training setup",{
   # test saving functionality
   outDir <- tempdir()
   modFilePath <- file.path(outDir, "testModels.txt")
-  saveModels(mods, outPath=modFilePath)
+  saveModels(mods, filePath=modFilePath)
   expect_true(file.exists(modFilePath))
   modLoad <- loadModels(modFilePath)
   expect_contains(names(modLoad), c(modsBaggedNames, "stacking_strategy"))
@@ -85,8 +85,6 @@ test_that("Saving and loading motif information",{
   modFilePath <- file.path(outDir, "testModels.txt")
   saveModels(modTest, filePath=modFilePath)
   expect_true(file.exists(modFilePath))
-  motifFilePath <- file.path(outDir, "motifs_testModels.tsv")
-  expect_true(file.exists(motifFilePath))
 
   # check correct loading
   modLoad <- loadModels(filePath=modFilePath)
@@ -101,7 +99,6 @@ test_that("Saving and loading motif information",{
                modLoad[[modelTopWeightName]]$params$tf)
 
   file.remove(modFilePath)
-  file.remove(motifFilePath)
 })
 
 test_that("Saving and loading package version",{
@@ -112,7 +109,6 @@ test_that("Saving and loading package version",{
   # check saving
   outDir <- tempdir()
   modFilePath <- file.path(outDir, "testModels.txt")
-  motifFilePath <- file.path(outDir, "motifs_testModels.tsv")
   saveModels(modTest, filePath=modFilePath)
 
   # check correct loading
@@ -123,7 +119,6 @@ test_that("Saving and loading package version",{
   expect_contains(modLoad[[modelTopWeightName]]$params, expVersion)
 
   file.remove(modFilePath)
-  file.remove(motifFilePath)
 })
 
 test_that("Correct assignment of positive and negative fractions during training",{

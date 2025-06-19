@@ -4,10 +4,10 @@
 \alias{loadModels}
 \title{Loads models from disk.}
 \usage{
-loadModels(modelPath)
+loadModels(filePath)
 }
 \arguments{
-\item{modelPath}{Path of the models .txt-file.}
+\item{filePath}{Path of the models .txt-file.}
 }
 \value{
 A list of \link[lightgbm:lightgbm]{lightgbm::lightgbm} models saved on disk .
