@@ -1,7 +1,7 @@
 
 test_that("Check correct ranges: Insertion counts", {
   insRes <- getInsertionProfiles(assayTableTest, motifCoords)
-  insRanges <- unique(makeGRangesFromDataFrame(as.data.frame(insRes[[retScoresName]])))
+  insRanges <- unique(makeGRangesFromDataFrame(as.data.frame(insRes[[RETSCORESNAME]])))
   isWithin <- length(subsetByOverlaps(insRanges,motifCoords, type="equal"))
   expect_identical(isWithin, length(insRanges))
 })
@@ -10,7 +10,7 @@ test_that("Dimensionality checks: Insertion profile", {
   margin <- 100
   insRes <- getInsertionProfiles(assayTableTest, motifCoords, margin=margin)
 
-  profPos <- unique(insRes[[reProfileName]]$rel_pos)
+  profPos <- unique(insRes[[REPROFILENAME]]$rel_pos)
   profPos <- profPos[order(profPos)]
 
   expect_equal(profPos, seq(-margin, margin))
@@ -18,25 +18,25 @@ test_that("Dimensionality checks: Insertion profile", {
 
 test_that("Correct insertion counting checks: With insertion profile calculation", {
   insRes <- getInsertionProfiles(assayTableSimple1, motifCoords, calcProfile=TRUE)
-  insCounts <- insRes[[retScoresName]]
+  insCounts <- insRes[[RETSCORESNAME]]
   setorder(insCounts, motif_match_id)
 
-  expect_identical(insCounts[[insertFeatName]], c(4L,4L))
+  expect_identical(insCounts[[INSERTFEATNAME]], c(4L,4L))
 })
 
 test_that("Correct insertion counting checks: Without insertion profile calculation", {
   insRes <- getInsertionProfiles(assayTableSimple1, motifCoords, calcProfile=FALSE)
-  insCounts <- insRes[[retScoresName]]
+  insCounts <- insRes[[RETSCORESNAME]]
   setorder(insCounts, motif_match_id)
 
-  expect_identical(insCounts[[insertFeatName]], c(4L,4L))
+  expect_identical(insCounts[[INSERTFEATNAME]], c(4L,4L))
 })
 
 test_that("Correct relative insertion counts: Insertion profile calculation", {
   margin <- 100
   insRes <- getInsertionProfiles(assayTableSimple1, motifCoords,
                                  margin=margin, calcProfile=TRUE)
-  profile <- insRes[[reProfileName]]
+  profile <- insRes[[REPROFILENAME]]
   motifMarginRanges <- as.data.table(GenomicRanges::resize(motifCoords,
                                                            width=2*margin,
                                                            fix="center"))
@@ -49,7 +49,7 @@ test_that("Correct relative insertion counts: Insertion profile calculation", {
 
   expect_equal(sum(profile$pos_count_global), 4L)
   expect_equal(subset(profile, rel_pos %in% relPos)$pos_count_global, c(2L,2L))
-  expect_equal(insRes[[retScoresName]][[devFeatName]], c(0L,0L))
+  expect_equal(insRes[[RETSCORESNAME]][[DEVFEATNAME]], c(0L,0L))
 })
 
 test_that("Symmetric profile calculation check", {
@@ -57,9 +57,9 @@ test_that("Symmetric profile calculation check", {
                                  calcProfile=TRUE, symmetric=TRUE,
                                  margin=10)
 
-  wNeg <- subset(insRes[[reProfileName]], rel_pos<0)
+  wNeg <- subset(insRes[[REPROFILENAME]], rel_pos<0)
   setorder(wNeg, -rel_pos)
-  wPos <- subset(insRes[[reProfileName]], rel_pos>0)
+  wPos <- subset(insRes[[REPROFILENAME]], rel_pos>0)
   setorder(wPos, rel_pos)
 
   expect_identical(wNeg$w, wPos$w)
@@ -98,7 +98,7 @@ test_that("No matching inserts", {
                                                  symmetric=TRUE,
                                                  margin=margin))
   nPos <- 2*margin+1
-  expect_equal(insRes[[reProfileName]]$w, rep(1/nPos, nPos))
+  expect_equal(insRes[[REPROFILENAME]]$w, rep(1/nPos, nPos))
 
   atacFrag <- data.table(chr="chr5", start=100, end=200, sample="sample1")
   expect_error(getInsertionProfiles(atacFrag, motifCoords,
@@ -116,8 +116,8 @@ test_that("Simplified output format", {
   expect_s4_class(insRes, "RangedSummarizedExperiment")
   expect_identical(colnames(insRes),
                    unique(assayTableTestLarge$sample)[order(colnames(insRes))])
-  expect_equal(names(assays(insRes)), c(insertFeatName,
-                                        wInsertsFeatName,
-                                        devFeatName))
+  expect_equal(names(assays(insRes)), c(INSERTFEATNAME,
+                                        WINSERTSFEATNAME,
+                                        DEVFEATNAME))
   expect_identical(motifCoords, rowRanges(insRes))
 })

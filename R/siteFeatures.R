@@ -19,7 +19,7 @@
                   cpg_density=Matrix::Matrix(cpgDens, ncol=1),
                   gc_cont=Matrix::Matrix(gcCont))
 
-  names(seqFeat) <- c(consScoreFeatName, cpgDensFeatName, gcContFeatName)
+  names(seqFeat) <- c(CONSSCOREFEATNAME, CPGDENSEATNAME, GCCONTFEATNAME)
 
   return(seqFeat)
 }
@@ -73,7 +73,7 @@ siteFeatures <- function(mae,
   # reference coordinates width
   if("Width" %in% features){
     wi <- list(Matrix(width(coords), ncol=1))
-    names(wi) <- widthFeatName
+    names(wi) <- WIDTHFEATNAME
     featMats <- append(featMats, wi)
   }
 
@@ -86,13 +86,13 @@ siteFeatures <- function(mae,
       scoreCols <- rep(scoreCols, length(annoData))
     }
 
-    annotFeats <- mapply(function(ad, an, scoreCol, ...){
+    annotFeats <- mapply(function(ad, an, SCORECOL, ...){
       annoDt <- .processData(ad, readAll=TRUE)
       annoDt$type <- an
       annoFeat <- genomicRangesMapping(coords,
                                        annoDt,
                                        byCols=c("type"),
-                                       scoreCol=scoreCol,
+                                       SCORECOL=SCORECOL,
                                        aggregationFun=aggregationFun,
                                        ...)},
       annoData, names(annoData), scoreCols, ...)
@@ -102,22 +102,23 @@ siteFeatures <- function(mae,
   }
 
   # get gc content of promoter coordinates
-  if(atacPromExp %in% names(experiments(mae))){
+  if(ATACPROMEXP %in% names(experiments(mae))){
     # prune to standard chromosomes
-    promCoords <- rowRanges(mae[[atacPromExp]])
-    mae[[atacPromExp]] <- keepStandardChromosomes(mae[[atacPromExp]],
+    promCoords <- rowRanges(mae[[ATACPROMEXP]])
+    mae[[ATACPROMEXP]] <- keepStandardChromosomes(mae[[ATACPROMEXP]],
                                                    pruning.mode="coarse")
 
-    gcProm <- Repitools::gcContentCalc(promCoords, genome)
-    rowData(mae[[atacPromExp]])[[gcContFeatName]] <- gcProm
+    promSeqs <- Biostrings::getSeq(genome, promCoords)
+    gcProm <- Biostrings::letterFrequency(x=promSeqs, letters="GC", as.prob=TRUE)
+    rowData(mae[[ATACPROMEXP]])[[GCCONTFEATNAME]] <- gcProm[,1]
   }
 
-  names(featMats) <- paste(siteFeat, names(featMats), sep="_")
+  names(featMats) <- paste(SITEFEAT, names(featMats), sep="_")
   seSiteFeat <- SummarizedExperiment(assays=featMats, rowRanges=coords)
   colnames(seSiteFeat) <- "all"
-  colData(seSiteFeat)[[featTypeCol]] <- siteFeat
+  colData(seSiteFeat)[[FEATTYPECOL]] <- SITEFEAT
   colsToMap <- unique(sampleMap(mae)$primary)
-  mae <- .addFeatures(mae, seSiteFeat, colsToMap=colsToMap, prefix=siteFeat)
+  mae <- .addFeatures(mae, seSiteFeat, colsToMap=colsToMap, prefix=SITEFEAT)
 
   return(mae)
 }

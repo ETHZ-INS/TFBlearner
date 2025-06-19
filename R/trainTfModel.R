@@ -74,7 +74,8 @@
                                  target="label",
                                  positive="1")
 
-   task$set_col_roles("weights", add_to="weight", remove_from="feature")
+   task$set_col_roles("weights", add_to="weights_learner",
+                      remove_from="feature")
 
    if(loContext){
      task$set_col_roles(annoCol, add_to="group", remove_from="feature")
@@ -194,7 +195,7 @@
                            posFrac=0.25, randSamp=!isWeighted, seed=seed)
    trainSet <- trainSet[trainSub]
 
-   colsSel <- !(colnames(featMat) %in% c(annoCol, labelColName, colsToRemove))
+   colsSel <- !(colnames(featMat) %in% c(annoCol, LABELCOLNAME, colsToRemove))
 
    trainData <- lgb.Dataset(data=as.matrix(featMat[trainSet,colsSel,drop=FALSE]),
                             label=labels[trainSet],
@@ -261,7 +262,7 @@
    rm(predsTrainDt)
    gc()
 
-   mod$params$sparse_thr <- th # sparsification threshold parameter
+   mod$params[[SPARSETHR]] <- th # sparsification threshold parameter
    mod$params$n_pos_train <- sum(trainData$get_field("label")==1)
    mod$params$n_neg_train <- sum(trainData$get_field("label")==0)
    mod$params$n_pos_val1 <-sum(validData1$get_field("label")==1)
@@ -428,8 +429,8 @@
 
    negFact <- (1-posFrac)/posFrac
    negIds <- which(labels==0)
-   motifScores <- featMat[,motifFeatColName]
-   atacFrags <- featMat[,countColName]
+   motifScores <- featMat[,MOTIFFEATCOLNAME]
+   atacFrags <- featMat[,COUNTCOLNAME]
    ids <- 1:nrow(featMat)
 
    .chooseNeg <- function(motifScores, atacFrags, ids,
@@ -550,7 +551,7 @@
   stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
                                                       "wMean", "boostTree"))
 
-  fmTfName <- metadata(fm)[[tfNameCol]]
+  fmTfName <- metadata(fm)[[TFNAMECOL]]
   if(fmTfName!=tfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and not for", tfName))
   }
@@ -593,17 +594,17 @@
   # remove rows with missing values in essential columns -----------------------
   message("Preparing training data")
 
-  featMat <- featMat[!is.na(featMat[,labelColName]) &
-                     !is.na(featMat[,countColName]) &
-                     !is.na(featMat[,motifFeatColName]),]
+  featMat <- featMat[!is.na(featMat[,LABELCOLNAME]) &
+                     !is.na(featMat[,COUNTCOLNAME]) &
+                     !is.na(featMat[,MOTIFFEATCOLNAME]),]
 
   # remove peak-flanks
-  featMat <- featMat[!featMat[,labelColName]<0, ]
+  featMat <- featMat[!featMat[,LABELCOLNAME]<0, ]
 
   # weights of sites -----------------------------------------------------------
   contexts <- unique(featMat[,annoCol])
-  scalFact <- max(featMat[,labelColName])
-  weights <- featMat[,labelColName]/scalFact
+  scalFact <- max(featMat[,LABELCOLNAME])
+  weights <- featMat[,LABELCOLNAME]/scalFact
 
   if(!loContext | length(contexts)==1){
     # scale to weight positives of contexts overall the same
@@ -645,8 +646,8 @@
 
   # label and weight the instances
   weights <- fifelse(weights==0,1,weights)
-  label <- featMat[,labelColName,drop=TRUE]
-  labelInd <- which(featMat[,labelColName, drop=TRUE]>0)
+  label <- featMat[,LABELCOLNAME,drop=TRUE]
+  labelInd <- which(featMat[,LABELCOLNAME, drop=TRUE]>0)
   labels <- rep(0, nrow(featMat))
   labels[labelInd] <- 1
 
@@ -654,9 +655,9 @@
   allFeats <- TFBlearner::listFeatures()
   colsToRemove <- unlist(subset(allFeats,
                              !included_in_training)$feature_matrix_column_names)
-  colsToRemove <- c(colsToRemove, labelColName)
+  colsToRemove <- c(colsToRemove, LABELCOLNAME)
   colsToRemoveUnWeighted <- colsToRemove
-  colsToRemoveWeighted <- setdiff(colsToRemove, cScoreColName)
+  colsToRemoveWeighted <- setdiff(colsToRemove, CSCORECOLNAME)
 
   setsWeighted <- .chooseBags(featMat,
                               weights,
@@ -718,17 +719,20 @@
 
   message(paste("Time elapsed for training the model:", round((proc.time()-ptm)[3],1), "\n"))
 
+
+  packageVers <- .getPackageVersion()
   selMotifs <- metadata(fm)[["preselMotif"]]
   selActMotifs <- metadata(fm)[["preselActMotif"]]
   fits <- lapply(fits, function(mod){
-    mod$params$tf <- tfName
-    mod$params[[preSelMotifCol]] <- selMotifs
-    mod$params[[preSelActCol]] <- selActMotifs
+    mod$params[[TFNAMECOL]] <- tfName
+    mod$params[[PACKAGEVERSION]] <- packageVers
+    mod$params[[PRESELMOTIFCOL]] <- selMotifs
+    mod$params[[PRESELACTCOL]] <- selActMotifs
     mod})
-  names(fits) <- c(modelTopWeightName,
-                   modelMedWeightName,
-                   modelAllWeigthName,
-                   modelAllName)
+  names(fits) <- c(MODELTOPWEIGHTNAME,
+                   MODELMEDWEIGHTNAME,
+                   MODELALLWEIGHTNAME,
+                   MODELALLNAME)
 
   # train the stacked model
   fitStacked <- .trainStacked(fmStacked, fits, stackingStrat=stackingStrat,
@@ -742,9 +746,9 @@
       mod}, fits, fitStacked)
   }
   fitStacked <- list(fitStacked)
-  names(fitStacked) <- paste(modelStackedSuffix, stackingStrat, sep="_")
+  names(fitStacked) <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
   fits <- append(fits, fitStacked)
-  fits[[stackingStratEntry]] <- stackingStrat
+  fits[[STACKINGSTRATENTRY]] <- stackingStrat
 
   return(fits)
 }
@@ -833,8 +837,8 @@
 
   stackingStrat <- match.arg(stackingStrat, choices=c("last", "wLast",
                                                       "wMean", "boostTree"))
-  tfName <- modsBagged[[1]]$params$tf
-  fmTfName <- metadata(fm)[[tfNameCol]]
+  tfName <- modsBagged[[1]]$params[[TFNAMECOL]]
+  fmTfName <- metadata(fm)[[TFNAMECOL]]
   if(fmTfName!=tfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and model trained for", tfName))
   }
@@ -849,19 +853,19 @@
   colnames(preds) <- assayNames
 
   if(stackingStrat=="last"){
-    stackMod <- modsBagged[[modelAllName]]
-    attr(stackMod, stackingStratEntry) <- "last"
+    stackMod <- modsBagged[[MODELALLNAME]]
+    attr(stackMod, STACKINGSTRATENTRY) <- "last"
   }
   else if(stackingStrat=="wLast"){
-    stackMod <- modsBagged[[modelAllWeigthName]]
-    attr(stackMod, stackingStratEntry) <- "weighted_last"
+    stackMod <- modsBagged[[MODELALLWEIGHTNAME]]
+    attr(stackMod, STACKINGSTRATENTRY) <- "weighted_last"
   }
   else if(stackingStrat=="wMean"){
     stackMod <- .trainWeightedMean(preds, annoCol=annoCol,
                                    subSample=subSample, seed=seed)
     #stackMod <- mapply(function(mod, w){mod$params$stacking_weights <- w},
     #                   modsBagged, stackMod)
-    attr(stackMod, stackingStratEntry) <- "weighted_mean"
+    attr(stackMod, STACKINGSTRATENTRY) <- "weighted_mean"
   }
   else{
     featMat <- assays(fm)$features
@@ -870,7 +874,7 @@
                                          earlyStoppingRounds=earlyStoppingRounds,
                                          annoCol=annoCol, numThreads=numThreads,
                                          seed=seed)
-    attr(stackMod, stackingStratEntry) <- "boostTree"
+    attr(stackMod, STACKINGSTRATENTRY) <- "boostTree"
   }
 
   return(stackMod)
@@ -880,8 +884,8 @@
 
   set.seed(seed)
   contextCol <- annoCol
-  preds <- preds[preds[,binLabelName]>=0,]
-  preds <- preds[,setdiff(colnames(preds), labelColName)]
+  preds <- preds[preds[,BINLABELNAME]>=0,]
+  preds <- preds[,setdiff(colnames(preds), LABELCOLNAME)]
 
   if(!is.null(subSample) & is.numeric(subSample)){
     subSample <- min(subSample, nrow(preds))
@@ -892,11 +896,11 @@
   }
   predsDt <- as.data.table(as.matrix(preds[subRows,]))
   predsDt$row_id <- 1:nrow(predsDt)
-  ids <- c("row_id", binLabelName)
+  ids <- c("row_id", BINLABELNAME)
   predsDt <- melt(predsDt, id.vars=ids)
 
   # get weights based on auc-pr
-  auprDt <- .getRocs(predsDt, labels=binLabelName, scores="value",
+  auprDt <- .getRocs(predsDt, labels=BINLABELNAME, scores="value",
                      models="variable", posClass=1, negClass=0, seed=seed,
                      subSample=FALSE, aggregate=TRUE)
   auprDt[,w:=auc_pr_mod/sum(auc_pr_mod)]
@@ -919,27 +923,27 @@
   mlr3::mlr_measures$add("classif.aucpr", MeasureAupr)
 
   contextCol <- annoCol
-  colSel <- c(contextCol, countColName, gcContentColName,
-              labelColName, motifFeatColName)
+  colSel <- c(contextCol, COUNTCOLNAME, GCCONTENTCOLNAME,
+              LABELCOLNAME, MOTIFFEATCOLNAME)
   colSel <- intersect(colSel, colnames(featMat))
   fmStack <- featMat[,colSel,drop=FALSE]
 
   # predictions of models in bag => check this again
   colNames <- colnames(fmStack)
   fmStack <- .convertToMatrix(fmStack)
-  predCols <- paste(predPrefix, c(modelTopWeightName, modelMedWeightName,
-                                  modelAllWeigthName, modelAllName), sep="_")
+  predCols <- paste(PREDPREFIX, c(MODELTOPWEIGHTNAME, MODELMEDWEIGHTNAME,
+                                  MODELALLWEIGHTNAME, MODELALLNAME), sep="_")
   predCols <- intersect(predCols, colnames(preds))
   fmStack <- cbind(fmStack,
                    preds[,predCols])
 
-  labelsStack <- fmStack[,labelColName]
+  labelsStack <- fmStack[,LABELCOLNAME]
   nonFlank <- labelsStack>=0 & !is.na(labelsStack)
   fmStack <- fmStack[nonFlank,] # remove flanking regions for training
   labelsBinStack <- labelsStack[nonFlank]
   labelsBinStack <- fifelse(labelsBinStack>0,1,0)
   contexts <- fmStack[,contextCol,drop=TRUE]
-  colSel <- setdiff(colnames(fmStack), c(labelColName))
+  colSel <- setdiff(colnames(fmStack), c(LABELCOLNAME))
 
   # select hyperparameters
   set <- .chooseBags(fmStack,
@@ -972,9 +976,13 @@
                           numThreads=numThreads,
                           posFrac=0.01,
                           seed=seed)
-  stackedMod$params$tf <- tfName
+  stackedMod$params[[TFNAMECOL]] <- tfName
 
   return(stackedMod)
+}
+
+.getPackageVersion <- function(){
+    version <- as.character(packageVersion("TFBlearner"))
 }
 
 #' Saves models on disk.
@@ -983,24 +991,24 @@
 #'
 #' @name saveModels
 #' @param models List of models as obtained by [TFBlearner::trainTfModel].
-#' @param outPath Path for saving the models.
+#' @param filePath Path for saving the models.
 #' @import data.table
 #' @importFrom lightgbm lgb.save
 #' @export
-saveModels <- function(models, outPath){
+saveModels <- function(models, filePath){
 
-  outName <- basename(outPath)
-  outDir <- dirname(outPath)
-  stackingStrat <- models[[stackingStratEntry]]
-  stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
-  modelNames <- c(modelTopWeightName,
-                  modelMedWeightName,
-                  modelAllWeigthName,
-                  modelAllName,
+  outName <- basename(filePath)
+  outDir <- dirname(filePath)
+  stackingStrat <- models[[STACKINGSTRATENTRY]]
+  stackedModel <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
+  MODELNAMES <- c(MODELTOPWEIGHTNAME,
+                  MODELMEDWEIGHTNAME,
+                  MODELALLWEIGHTNAME,
+                  MODELALLNAME,
                   stackedModel)
 
   ml2 <- list()
-  for(modelName in modelNames){
+  for(modelName in MODELNAMES){
     if(modelName==stackedModel & stackingStrat=="wMean"){
       next
     }
@@ -1010,15 +1018,18 @@ saveModels <- function(models, outPath){
       singleModelName <- paste0(file.path(outDir, modelName), ".txt")
       lgb.save(x, singleModelName)
       con <- file(singleModelName, "a")
-      writeLines(paste("extra paramter tf:", x$params$tf), con)
+      writeLines(paste("extra paramter tf:", x$params[[TFNAMECOL]]), con)
       writeLines(paste("extra parameter sparse thres:",
-                       as.character(x$params$sparse_thr)), con)
+                       as.character(x$params[[SPARSETHR]])), con)
       if(stackingStrat=="wMean"){
         writeLines(paste("extra parameter stacking weights:",
                          as.character(x$params$stacking_weights)), con)
       }
       writeLines(paste("extra parameter stacking strategy:",
                        stackingStrat), con)
+      writeLines(paste("extra parameter package version:",
+                       x$params[[PACKAGEVERSION]]), con)
+
       writeLines("end of model", con)
       writeLines("\n", con)
       close(con)
@@ -1026,21 +1037,19 @@ saveModels <- function(models, outPath){
     }
   }
 
-  selMotifs <- models[[modelAllName]]$params[[preSelMotifCol]]
-  selActMotifs <- models[[modelAllName]]$params[[preSelActCol]]
-  motifDt <- data.table(motifs=c(selMotifs, selActMotifs),
-                        motif_class=c(names(selMotifs), names(selActMotifs)),
-                        type=c(rep(preSelMotifCol, length(selMotifs)),
-                               rep(preSelActCol, length(selActMotifs))))
-
-  outMotifsName <- gsub(".txt", ".tsv", outName)
-  outMotifsName <- paste("motifs", outMotifsName, sep="_")
-  write.table(motifDt, col.names=TRUE, row.names=FALSE, quote=FALSE,
-              file.path(outDir, outMotifsName), sep="\t")
+  selMotifs <- models[[MODELALLNAME]]$params[[PRESELMOTIFCOL]]
+  selActMotifs <- models[[MODELALLNAME]]$params[[PRESELACTCOL]]
 
   allMl2 <- unlist(lapply(ml2, readLines))
   lapply(ml2, file.remove)
-  writeLines(allMl2, outPath)
+  writeLines(allMl2, filePath)
+
+  con <- file(filePath, open="a")
+  writeLines("Associated Motifs:", con=con)
+  dput(selMotifs, file=con)
+  writeLines("Motifs with associated Activity:", con=con)
+  dput(selActMotifs, file=con)
+  close(con)
 }
 
 #' Loads models from disk.
@@ -1048,47 +1057,40 @@ saveModels <- function(models, outPath){
 #' Loads models saved by [TFBlearner::saveModels] from disk.
 #'
 #' @name loadModels
-#' @param modelPath Path of the models .txt-file.
+#' @param filePath Path of the models .txt-file.
 #' @return A list of [lightgbm::lightgbm] models saved on disk .
 #' @importFrom lightgbm lgb.load
 #' @export
-loadModels <- function(modelPath){
+loadModels <- function(filePath){
 
-  modelName <- basename(modelPath)
-  modelDir <- dirname(modelPath)
-  models <- readLines(modelPath)
+  modelName <- basename(filePath)
+  modelDir <- dirname(filePath)
+  models <- readLines(filePath)
   endParameters <- "end of parameters"
   endModel <- "end of model"
-  tempModelPath <- file.path(dirname(modelPath), "tmp_model.txt")
+  tempModelPath <- file.path(dirname(filePath), "tmp_model.txt")
   endModelLine <- which(models==endModel)[1]
 
-  stackingStrat <- unlist(tstrsplit(models[endModelLine-1], split=": ", keep=2))
+  stackingStrat <- unlist(tstrsplit(models[endModelLine-2], split=": ", keep=2))
 
-  modelNames <- c(modelTopWeightName,
-                  modelMedWeightName,
-                  modelAllWeigthName,
-                  modelAllName)
-  stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
-  if(stackingStrat!="wMean"){modelNames <- c(modelnames, stackedModel)}
+  MODELNAMES <- c(MODELTOPWEIGHTNAME,
+                  MODELMEDWEIGHTNAME,
+                  MODELALLWEIGHTNAME,
+                  MODELALLNAME)
+  stackedModel <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
+  if(stackingStrat!="wMean"){MODELNAMES <- c(MODELNAMES, stackedModel)}
 
   # read preselected motifs
-  modelMotifsName <- gsub(".txt", ".tsv", modelName)
-  modelMotifsName <- paste("motifs", modelMotifsName, sep="_")
-  motifDt <- fread(file.path(modelDir, modelMotifsName))
-
-  selMotifs <- subset(motifDt, type==preSelMotifCol)
-  namesSelMotifs <- selMotifs$motif_class
-  selMotifs <- selMotifs$motifs
-  names(selMotifs) <- namesSelMotifs
-
-  selActMotifs <- subset(motifDt, type==preSelActCol)
-  namesSelActMotifs <- selActMotifs$motif_class
-  selActMotifs <- selActMotifs$motifs
-  names(selActMotifs) <- namesSelActMotifs
+  con <- file(filePath, open="r")
+  modParams <- readLines(con=con)
+  nLines <- length(modParams)
+  selMotifs <- eval(parse(text=modParams[nLines-2]))
+  selActMotifs <- eval(parse(text=modParams[nLines]))
+  close(con)
 
   ml2 <- list()
-  for(modelName in modelNames){
-    models <- readLines(modelPath)
+  for(modelName in MODELNAMES){
+    models <- readLines(filePath)
     singleModelName <- paste0(file.path(modelDir, modelName), ".txt")
 
     # read single model
@@ -1104,30 +1106,33 @@ loadModels <- function(modelPath){
       lgbModel$params$stacking_weights <- unlist(
         tstrsplit(models[(endModelLine-2)], split=": ",
                   keep=2, type.convert=TRUE))
-      sub <- 4
+      addLine <- 1
     }
     else{
-      sub <- 3
+      addLine <- 0
     }
-    lgbModel$params$tf <- unlist(tstrsplit(models[(endModelLine-sub)],
+    lgbModel$params[[TFNAMECOL]] <- unlist(tstrsplit(models[(endModelLine-(4+addLine))],
                                            split=": ", keep=2))
-    lgbModel$params$sparse_thr <- unlist(tstrsplit(models[(endModelLine-(sub-1))],
+    lgbModel$params[[SPARSETHR]] <- unlist(tstrsplit(models[(endModelLine-(3+addLine))],
                                                    split=": ", keep=2,
                                                    type.convert=TRUE))
+    lgbModel$params[[PACKAGEVERSION]] <- unlist(tstrsplit(models[(endModelLine-1)],
+                                                        split=": ", keep=2,
+                                                        type.convert=TRUE))
 
     # delete other models
     otherModels <- models[-(1:(endModelLine+2))]
     modelPath <- tempModelPath
     writeLines(otherModels, modelPath)
 
-    lgbModel$params[[preSelMotifCol]] <- selMotifs
-    lgbModel$params[[preSelActCol]] <- selActMotifs
+    lgbModel$params[[PRESELMOTIFCOL]] <- selMotifs
+    lgbModel$params[[PRESELACTCOL]] <- selActMotifs
     ml2[[modelName]] <- lgbModel
   }
 
   file.remove(tempModelPath)
-  names(ml2) <- modelNames
-  ml2[[stackingStratEntry]] <- stackingStrat
+  names(ml2) <- MODELNAMES
+  ml2[[STACKINGSTRATENTRY]] <- stackingStrat
 
   return(ml2)
 }

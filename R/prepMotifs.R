@@ -81,12 +81,15 @@ prepMotifs <- function(refCoords, motifs, outputFolder, genome, resume=FALSE,
   # find all below the default cutoff
   po2 <- matchMotifs(mo, subject=dhs, genome=genome, out="positions",
                      p.cutoff=p)[[1]]
+  names(po2@elementMetadata) <- SCORECOL
+
   if(!topPlusCoOnly) po2$isTop <- FALSE
   # remove overlapping motifs
   po2 <- po2[!overlapsAny(po2, po, minoverlap=minOL, ignore.strand=TRUE)]
   if(topPlusCoOnly){
-    po$cooccurences <- countOverlaps(dhs[po$orig], po2, minoverlap=minOL,
-                                     ignore.strand=TRUE)
+    po@elementMetadata[[COOCCURRENCECOL]] <- countOverlaps(dhs[po$orig], po2,
+                                                          minoverlap=minOL,
+                                                          ignore.strand=TRUE)
     po$orig <- NULL
   }else{
     po$orig <- NULL

@@ -53,7 +53,7 @@
 .getType <- function(atacFrag) {
   cuts=c(0L,120L,300L,500L)
   atacFrag[,width:=end-start]
-  atacFrag[,frag_type:=cut(width, breaks=c(cuts, Inf), labels=typeNames,
+  atacFrag[,frag_type:=cut(width, breaks=c(cuts, Inf), labels=TYPENAMES,
                            right=TRUE, include.lowest=TRUE)]
   atacFrag$width <- NULL
   return(atacFrag)

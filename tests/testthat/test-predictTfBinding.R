@@ -11,11 +11,11 @@ test_that("Predictions: Basic setup",{
   rangesExp <- rangesExp[order(rangesExp)]
 
   expect_equal(rangesObs, rangesExp)
-  expect_contains(names(assays(preds)),paste(predPrefix, modelNames, sep="_"))
+  expect_contains(names(assays(preds)),paste(PREDPREFIX, MODELNAMES, sep="_"))
   expect_equal(colnames(preds), levels(rangesExp$context))
 
   fmTest2 <- fmTest
-  metadata(fmTest2)[[tfNameCol]] <- "YY1"
+  metadata(fmTest2)[[TFNAMECOL]] <- "YY1"
   expect_error(predictTfBinding(modTest, fmTest2, sparsify=FALSE))
 })
 

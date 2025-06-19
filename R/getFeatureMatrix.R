@@ -143,10 +143,10 @@ getFeatureMatrix <- function(mae,
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
 
   if(whichCol=="OnlyTrain"){
-    colSel <- subset(sampleMap(mae), get(isTrainCol) & assay==atacExp)$primary
+    colSel <- subset(sampleMap(mae), get(ISTRAINCOL) & assay==ATACEXP)$primary
   }
   else if(whichCol=="All"){
-    colSel <- subset(sampleMap(mae), assay==atacExp)$primary
+    colSel <- subset(sampleMap(mae), assay==ATACEXP)$primary
   }
 
   colSel <- unique(colSel)
@@ -154,7 +154,7 @@ getFeatureMatrix <- function(mae,
   contexts <- getContexts(mae, tfName, which=whichContexts)
   contexts <- intersect(contexts, colSel)
 
-  featContexts <- unlist(tstrsplit(colnames(mae[[contextTfFeat]]),
+  featContexts <- unlist(tstrsplit(colnames(mae[[CONTEXTTFFEAT]]),
                                    split="_", keep=1))
   if(!all(contexts %in% featContexts)){
     missing <- setdiff(contexts, featContexts)
@@ -164,44 +164,44 @@ getFeatureMatrix <- function(mae,
   }
 
   # get the cofactors
-  tfCofactors <- unique(unlist(subset(colData(mae[[tfFeat]]),
-                                      get(tfNameCol)==tfName)[[tfCofactorsCol]]))
+  tfCofactors <- unique(unlist(subset(colData(mae[[TFFEAT]]),
+                                      get(TFNAMECOL)==tfName)[[TFCOFACTORSCOL]]))
 
   message("Attaching Site & TF-Features")
-  selMotifs <- subset(colData(mae[[tfFeat]]),
-                      get(tfNameCol)==tfName)[[preSelMotifCol]]
+  selMotifs <- subset(colData(mae[[TFFEAT]]),
+                      get(TFNAMECOL)==tfName)[[PRESELMOTIFCOL]]
   selMotifs <- unlist(selMotifs)
-  motifMat <- assays(mae[[motifExp]])[[matchAssay]][,selMotifs,drop=FALSE]
-  colnames(motifMat) <- paste(tfFeat, motifFeatName, names(selMotifs), sep="_")
+  motifMat <- assays(mae[[MOTIFEXP]])[[MATCHASSAY]][,selMotifs,drop=FALSE]
+  colnames(motifMat) <- paste(TFFEAT, MOTIFFEATNAME, names(selMotifs), sep="_")
 
-  selActMotifs <- subset(colData(mae[[tfFeat]]),
-                         get(tfNameCol)==tfName)[[preSelActCol]]
+  selActMotifs <- subset(colData(mae[[TFFEAT]]),
+                         get(TFNAMECOL)==tfName)[[PRESELACTCOL]]
   selActMotifs <- unlist(selActMotifs)
-  actMat <- assays(mae[[assocExp]])[[assocAssay]][,selActMotifs,drop=FALSE]
-  colnames(actMat) <- paste(tfFeat, actAssocFeatName, names(selActMotifs), sep="_") #TODO: should be saved with actual motif name or name like names(selActMotifs)
+  actMat <- assays(mae[[ASSOCEXP]])[[ASSOCASSAY]][,selActMotifs,drop=FALSE]
+  colnames(actMat) <- paste(TFFEAT, ACTASSOCFEATNAME, names(selActMotifs), sep="_") #TODO: should be saved with actual motif name or name like names(selActMotifs)
 
   # remove sole NA columns
-  seTf <- mae[[tfFeat]]
-  seTf <- seTf[,colData(seTf)[[tfNameCol]]==tfName]
+  seTf <- mae[[TFFEAT]]
+  seTf <- seTf[,colData(seTf)[[TFNAMECOL]]==tfName]
   isCovered <- lapply(assays(seTf), function(mat) sum(!is.na(mat))>0)
   isCovered <- unlist(isCovered)
   tfAssaysToKeep <- assays(seTf)[isCovered]
 
   # add the maxATAC / variance here
-  seAtac <- mae[[atacExp]][,contexts]
-  colsStats <- intersect(c(atacVarFeatName, maxAtacFeatName),
+  seAtac <- mae[[ATACEXP]][,contexts]
+  colsStats <- intersect(c(ATACVARFEATNAME, MAXATACFEATNAME),
                          colnames(rowData(seAtac)))
-  atacStats <- Matrix::Matrix(as.matrix(rowData(mae[[atacExp]])[,colsStats]))
-  colnames(atacStats) <- paste(panContextFeat,
+  atacStats <- Matrix::Matrix(as.matrix(rowData(mae[[ATACEXP]])[,colsStats]))
+  colnames(atacStats) <- paste(PANCONTEXTFEAT,
                                colsStats, sep="_")
 
-  nonContextTfFeat <- c(assays(mae[[siteFeat]]), tfAssaysToKeep, list(motifMat),
+  nonContextTfFeat <- c(assays(mae[[SITEFEAT]]), tfAssaysToKeep, list(motifMat),
                         list(actMat), list(atacStats))
   nonContextTfFeat <- .cbindFeat(nonContextTfFeat, isDelayed=TRUE)
   names(colnames(nonContextTfFeat)) <- NULL
 
   message("Attaching cellular context-specific features")
-  seTfContext <- mae[[contextTfFeat]][, paste(contexts, tfName, sep="_")]
+  seTfContext <- mae[[CONTEXTTFFEAT]][, paste(contexts, tfName, sep="_")]
   coords <- rowRanges(seAtac)
 
   # remove sole NA columns
@@ -215,11 +215,11 @@ getFeatureMatrix <- function(mae,
             length(assays(seTfContext))+
             length(assays(seAtac))+
             length(intersect(colnames(colData(seAtac)),
-                   paste(mdsDimFeatName, 1:2, sep="_")))
+                   paste(MDSDIMFEATNAME, 1:2, sep="_")))
 
-  if(maxATACColName %in% colnames(nonContextTfFeat)){
-   nFeats <- nFeats+sum(grepl(insertFeatName, names(assays(seTfContext))))+
-                    sum(totalOverlapsFeatName %in% names(assays(seAtac)))
+  if(MAXATACCOLNAME %in% colnames(nonContextTfFeat)){
+   nFeats <- nFeats+sum(grepl(INSERTFEATNAME, names(assays(seTfContext))))+
+                    sum(TOTALOVERLAPSFEATNAME %in% names(assays(seAtac)))
   }
   if(addLabels) nFeats <- nFeats+1 # for context-label column
 
@@ -244,8 +244,8 @@ getFeatureMatrix <- function(mae,
     h5createFile(hdf5FileName)
     h5createDataset(hdf5FileName, "feature_matrix",
                     dims=c(nrow(seAtac)*length(contexts),nFeats),
-                    storage.mode=store, # or integer ??
-                    level=3, chunk=c(min(1e6, nrow(seAtac)),nFeats))
+                    storage.mode=store,
+                    level=1, chunk=c(1, nFeats))
   }
   else{
     saveChunk <- FALSE
@@ -267,7 +267,7 @@ getFeatureMatrix <- function(mae,
 
     # get context- & TF-specific features
     assayNames <- names(assays(seTfContext))
-    if(!addLabels) assayNames <- setdiff(assayNames, labelColName)
+    if(!addLabels) assayNames <- setdiff(assayNames, LABELCOLNAME)
     featsTfContext <- lapply(assayNames, function(assayName){
                              assayMat <- assays(seTfContext)[[assayName]]
                              assayMat[,paste(context, tfName, sep="_"),drop=FALSE]})
@@ -277,24 +277,24 @@ getFeatureMatrix <- function(mae,
     # get context-specific features
     atacAssays <- lapply(assays(seAtac), function(assayMat) assayMat[,context,drop=FALSE])
     featsContext <- .cbindFeat(atacAssays, isDelayed=TRUE)
-    mdsCols <- intersect(paste(mdsDimFeatName, 1:2, sep="_"),
+    mdsCols <- intersect(paste(MDSDIMFEATNAME, 1:2, sep="_"),
                          colnames(colData(seAtac)))
     mdsContext <- colData(seAtac)[context,mdsCols]
     mdsContext <- mdsContext[rep(1, nrow(featsContext)),]
     featsContext <- cbind(featsContext, Matrix::Matrix(as.matrix(mdsContext)))
-    colnames(featsContext) <- paste(contextFeat, colnames(featsContext), sep="_")
+    colnames(featsContext) <- paste(CONTEXTFEAT, colnames(featsContext), sep="_")
 
     featsContextMat <- cbind(featsTfContext, featsContext)
 
     if(addLabels){
-      if(!(labelColName %in% colnames(featsContextMat))){
+      if(!(LABELCOLNAME %in% colnames(featsContextMat))){
         stop("Labels are not available for this context.
               Make sure ChIP-seq labels exist for this TF and cellular context (`getContexts()`).
               Rerun `contextTfFeatures()` with `addLabels=TRUE`")
       }
-      labelCol <- featsContextMat[,labelColName,drop=FALSE]
+      labelCol <- featsContextMat[,LABELCOLNAME,drop=FALSE]
       featsContextMat <- featsContextMat[,setdiff(colnames(featsContextMat),
-                                                  labelColName)]
+                                                  LABELCOLNAME)]
     }
     else{
       labelCol <- NULL
@@ -314,24 +314,24 @@ getFeatureMatrix <- function(mae,
     featsNormed <- unique(unlist(featsNormed))
 
     featsNormed <- intersect(colnames(featsContextMat),
-                             c(featsNormed, paste(contextFeat,
-                                                  totalOverlapsFeatName,
-                                                  gcNormedAffix, sep="_")))
+                             c(featsNormed, paste(CONTEXTFEAT,
+                                                  TOTALOVERLAPSFEATNAME,
+                                                  GCNORMEDAFFIX, sep="_")))
     featsNormedMat <- featsContextMat[,featsNormed, drop=FALSE]
     featsContextMat <- featsContextMat[, setdiff(colnames(featsContextMat),
                                                  colnames(featsNormedMat))]
 
     # normalize by maximum ATAC-signal
-    if(maxATACColName %in% colnames(nonContextTfFeat)){
-      whichCol <- grepl(paste(contextTfFeat, insertFeatName, sep="_"),
+    if(MAXATACCOLNAME %in% colnames(nonContextTfFeat)){
+      whichCol <- grepl(paste(CONTEXTTFFEAT, INSERTFEATNAME, sep="_"),
                         colnames(featsContextMat))
       countCols <- c(colnames(featsContextMat)[whichCol],
-                   paste(contextFeat, totalOverlapsFeatName, sep="_"))
+                   paste(CONTEXTFEAT, TOTALOVERLAPSFEATNAME, sep="_"))
       scaledSig <- .minMaxNormalization(featsContextMat[,countCols, drop=FALSE])
-      maxSig <- nonContextTfFeat[,maxATACColName, drop=TRUE]
+      maxSig <- nonContextTfFeat[,MAXATACCOLNAME, drop=TRUE]
       maxScaledMat <- scaledSig / pmax(maxSig, 1e-4)
       colnames(maxScaledMat) <- paste(colnames(maxScaledMat),
-                                      normedMaxAffix, sep="_")
+                                      NORMEDMAXAFFIX, sep="_")
     }
     else{
       maxScaledMat <- NULL
@@ -340,7 +340,7 @@ getFeatureMatrix <- function(mae,
     # normalize context-specific features
     featsContextMat <- .contextNormalization(featsContextMat, method=norm)
     colnames(featsContextMat) <- paste(colnames(featsContextMat),
-                                       normedAffix, sep="_")
+                                       NORMEDAFFIX, sep="_")
 
     featsContextMat <- cbind(featsContextMat, featsNormedMat)
     featsContextMat <- cbind(featsContextMat, maxScaledMat)
@@ -407,11 +407,11 @@ getFeatureMatrix <- function(mae,
                                               levels=contexts)
   fmSe <- SummarizedExperiment(assays=list("features"=featMats),
                                rowRanges=coords)
-  metadata(fmSe)[[tfNameCol]] <- tfName
-  metadata(fmSe)[[tfCofactorsCol]] <- tfCofactors
+  metadata(fmSe)[[TFNAMECOL]] <- tfName
+  metadata(fmSe)[[TFCOFACTORSCOL]] <- tfCofactors
   metadata(fmSe)[[annoCol]] <- contexts
-  metadata(fmSe)[[preSelMotifCol]] <- selMotifs
-  metadata(fmSe)[[preSelActCol]] <- selActMotifs
+  metadata(fmSe)[[PRESELMOTIFCOL]] <- selMotifs
+  metadata(fmSe)[[PRESELACTCOL]] <- selActMotifs
 
   return(fmSe)
 }

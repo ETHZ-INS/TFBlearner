@@ -24,7 +24,7 @@ test_that("Change the paths of the HDF5 files", {
                                                        "Motif_mapped.h5"))
   maeRebased <- NULL
   expect_no_error(maeRebased <- rebaseMaeH5paths(maeTestHdf5, newBase=outDir))
-  assayMat <- assays(experiments(maeRebased)[[atacExp]])[[totalOverlapsFeatName]]
+  assayMat <- assays(experiments(maeRebased)[[ATACEXP]])[[TOTALOVERLAPSFEATNAME]]
   expect_equal(dirname(assayMat@seed@seed@filepath), outDir)
 
   file.remove(file.path(outDir, "ATAC_mapped.h5"))
