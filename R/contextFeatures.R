@@ -105,7 +105,7 @@
                                  BPPARAM=SerialParam()){
   if(is.character(cvSe)) cvSe <- readRDS(cvSe)
   if(is.character(atacSe)) atacSe <- readRDS(atacSe)
-  atacMat <- TFBlearner:::.GCSmoothQuantile(
+  atacMat <- .GCSmoothQuantile(
     counts=as.matrix(assay(atacSe, TOTALOVERLAPSFEATNAME)),
     gc=rowData(atacSe)[[GCCONTFEATNAME]])
   atacMat <- t(as.matrix(atacMat))
