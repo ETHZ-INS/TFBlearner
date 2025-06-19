@@ -53,7 +53,7 @@ test_that("Feature Matrix: Correct context selection - only for training context
                          annoCol=annoCol,
                          saveHdf5=FALSE)
 
-  testContext <- subset(colData(maeTest), get(isTestCol))$context
+  testContext <- subset(colData(maeTest), get(ISTESTCOL))$context
   contexts <- getContexts(maeTest, tfName="CTCF", which="ATAC")
   trainContexts <- setdiff(contexts, testContext)
 
@@ -61,7 +61,7 @@ test_that("Feature Matrix: Correct context selection - only for training context
   mcols(obsRanges) <- NULL
   names(obsRanges) <- NULL
 
-  expRanges <- rep(rowRanges(maeTest[[atacExp]]), length(trainContexts))
+  expRanges <- rep(rowRanges(maeTest[[ATACEXP]]), length(trainContexts))
   mcols(expRanges) <- NULL
 
   expect_equal(as.character(levels(rowRanges(fm)@elementMetadata[[annoCol]])),
@@ -84,7 +84,7 @@ test_that("Feature Matrix: Correct context selection - only for specified contex
   obsRanges <- rowRanges(fm)
   mcols(obsRanges) <- NULL
   names(obsRanges) <- NULL
-  expRanges <- rowRanges(maeTest[[atacExp]])
+  expRanges <- rowRanges(maeTest[[ATACEXP]])
   mcols(expRanges) <- NULL
   names(expRanges) <- NULL
 
@@ -93,7 +93,7 @@ test_that("Feature Matrix: Correct context selection - only for specified contex
                "A549")
   expect_equal(obsRanges, expRanges)
   expect_equal(metadata(fm)[[annoCol]], "A549")
-  expect_equal(metadata(fm)[[tfCofactorsCol]], "JUN")
+  expect_equal(metadata(fm)[[TFCOFACTORSCOL]], "JUN")
 })
 
 test_that("Feature Matrix: Correct metadata assignment", {
@@ -107,13 +107,13 @@ test_that("Feature Matrix: Correct metadata assignment", {
                          annoCol=annoCol,
                          saveHdf5=FALSE)
 
-  expect_contains(names(metadata(fm)), preSelMotifCol)
-  preSelMotifs <- metadata(fm)[[preSelMotifCol]]
-  expect_equal(preSelMotifs[[paste(tfMotifPrefix, 1, sep="_")]], tfName)
+  expect_contains(names(metadata(fm)), PRESELMOTIFCOL)
+  preSelMotifs <- metadata(fm)[[PRESELMOTIFCOL]]
+  expect_equal(preSelMotifs[[paste(TFMOTIFPREFIX, 1, sep="_")]], tfName)
 
-  expect_contains(names(metadata(fm)), preSelActCol)
-  preSelActMotifs <- metadata(fm)[[preSelActCol]]
-  expect_equal(preSelActMotifs[[paste(tfMotifPrefix, 1, sep="_")]], tfName)
+  expect_contains(names(metadata(fm)), PRESELACTCOL)
+  preSelActMotifs <- metadata(fm)[[PRESELACTCOL]]
+  expect_equal(preSelActMotifs[[paste(TFMOTIFPREFIX, 1, sep="_")]], tfName)
 })
 
 test_that("Feature Matrix: Column names corresponding to R conventions", {
@@ -135,7 +135,7 @@ test_that("Feature Matrix: Correct context selection - no context provided", {
 })
 
 test_that("Feature Matrix: warning if features have not been computed for provided cellular contexts", {
-  experiments(maeTest)$contextTfFeat <- NULL
+  experiments(maeTest)[[CONTEXTTFFEAT]] <- NULL
   maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
                                whichCol="Col",
                                colSel="K562",
@@ -174,12 +174,12 @@ test_that("Feature Matrix: columns are named correctly", {
                         unlist(lDt$feature_matrix_column_names))
   colNamesAll <- unlist(colNamesAll)
   colNamesAll <- c(colNamesAll,
-                   paste(colNamesAll, normedAffix, sep="_"),
-                   paste(colNamesAll, normedMaxAffix, sep="_"),
-                   paste(colNamesAll, gcNormedAffix, sep="_"))
+                   paste(colNamesAll, NORMEDAFFIX, sep="_"),
+                   paste(colNamesAll, NORMEDMAXAFFIX, sep="_"),
+                   paste(colNamesAll, GCNORMEDAFFIX, sep="_"))
 
   expect_setequal(setdiff(colnames(fm), colNamesAll),
-                  c(annoCol, labelColName))
+                  c(annoCol, LABELCOLNAME))
 })
 
 
@@ -199,10 +199,10 @@ test_that("Feature Matrix: correct features are normalized", {
                         unlist(lDt$feature_matrix_column_names))
   colNamesAll <- unlist(colNamesAll)
   colNamesAll <- c(colNamesAll,
-                   paste(colNamesAll, normedAffix, sep="_"),
-                   paste(colNamesAll, normedMaxAffix, sep="_"),
-                   paste(colNamesAll, gcNormedAffix, sep="_"))
+                   paste(colNamesAll, NORMEDAFFIX, sep="_"),
+                   paste(colNamesAll, NORMEDMAXAFFIX, sep="_"),
+                   paste(colNamesAll, GCNORMEDAFFIX, sep="_"))
 
-  normedCols <- colnames(fm)[grepl(normedAffix,colnames(fm))]
+  normedCols <- colnames(fm)[grepl(NORMEDAFFIX,colnames(fm))]
   expect_length(setdiff(normedCols, colNamesAll), 0)
 })

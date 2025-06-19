@@ -18,11 +18,11 @@ test_that("Arguments check: Basic training setup",{
   tfName <- "YY1"
   annoCol <- "context"
   colnames(fm) <- c(paste("feature", 1:10, sep="_"),
-                    motifFeatColName,
-                    labelColName,
+                    MOTIFFEATCOLNAME,
+                    LABELCOLNAME,
                     annoCol,
-                    countColName,
-                    paste(siteFeat, widthFeatName, sep="_"))
+                    COUNTCOLNAME,
+                    paste(SITEFEAT, WIDTHFEATNAME, sep="_"))
   fm <- as(fm, "CsparseMatrix")
   coords <- refCoords[sample(1:length(refCoords),
                       floor(nrow(fm)/2), replace=TRUE)]
@@ -31,19 +31,19 @@ test_that("Arguments check: Basic training setup",{
   fm <- SummarizedExperiment(assays=list(features=fm),
                              rowRanges=coords)
   metadata(fm)[[annoCol]] <- unique(cellTypeCol[,1,drop=TRUE])
-  metadata(fm)[[tfNameCol]] <- tfName
+  metadata(fm)[[TFNAMECOL]] <- tfName
   mods <- NULL
-  modsBaggedNames <- c(modelTopWeightName,
-                       modelMedWeightName,
-                       modelAllWeigthName,
-                       modelAllName)
+  modsBaggedNames <- c(MODELTOPWEIGHTNAME,
+                       MODELMEDWEIGHTNAME,
+                       MODELALLWEIGHTNAME,
+                       MODELALLNAME)
 
   expect_no_error(mods <- trainTfModel(tfName, fm, evalRounds=2,
                                        stackingStrat=c("wMean"),
                                        subSample=100,
                                        BPPARAM=SerialParam()))
   expect_contains(names(mods), c(modsBaggedNames,
-                                 paste(modelStackedSuffix, "wMean", sep="_"),
+                                 paste(MODELSTACKEDSUFFIX, "wMean", sep="_"),
                                  "stacking_strategy"))
   expect_no_error(.trainStacked(fm, mods[modsBaggedNames],
                                 stackingStrat="wLast"))
@@ -57,12 +57,12 @@ test_that("Arguments check: Basic training setup",{
   expect_true(file.exists(modFilePath))
   modLoad <- loadModels(modFilePath)
   expect_contains(names(modLoad), c(modsBaggedNames, "stacking_strategy"))
-  expect_equal(mods[[modelMedWeightName]]$sparse_thr,
-               modLoad[[modelMedWeightName]]$sparse_thr)
-  expect_equal(mods[[modelMedWeightName]]$tf,
-               modLoad[[modelMedWeightName]]$tf)
-  expect_equal(mods[[modelMedWeightName]]$stacking_weights,
-               modLoad[[modelMedWeightName]]$stacking_weights)
+  expect_equal(mods[[MODELMEDWEIGHTNAME]]$sparse_thr,
+               modLoad[[MODELMEDWEIGHTNAME]]$sparse_thr)
+  expect_equal(mods[[MODELMEDWEIGHTNAME]]$tf,
+               modLoad[[MODELMEDWEIGHTNAME]]$tf)
+  expect_equal(mods[[MODELMEDWEIGHTNAME]]$stacking_weights,
+               modLoad[[MODELMEDWEIGHTNAME]]$stacking_weights)
   file.remove(modFilePath)
 })
 
@@ -70,15 +70,15 @@ test_that("Arguments check: Basic training setup",{
 test_that("Saving and loading motif information",{
 
   # check that contained in models
-  expect_contains(names(modTest[[modelAllName]]$params),
-                  c(preSelMotifCol, preSelActCol))
-  tfMotifName <- paste(tfMotifPrefix, 1, sep="_")
-  expect_equal(modTest[[modelAllName]]$params[[preSelMotifCol]][[tfMotifName]],
-               modTest[[modelAllName]]$params$tf)
-  expect_contains(names(modTest[[modelTopWeightName]]$params),
-                  c(preSelMotifCol, preSelActCol))
-  expect_equal(modTest[[modelTopWeightName]]$params[[preSelMotifCol]][[tfMotifName]],
-               modTest[[modelTopWeightName]]$params$tf)
+  expect_contains(names(modTest[[MODELALLNAME]]$params),
+                  c(PRESELMOTIFCOL, PRESELACTCOL))
+  tfMotifName <- paste(TFMOTIFPREFIX, 1, sep="_")
+  expect_equal(modTest[[MODELALLNAME]]$params[[PRESELMOTIFCOL]][[tfMotifName]],
+               modTest[[MODELALLNAME]]$params$tf)
+  expect_contains(names(modTest[[MODELTOPWEIGHTNAME]]$params),
+                  c(PRESELMOTIFCOL, PRESELACTCOL))
+  expect_equal(modTest[[MODELTOPWEIGHTNAME]]$params[[PRESELMOTIFCOL]][[tfMotifName]],
+               modTest[[MODELTOPWEIGHTNAME]]$params$tf)
 
   # check saving
   outDir <- tempdir()
@@ -88,23 +88,23 @@ test_that("Saving and loading motif information",{
 
   # check correct loading
   modLoad <- loadModels(filePath=modFilePath)
-  expect_contains(names(modLoad[[modelAllName]]$params),
-                  c(preSelMotifCol, preSelActCol))
-  tfMotifName <- paste(tfMotifPrefix, 1, sep="_")
-  expect_equal(modLoad[[modelAllName]]$params[[preSelMotifCol]][[tfMotifName]],
-               modLoad[[modelAllName]]$params$tf)
-  expect_contains(names(modLoad[[modelTopWeightName]]$params),
-                  c(preSelMotifCol, preSelActCol))
-  expect_equal(modLoad[[modelTopWeightName]]$params[[preSelMotifCol]][[tfMotifName]],
-               modLoad[[modelTopWeightName]]$params$tf)
+  expect_contains(names(modLoad[[MODELALLNAME]]$params),
+                  c(PRESELMOTIFCOL, PRESELACTCOL))
+  tfMotifName <- paste(TFMOTIFPREFIX, 1, sep="_")
+  expect_equal(modLoad[[MODELALLNAME]]$params[[PRESELMOTIFCOL]][[tfMotifName]],
+               modLoad[[MODELALLNAME]]$params$tf)
+  expect_contains(names(modLoad[[MODELTOPWEIGHTNAME]]$params),
+                  c(PRESELMOTIFCOL, PRESELACTCOL))
+  expect_equal(modLoad[[MODELTOPWEIGHTNAME]]$params[[PRESELMOTIFCOL]][[tfMotifName]],
+               modLoad[[MODELTOPWEIGHTNAME]]$params$tf)
 
   file.remove(modFilePath)
 })
 
 test_that("Saving and loading package version",{
-  expect_contains(names(modTest[[modelAllName]]$params), "package_version")
+  expect_contains(names(modTest[[MODELALLNAME]]$params), "package_version")
   expVersion <- .getPackageVersion()
-  expect_equal(modTest[[modelAllName]]$params$package_version, expVersion)
+  expect_equal(modTest[[MODELALLNAME]]$params$package_version, expVersion)
 
   # check saving
   outDir <- tempdir()
@@ -113,10 +113,10 @@ test_that("Saving and loading package version",{
 
   # check correct loading
   modLoad <- loadModels(filePath=modFilePath)
-  expect_contains(names(modLoad[[modelAllName]]$params), "package_version")
-  expect_equal(modLoad[[modelAllName]]$params$package_version, expVersion)
-  expect_contains(names(modLoad[[modelTopWeightName]]$params),"package_version")
-  expect_contains(modLoad[[modelTopWeightName]]$params, expVersion)
+  expect_contains(names(modLoad[[MODELALLNAME]]$params), "package_version")
+  expect_equal(modLoad[[MODELALLNAME]]$params$package_version, expVersion)
+  expect_contains(names(modLoad[[MODELTOPWEIGHTNAME]]$params),"package_version")
+  expect_contains(modLoad[[MODELTOPWEIGHTNAME]]$params, expVersion)
 
   file.remove(modFilePath)
 })
@@ -132,11 +132,11 @@ test_that("Correct assignment of positive and negative fractions during training
   tfName <- "YY1"
   annoCol <- "context"
   colnames(fm) <- c(paste("feature", 1:10, sep="_"),
-                    motifFeatColName,
-                    labelColName,
+                    MOTIFFEATCOLNAME,
+                    LABELCOLNAME,
                     annoCol,
-                    countColName,
-                    paste(siteFeat, widthFeatName, sep="_"))
+                    COUNTCOLNAME,
+                    paste(SITEFEAT, WIDTHFEATNAME, sep="_"))
   fm <- as(fm, "CsparseMatrix")
   coords <- refCoords[sample(1:length(refCoords),
                              floor(nrow(fm)/2), replace=TRUE)]
@@ -145,7 +145,7 @@ test_that("Correct assignment of positive and negative fractions during training
   fm <- SummarizedExperiment(assays=list(features=fm),
                              rowRanges=coords)
   metadata(fm)[[annoCol]] <- unique(cellTypeCol[,1,drop=TRUE])
-  metadata(fm)[[tfNameCol]] <- tfName
+  metadata(fm)[[TFNAMECOL]] <- tfName
 
   mod <- trainTfModel(tfName, fm, evalRounds=1,
                       tuneHyperparams=FALSE, stackingStrat="last",

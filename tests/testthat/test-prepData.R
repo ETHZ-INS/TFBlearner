@@ -20,11 +20,11 @@ test_that("Object construction: dimensionality check", {
                                     chIPData=exampleChIP)})
 
   expect_s4_class(mae, "MultiAssayExperiment")
-  expect_equal(dim(mae[[motifExp]]), c(length(example_coords),
+  expect_equal(dim(mae[[MOTIFEXP]]), c(length(example_coords),
                                        length(exampleMotif)))
-  expect_equal(dim(mae[[chIPExp]]), c(length(example_coords),
+  expect_equal(dim(mae[[CHIPEXP]]), c(length(example_coords),
                                       length(exampleChIP)))
-  expect_equal(dim(mae[[atacExp]]), c(length(example_coords),
+  expect_equal(dim(mae[[ATACEXP]]), c(length(example_coords),
                                       length(exampleATAC)))
 })
 
@@ -34,9 +34,9 @@ test_that("Object construction: Column naming", {
                                     atacData=exampleATAC,
                                     chIPData=exampleChIP)})
 
-  expect_equal(colnames(mae[[motifExp]]), names(exampleMotif))
-  expect_equal(colnames(mae[[chIPExp]]), names(exampleChIP))
-  expect_equal(colnames(mae[[atacExp]]), names(exampleATAC))
+  expect_equal(colnames(mae[[MOTIFEXP]]), names(exampleMotif))
+  expect_equal(colnames(mae[[CHIPEXP]]), names(exampleChIP))
+  expect_equal(colnames(mae[[ATACEXP]]), names(exampleATAC))
 })
 
 test_that("Object construction: Train test assignment", {
@@ -46,10 +46,10 @@ test_that("Object construction: Train test assignment", {
                                     chIPData=exampleChIP,
                                     testSet="A549")})
 
-  expect_true(file.exists(subset(colData(mae[[motifExp]]),
-                          get(motifNameCol)==names(exampleMotif)[[1]])$origin))
-  expect_true(file.exists(subset(colData(mae[[motifExp]]),
-                          get(motifNameCol)==names(exampleMotif)[[2]])$origin))
+  expect_true(file.exists(subset(colData(mae[[MOTIFEXP]]),
+                          get(MOTIFNAMECOL)==names(exampleMotif)[[1]])$origin))
+  expect_true(file.exists(subset(colData(mae[[MOTIFEXP]]),
+                          get(MOTIFNAMECOL)==names(exampleMotif)[[2]])$origin))
 })
 
 test_that("Object construction: Train test assignment", {
@@ -59,8 +59,8 @@ test_that("Object construction: Train test assignment", {
                                     chIPData=exampleChIP,
                                     testSet="A549")})
 
-  expect_equal(unique(subset(colData(mae), get(isTestCol))$context), "A549")
-  expect_equal(unique(subset(colData(mae), get(isTrainCol))$context), "K562")
+  expect_equal(unique(subset(colData(mae), get(ISTESTCOL))$context), "A549")
+  expect_equal(unique(subset(colData(mae), get(ISTRAINCOL))$context), "K562")
 })
 
 test_that("Object construction: Motif scores in column data", {
@@ -68,16 +68,16 @@ test_that("Object construction: Motif scores in column data", {
                                     motifData=exampleMotif,
                                     atacData=exampleATAC,
                                     chIPData=exampleChIP)})
-  expect_contains(colnames(colData(mae[[motifExp]])), maxScoreCol)
+  expect_contains(colnames(colData(mae[[MOTIFEXP]])), MAXSCORECOL)
 
-  motMat <- assays(mae[[motifExp]])[[matchAssay]]
+  motMat <- assays(mae[[MOTIFEXP]])[[MATCHASSAY]]
   exp <- lapply(colnames(motMat), function(col) max(motMat[,col,drop=TRUE]))
   exp <- unlist(exp)
   names(exp) <- names(colnames(motMat))
 
-  cd <-  colData(mae[[motifExp]])
-  cd <- cd[order(match(cd[[motifNameCol]],names(exp))),,drop=FALSE]
-  obs <- cd[[maxScoreCol]]
+  cd <-  colData(mae[[MOTIFEXP]])
+  cd <- cd[order(match(cd[[MOTIFNAMECOL]],names(exp))),,drop=FALSE]
+  obs <- cd[[MAXSCORECOL]]
 
   expect_equal(obs, exp, ignore_attr = TRUE)
 })
@@ -94,11 +94,11 @@ test_that("Object construction: Saving as hdf5", {
   expect_true(file.exists(file.path(outDir, "ChIP_mapped.h5")))
   expect_true(file.exists(file.path(outDir, "Motif_mapped.h5")))
 
-  expect_equal(dim(mae[[motifExp]]), c(length(example_coords),
+  expect_equal(dim(mae[[MOTIFEXP]]), c(length(example_coords),
                                        length(exampleMotif)))
-  expect_equal(dim(mae[[chIPExp]]), c(length(example_coords),
+  expect_equal(dim(mae[[CHIPEXP]]), c(length(example_coords),
                                       length(exampleChIP)))
-  expect_equal(dim(mae[[atacExp]]), c(length(example_coords),
+  expect_equal(dim(mae[[ATACEXP]]), c(length(example_coords),
                                       length(exampleATAC)))
 
   file.remove(file.path(outDir, "ATAC_mapped.h5"))
@@ -114,11 +114,11 @@ test_that("Mappings check - addATACData", {
   maeAdd <- addATACData(maeTest, atacData, shift=FALSE)
   expect_s4_class(maeTest, "MultiAssayExperiment")
 
-  expect_equal(c(colnames(maeTest[[atacExp]]),  c("MCF7", "JURKAT")),
-                 colnames(maeAdd[[atacExp]]))
-  motifs <- subset(sampleMap(maeAdd), primary=="MCF7" & assay==motifExp)$colname
+  expect_equal(c(colnames(maeTest[[ATACEXP]]),  c("MCF7", "JURKAT")),
+                 colnames(maeAdd[[ATACEXP]]))
+  motifs <- subset(sampleMap(maeAdd), primary=="MCF7" & assay==MOTIFEXP)$colname
   motifs <- motifs[order(motifs)]
-  motifsAll <- subset(sampleMap(maeTest), assay==motifExp)$colname
+  motifsAll <- subset(sampleMap(maeTest), assay==MOTIFEXP)$colname
   motifsAll <- motifsAll[order(motifsAll)]
   expect_equal(unique(motifs), unique(motifsAll))
 })
@@ -130,9 +130,9 @@ test_that("Mappings check HDF5 - addATACData", {
   maeAddHdf5 <- addATACData(maeTestHdf5, atacData, shift=FALSE)
   expect_s4_class(maeAddHdf5, "MultiAssayExperiment")
 
-  motifs <- subset(sampleMap(maeAddHdf5), primary=="MCF7" & assay==motifExp)$colname
+  motifs <- subset(sampleMap(maeAddHdf5), primary=="MCF7" & assay==MOTIFEXP)$colname
   motifs <- motifs[order(motifs)]
-  motifsAll <- subset(sampleMap(maeAddHdf5), assay==motifExp)$colname
+  motifsAll <- subset(sampleMap(maeAddHdf5), assay==MOTIFEXP)$colname
   motifsAll <- motifsAll[order(motifsAll)]
   expect_equal(unique(motifs), unique(motifsAll))
 })
@@ -142,8 +142,8 @@ test_that("Coldata check - addATACData", {
   names(atacData) <- c("MCF7", "JURKAT")
 
   maeAdd <- addATACData(maeTest, atacData, shift=FALSE, testSet="MCF7")
-  testCons <- subset(colData(maeAdd), get(isTestCol))$context
-  trainCons <- subset(colData(maeAdd), get(isTrainCol))$context
+  testCons <- subset(colData(maeAdd), get(ISTESTCOL))$context
+  trainCons <- subset(colData(maeAdd), get(ISTRAINCOL))$context
 
   expect_contains(testCons, "MCF7")
   expect_true(!("MCF7" %in% trainCons))
@@ -159,9 +159,9 @@ test_that("Features simple check - addATACData", {
                                    computeFeatures="simple"))
 
   # check that col / row data preserved
-  expect_true(all(c(atacVarFeatName, maxAtacFeatName)
-                  %in% colnames(rowData(maeAdd[[atacExp]]))))
-  expect_contains(colnames(maeAdd[[contextTfFeat]]),
+  expect_true(all(c(ATACVARFEATNAME, MAXATACFEATNAME)
+                  %in% colnames(rowData(maeAdd[[ATACEXP]]))))
+  expect_contains(colnames(maeAdd[[CONTEXTTFFEAT]]),
                   c("MCF7_CTCF", "JURKAT_CTCF"))
 })
 
@@ -175,14 +175,14 @@ test_that("Features simple check including MDS-projection - addATACData", {
                                    computeFeatures="simple"))
 
   # check that col / row data preserved
-  expect_true(all(c(atacVarFeatName, maxAtacFeatName)
-                  %in% colnames(rowData(maeAdd[[atacExp]]))))
-  expect_contains(colnames(maeAdd[[contextTfFeat]]),
+  expect_true(all(c(ATACVARFEATNAME, MAXATACFEATNAME)
+                  %in% colnames(rowData(maeAdd[[ATACEXP]]))))
+  expect_contains(colnames(maeAdd[[CONTEXTTFFEAT]]),
                   c("MCF7_CTCF", "JURKAT_CTCF"))
-  mdsDims <- paste(mdsDimFeatName, 1:2,sep="_")
-  expect_contains(colnames(colData(maeAdd[[atacExp]])), mdsDims)
-  expect_equal(nrow(colData(maeAdd[[atacExp]])), 5)
-  expect_equal(sum(is.na(colData(maeAdd[[atacExp]])[,mdsDims])), 0)
+  mdsDims <- paste(MDSDIMFEATNAME, 1:2,sep="_")
+  expect_contains(colnames(colData(maeAdd[[ATACEXP]])), mdsDims)
+  expect_equal(nrow(colData(maeAdd[[ATACEXP]])), 5)
+  expect_equal(sum(is.na(colData(maeAdd[[ATACEXP]])[,mdsDims])), 0)
 })
 
 test_that("Features from scratch check - addATACData", {
@@ -195,9 +195,9 @@ test_that("Features from scratch check - addATACData", {
                                    computeFeatures="scratch"))
 
   # check that col / row data preserved
-  expect_true(all(c(atacVarFeatName, maxAtacFeatName)
-                  %in% colnames(rowData(maeAdd[[atacExp]]))))
-  expect_contains(colnames(maeAdd[[contextTfFeat]]),
+  expect_true(all(c(ATACVARFEATNAME, MAXATACFEATNAME)
+                  %in% colnames(rowData(maeAdd[[ATACEXP]]))))
+  expect_contains(colnames(maeAdd[[CONTEXTTFFEAT]]),
                   c("MCF7_CTCF", "JURKAT_CTCF"))
 })
 
@@ -210,8 +210,8 @@ test_that("Features none check - addATACData", {
                                    shift=FALSE,
                                    computeFeatures="none"))
 
-  expect_true(all(c(atacVarFeatName, maxAtacFeatName)
-                  %in% colnames(rowData(maeAdd[[atacExp]]))))
+  expect_true(all(c(ATACVARFEATNAME, MAXATACFEATNAME)
+                  %in% colnames(rowData(maeAdd[[ATACEXP]]))))
 })
 
 test_that("Features check  HDF5- addATACData", {
@@ -221,6 +221,6 @@ test_that("Features check  HDF5- addATACData", {
   maeAdd <- addATACData(maeTestHdf5, atacData, shift=FALSE,
                         computeFeatures="simple")
 
-  expect_contains(colnames(maeAdd[[contextTfFeat]]),
+  expect_contains(colnames(maeAdd[[CONTEXTTFFEAT]]),
                   c("MCF7_CTCF", "JURKAT_CTCF"))
 })

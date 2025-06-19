@@ -27,8 +27,8 @@ predictTfBinding <- function(models,
                              numThreads=40,
                              BPPARAM=SerialParam()){
 
-  fmTfName <- metadata(fm)[[tfNameCol]]
-  modTfName <- models[[1]]$params$tf
+  fmTfName <- metadata(fm)[[TFNAMECOL]]
+  modTfName <- models[[1]]$params[[TFNAMECOL]]
   if(fmTfName!=modTfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and model trained for", modTfName))
   }
@@ -42,13 +42,13 @@ predictTfBinding <- function(models,
     npDt <- split(npDt, by="chunk")
   }
 
-  if(stackingStratEntry %in% names(models)){
-    stackingStrat <- models[[stackingStratEntry]]
-    stackedModelName <- paste(modelStackedSuffix, stackingStrat, sep="_")
+  if(STACKINGSTRATENTRY %in% names(models)){
+    stackingStrat <- models[[STACKINGSTRATENTRY]]
+    stackedModelName <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
     modelNamesBag <- setdiff(names(models), c(stackedModelName,
-                                              stackingStratEntry))
+                                              STACKINGSTRATENTRY))
   }else{
-    modelNamesBag <- setdiff(names(models), stackingStratEntry)
+    modelNamesBag <- setdiff(names(models), STACKINGSTRATENTRY)
   }
 
   modelsBag <- models[modelNamesBag]
@@ -60,9 +60,9 @@ predictTfBinding <- function(models,
     allFeats <- listFeatures()
     colsToRemove <- unlist(subset(allFeats,
                                   !included_in_training)$feature_matrix_column_names)
-    colsToRemove <- c(colsToRemove, labelColName, contextColName)
-    if(name!=modelAllName){
-      colsToRemove <- setdiff(colsToRemove, cScoreColName)
+    colsToRemove <- c(colsToRemove, LABELCOLNAME, contextColName)
+    if(name!=MODELALLNAME){
+      colsToRemove <- setdiff(colsToRemove, CSCORECOLNAME)
     }
 
     if(!is.null(chunk) & is.numeric(chunk)){
@@ -70,7 +70,7 @@ predictTfBinding <- function(models,
       pred  <- predict(model, as.matrix(data[indDt$ind, !(colnames(data) %in% colsToRemove)]))
       predDt <- data.table(pred=pred)
 
-      if(sparsify) predDt[,pred:=fifelse(pred*scalFactPred>model$params$sparse_thr,pred,0L)]
+      if(sparsify) predDt[,pred:=fifelse(pred*scalFactPred>model$params[[SPARSETHR]],pred,0L)]
       predDt
     })
       predDt <- rbindlist(predDts)
@@ -79,7 +79,7 @@ predictTfBinding <- function(models,
     else{
       preds  <- predict(model, as.matrix(data[,!(colnames(data) %in% colsToRemove)]))
       predDt <- data.table(pred=preds)
-      if(sparsify) predDt[,pred:=fifelse(pred*scalFactPred>model$params$sparse_thr,pred,0L)]
+      if(sparsify) predDt[,pred:=fifelse(pred*scalFactPred>model$params[[SPARSETHR]],pred,0L)]
       predMat <- Matrix::Matrix(as.matrix(predDt))
     }
     gc()
@@ -95,18 +95,18 @@ predictTfBinding <- function(models,
   BPPARAM=BPPARAM)
 
   preds <- Reduce(cbind, preds[-1], preds[[1]])
-  colnames(preds) <- paste(predPrefix, names(modelsBag), sep="_")
+  colnames(preds) <- paste(PREDPREFIX, names(modelsBag), sep="_")
 
-  if(labelColName %in% colnames(data)){
+  if(LABELCOLNAME %in% colnames(data)){
     message("Adding labels")
-    label <- data[,labelColName]
+    label <- data[,LABELCOLNAME]
     labelBin <- fifelse(label>0,1L,0L)
     labelBin <- fifelse(label<0,-1L,labelBin)
     labelBin <- Matrix(labelBin, ncol=1)
-    colnames(labelBin) <- binLabelName
+    colnames(labelBin) <- BINLABELNAME
 
-    outPreds <- list(preds, labelBin, data[,labelColName], data[,annoCol])
-    cnPreds <- c(colnames(preds), binLabelName, labelColName, annoCol)
+    outPreds <- list(preds, labelBin, data[,LABELCOLNAME], data[,annoCol])
+    cnPreds <- c(colnames(preds), BINLABELNAME, LABELCOLNAME, annoCol)
   }
   else{
     outPreds <- list(preds, data[,annoCol])
@@ -116,12 +116,12 @@ predictTfBinding <- function(models,
   preds <- Matrix::Matrix(Reduce(cbind, outPreds[-1], outPreds[[1]]))
   colnames(preds) <- cnPreds
 
-  if(stackingStratEntry %in% names(models)){
+  if(STACKINGSTRATENTRY %in% names(models)){
     modelStacked <- models[[stackedModelName]]
     predsStacked <- .predictTfBindingStacked(models, fm,
                                              predsBagged=preds,
                                              annoCol=annoCol)
-    predsStackedCol <- paste(predPrefix, modelStackedSuffix, sep="_")
+    predsStackedCol <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
     preds <- cbind(preds, predsStacked[,predsStackedCol, drop=FALSE])
   }
 
@@ -161,25 +161,25 @@ predictTfBinding <- function(models,
 .predictTfBindingStacked <- function(models, fm,
                                      predsBagged=NULL, annoCol=NULL, ...){
 
-  tfName <- models[[1]]$params$tf
-  stackingStrat <- models[[stackingStratEntry]]
+  tfName <- models[[1]]$params[[TFNAMECOL]]
+  stackingStrat <- models[[STACKINGSTRATENTRY]]
 
-  stackedModelName <- paste(modelStackedSuffix, stackingStrat, sep="_")
+  stackedModelName <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
   modelStacked <- models[[stackedModelName]]
 
   if(stackingStrat %in% c("last", "wLast")){
     models <- list(modelStacked)
     names(models) <- stackingStrat
     preds <- predictTfBinding(models, fm, simplified=FALSE, ...)
-    preds <- preds[,paste(predPrefix, stackingStrat, sep="_"), drop=FALSE]
+    preds <- preds[,paste(PREDPREFIX, stackingStrat, sep="_"), drop=FALSE]
   }
   else if(stackingStrat=="wMean"){
     if(is.null(predsBagged)) stop("Provide bagged predictions")
     modelNamesBag <- setdiff(names(models), c(stackedModelName,
-                                              stackingStratEntry))
+                                              STACKINGSTRATENTRY))
     preds <- lapply(modelNamesBag, function(modelName){
       modelWeight <- models[[modelName]]$params$stacking_weights
-      predsBagged[,paste(predPrefix, modelName, sep="_"),drop=FALSE]*modelWeight
+      predsBagged[,paste(PREDPREFIX, modelName, sep="_"),drop=FALSE]*modelWeight
     })
     preds <- Matrix(rowSums(Reduce("cbind", preds[-1], preds[[1]])), ncol=1)
   }
@@ -187,15 +187,15 @@ predictTfBinding <- function(models,
     if(is.null(predsBagged)) stop("Provide bagged predictions")
 
     # get feature for stacked model
-    colSel <- c(paste(siteFeat, widthFeatName, sep="_"),
-                annoCol, countColName, gcContentColName,
-                labelColName, motifFeatColName)
+    colSel <- c(paste(SITEFEAT, WIDTHFEATNAME, sep="_"),
+                annoCol, COUNTCOLNAME, GCCONTENTCOLNAME,
+                LABELCOLNAME, MOTIFFEATCOLNAME)
     colSel <- intersect(colSel,colnames(fm))
     assaysPred <- lapply(colSel,function(col){
       assays(fm)$features[,col,drop=FALSE]})
 
-    predBagCols <- paste(predPrefix, c(modelTopWeightName, modelMedWeightName,
-                         modelAllWeigthName, modelAllName), sep="_")
+    predBagCols <- paste(PREDPREFIX, c(MODELTOPWEIGHTNAME, MODELMEDWEIGHTNAME,
+                         MODELALLWEIGHTNAME, MODELALLNAME), sep="_")
     predsBagged <- lapply(predBagCols, function(col){
       predsBagged[,col,drop=FALSE]})
     assaysPred <- append(assaysPred, predsBagged)
@@ -203,14 +203,14 @@ predictTfBinding <- function(models,
     names(assaysPred) <- "features"
     fmStack <- SummarizedExperiment(assays=assaysPred,
                                     rowRanges=rowRanges(fm))
-    metadata(fmStack)$tf_name <- tfName
+    metadata(fmStack)[[TFNAMECOL]] <- tfName
 
     models <- list(modelStacked)
     names(models) <- stackingStrat
     preds <- predictTfBinding(models, fmStack, simplified=FALSE, ...)
-    preds <- preds[,paste(predPrefix, stackingStrat, sep="_"), drop=FALSE]
+    preds <- preds[,paste(PREDPREFIX, stackingStrat, sep="_"), drop=FALSE]
   }
-  colnames(preds) <- paste(predPrefix, modelStackedSuffix, sep="_")
+  colnames(preds) <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
 
   return(preds)
 }

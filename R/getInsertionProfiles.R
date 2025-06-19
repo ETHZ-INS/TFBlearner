@@ -289,20 +289,20 @@ getInsertionProfiles <- function(atacData,
                             levels=c("margin", "within"))]
 
   if("tot_count" %in% colnames(motifScores)){
-  setnames(motifScores, c("tot_count"), insertFeatName)}
+  setnames(motifScores, c("tot_count"), INSERTFEATNAME)}
   if("score" %in% colnames(motifScores)){
-    setnames(motifScores, c("score", "chi2"), c(wInsertsFeatName, devFeatName))}
+    setnames(motifScores, c("score", "chi2"), c(WINSERTSFEATNAME, DEVFEATNAME))}
 
   if(simplified){
-    scoreCols <- intersect(c(insertFeatName, wInsertsFeatName, devFeatName),
+    scoreCols <- intersect(c(INSERTFEATNAME, WINSERTSFEATNAME, DEVFEATNAME),
                            colnames(motifScores))
-    assayMats <- lapply(scoreCols, function(scoreCol){
-      ms <- motifScores[,.(score=sum(get(scoreCol))), by=.(motif_id, sample,
+    assayMats <- lapply(scoreCols, function(SCORECOL){
+      ms <- motifScores[,.(score=sum(get(SCORECOL))), by=.(motif_id, sample,
                                                            motif_match_id,
                                                            chr, start, end)]
       am <- genomicRangesMapping(motifRanges, assayTable=ms,
                                  byCols="sample",
-                                 scoreCol="score",
+                                 SCORECOL="score",
                                  aggregationFun=max,
                                  type="equal", #otw this does not work in case motif matches of different TFs are overlapping
                                  BPPARAM=BPPARAM)})
@@ -314,7 +314,7 @@ getInsertionProfiles <- function(atacData,
   }
   else{
     res <- list(motifScores, atacProfiles)
-    names(res) <- c(retScoresName, reProfileName)
+    names(res) <- c(RETSCORESNAME, REPROFILENAME)
   }
 
   return(res)

@@ -13,7 +13,7 @@
           For obtaining a object in the correct form use prepData()")
   }
 
-  expectedExperiments <- c(atacExp, chIPExp, motifExp)
+  expectedExperiments <- c(ATACEXP, CHIPEXP, MOTIFEXP)
   experimentNames <- names(experiments(mae))
   if(!all(expectedExperiments %in% experimentNames)){
     stop("Object provided needs to be a MultiAssayExperiment Object containing
@@ -23,7 +23,7 @@
 
   # check that motifs match to all contexts
   contexts <- unique(sampleMap(mae)$primary)
-  sampleMapMotif <- as.data.table(subset(sampleMap(mae), assay==motifExp))
+  sampleMapMotif <- as.data.table(subset(sampleMap(mae), assay==MOTIFEXP))
   contextMotifMap <- sampleMapMotif[,.(n_context=length(unique(primary))),
                                        by=colname]
   if(nrow(subset(contextMotifMap, n_context!=length(contexts)))>0){
@@ -32,14 +32,14 @@
   }
 
   if("site" %in% checkFor){
-    if(!(siteFeat %in% experimentNames)){
+    if(!(SITEFEAT %in% experimentNames)){
       stop("Site-specific features as obtained by using siteFeatures() on the object
             are required for further use.")
     }
   }
 
   if("context" %in% checkFor){
-    if(!all(c(actExp, assocExp) %in% experimentNames)){
+    if(!all(c(ACTEXP, ASSOCEXP) %in% experimentNames)){
       stop("Context-specific & pan-context features as obtained by using panContextFeatures() on the object
             are required for further use.")
     }
@@ -48,7 +48,7 @@
   if("tf" %in% checkFor){
     if(is.null(tfName)){
       warning("Please provide the name of a TF for which to check if features are present")}
-    if(!(tfFeat %in% experimentNames) || !(tfName %in% colnames(mae[[tfFeat]]))){
+    if(!(TFFEAT %in% experimentNames) || !(tfName %in% colnames(mae[[TFFEAT]]))){
       stop(paste0("TF-features as obtained by using tfFeatures(tfName=",tfName,",...) are required for further use."))
     }
   }
@@ -56,12 +56,12 @@
   if("tf-context" %in% checkFor){
     if(is.null(tfName)){
       warning("Please provide the name of a TF for which to check if features are present")}
-    if(!(contextTfFeat %in% experimentNames)){
+    if(!(CONTEXTTFFEAT %in% experimentNames)){
       stop("Context-features as obtained by using contextTffeatures() on the object
             are required for further use.")
     }
     else{
-      tfs <- colData(mae[[contextTfFeat]])[[tfNameCol]]
+      tfs <- colData(mae[[CONTEXTTFFEAT]])[[TFNAMECOL]]
       if(!(tfName %in% tfs)){
         stop(paste0("Context-features as obtained by using contextTffeatures(tfName=",tfName,",...), are required for further use."))
       }
@@ -143,14 +143,14 @@
                                   colData=contextMap,
                                   sampleMap=dfMap)
   mapFeat <- as.data.table(sampleMap(maeFeat))
-  mapMae <- subset(as.data.table(sampleMap(mae)), assay==atacExp)
+  mapMae <- subset(as.data.table(sampleMap(mae)), assay==ATACEXP)
 
-  mapFeat <- merge(mapFeat, mapMae[,c("primary", isTestCol, isTrainCol), with=FALSE],
+  mapFeat <- merge(mapFeat, mapMae[,c("primary", ISTESTCOL, ISTRAINCOL), with=FALSE],
                    by.x=c("primary"),
                    by.y=c("primary"), all.x=TRUE, all.y=FALSE,
                    allow.cartesian=TRUE)
-  mapFeat[,eval(isTestCol):=fifelse(is.na(get(isTestCol)),FALSE,get(isTestCol))]
-  mapFeat[,eval(isTrainCol):=fifelse(is.na(get(isTrainCol)),FALSE,get(isTrainCol))]
+  mapFeat[,eval(ISTESTCOL):=fifelse(is.na(get(ISTESTCOL)),FALSE,get(ISTESTCOL))]
+  mapFeat[,eval(ISTRAINCOL):=fifelse(is.na(get(ISTRAINCOL)),FALSE,get(ISTRAINCOL))]
 
   sampleMap(maeFeat) <- mapFeat
 
@@ -159,7 +159,7 @@
 
 .retainMappings <- function(mae){
   experimentNames <- intersect(names(experiments(mae)),
-                               c(motifExp, siteFeat, tfFeat))
+                               c(MOTIFEXP, SITEFEAT, TFFEAT))
   for(experimentName in experimentNames){
     mapComb <- as.data.table(sampleMap(mae))
     mapMotif <- subset(mapComb, assay==experimentName)
@@ -167,8 +167,8 @@
                                       colname=unique(mapMotif$colname)))
     allComb <- allComb[,lapply(.SD, as.character), .SDcols=colnames(allComb)]
     allComb$assay <- experimentName
-    allComb[[isTrainCol]] <- FALSE
-    allComb[[isTestCol]] <- FALSE
+    allComb[[ISTRAINCOL]] <- FALSE
+    allComb[[ISTESTCOL]] <- FALSE
     sampleMap(mae) <- data.frame(rbind(mapComb,
                                        allComb[!mapMotif, on=.(primary, colname)],
                                        use.names=TRUE))
@@ -209,13 +209,13 @@ getContexts <- function(mae, tfName=NULL, which=c("ChIP", "ATAC", "Both")){
   .checkObject(mae)
 
   which <- match.arg(which, choices=c("ChIP", "Both", "ATAC"))
-  contextsAtac <- rownames(colData(mae[[atacExp]]))
+  contextsAtac <- rownames(colData(mae[[ATACEXP]]))
 
   if(which=="ATAC"){
     contexts <- contextsAtac
   }
   else{
-    colsChIP <- colnames(mae[[chIPExp]])
+    colsChIP <- colnames(mae[[CHIPEXP]])
     colsChIP <- as.data.table(tstrsplit(colsChIP, split="_"))
     if(!is.null(tfName)){
       contextsChIP <- subset(colsChIP, V2==tfName)$V1}
@@ -255,7 +255,7 @@ NULL
 
 #' Add further ATAC-seq datasets to object
 #'
-#' Adds additional columns for provided ATAC-seq datasets in the `r atacExp` experiment and
+#' Adds additional columns for provided ATAC-seq datasets in the `r ATACEXP` experiment and
 #' computes features if requested.
 #'
 #' @name addATACData
@@ -266,7 +266,7 @@ NULL
 #' @param testSet Vector of cellular context labels used for testing.
 #' @param computeFeatures If and how features for the newly added ATAC-seq dataset should be computed.
 #'
-#' Option `simple`: Features for newly added ATAC-seq dataset will be computed based on pre-computed chromVAR expectations & backgrounds in `rowData` of the `r atacExp` experiment.
+#' Option `simple`: Features for newly added ATAC-seq dataset will be computed based on pre-computed chromVAR expectations & backgrounds in `rowData` of the `r ATACEXP` experiment.
 #'
 #' Option `scratch`: features will be re-computed from scratch including the added ATAC-seq dataset.
 #' ChromVAR expectations and backgrounds will be recomputed by re-running [TFBlearner::panContextFeatures()].
@@ -297,40 +297,40 @@ addATACData <- function(mae, atacData,
   computeFeatures <- match.arg(computeFeatures)
 
   # get precomputed stats
-  mdsDimFeats <- paste(mdsDimFeatName, 1:2, sep="_")
-  compMDS <- all(mdsDimFeats %in% colnames(colData(mae[[atacExp]])))
+  mdsDimFeats <- paste(MDSDIMFEATNAME, 1:2, sep="_")
+  compMDS <- all(mdsDimFeats %in% colnames(colData(mae[[ATACEXP]])))
   if(compMDS){
-    mdsDims <- colData(mae[[atacExp]])[,mdsDimFeats]
+    mdsDims <- colData(mae[[ATACEXP]])[,mdsDimFeats]
   }
-  exp <- rowData(mae[[atacExp]])[[chromVarExpCol]]
-  bg <- metadata(mae[[atacExp]])[[chromVarBgCol]]
+  exp <- rowData(mae[[ATACEXP]])[[CHROMVAREXPCOL]]
+  bg <- metadata(mae[[ATACEXP]])[[CHROMVARBGCOL]]
 
-  coords <- rowRanges(mae[[motifExp]])
+  coords <- rowRanges(mae[[MOTIFEXP]])
   seAtac <- .mapSeqData(atacData, coords, type="ATAC", annoCol=annoCol,
                         shift=shift, BPPARAM=BPPARAM)
 
-  mae <- .addFeatures(mae, seAtac, names(atacData), prefix=atacExp,
+  mae <- .addFeatures(mae, seAtac, names(atacData), prefix=ATACEXP,
                       annoCol=annoCol)
-  matchedContexts <- intersect(colData(mae[[atacExp]])[[annoCol]],
-                               colData(mae[[chIPExp]])[[annoCol]])
+  matchedContexts <- intersect(colData(mae[[ATACEXP]])[[annoCol]],
+                               colData(mae[[CHIPEXP]])[[annoCol]])
 
   annoDt <- as.data.table(sampleMap(mae))
-  annoDt[,eval(isTestCol):=fifelse(primary %in% testSet, TRUE, get(isTestCol))]
-  annoDt[,eval(isTestCol):=fifelse(is.na(get(isTestCol)), FALSE, get(isTestCol))]
-  annoDt[,eval(isTrainCol):=fifelse(primary %in% matchedContexts &
-                                    !get(isTrainCol), TRUE, FALSE)]
+  annoDt[,eval(ISTESTCOL):=fifelse(primary %in% testSet, TRUE, get(ISTESTCOL))]
+  annoDt[,eval(ISTESTCOL):=fifelse(is.na(get(ISTESTCOL)), FALSE, get(ISTESTCOL))]
+  annoDt[,eval(ISTRAINCOL):=fifelse(primary %in% matchedContexts &
+                                    !get(ISTRAINCOL), TRUE, FALSE)]
   sampleMap(mae) <- annoDt
 
-  colData(mae)[[isTestCol]] <- fifelse(colData(mae)[[annoCol]] %in% testSet,
-                                     TRUE, colData(mae)[[isTestCol]])
-  colData(mae)[[isTestCol]] <- fifelse(is.na(colData(mae)[[isTestCol]]), FALSE,
-                                       colData(mae)[[isTestCol]])
-  colData(mae)[[isTrainCol]] <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
-                                       !colData(mae)[[isTestCol]],TRUE, FALSE)
+  colData(mae)[[ISTESTCOL]] <- fifelse(colData(mae)[[annoCol]] %in% testSet,
+                                     TRUE, colData(mae)[[ISTESTCOL]])
+  colData(mae)[[ISTESTCOL]] <- fifelse(is.na(colData(mae)[[ISTESTCOL]]), FALSE,
+                                       colData(mae)[[ISTESTCOL]])
+  colData(mae)[[ISTRAINCOL]] <- fifelse(colData(mae)[[annoCol]] %in% matchedContexts &
+                                       !colData(mae)[[ISTESTCOL]],TRUE, FALSE)
 
   if(computeFeatures!="none"){
-    if(contextTfFeat %in% names(experiments(mae))){
-      tfs <- unique(colData(mae[[contextTfFeat]])[[tfNameCol]])
+    if(CONTEXTTFFEAT %in% names(experiments(mae))){
+      tfs <- unique(colData(mae[[CONTEXTTFFEAT]])[[TFNAMECOL]])
     }
 
     # get feature to compute
@@ -338,16 +338,16 @@ addATACData <- function(mae, atacData,
     lPanDt <- subset(lDt, feature_type=="pan-context-Feature")
     lPanFeatures <- unlist(tstrsplit(unlist(lPanDt$feature_matrix_column_names),
                                      split="_", keep=2))
-    preFeats <- colnames(rowData(mae[[atacExp]]))
+    preFeats <- colnames(rowData(mae[[ATACEXP]]))
     panConFeats <- lPanDt[lPanFeatures %in% preFeats, ]$feature_name
     if(compMDS){panConFeats <- c(panConFeats, "MDS_Context")}
 
     panConFeats <- intersect(panConFeats,
                              eval(formals(TFBlearner::panContextFeatures)$features))
 
-    if(computeFeatures=="scratch" | !(actExp %in% names(experiments(mae)))){
-       experiments(mae)[[actExp]] <- NULL
-       experiments(mae)[[assocExp]] <- NULL
+    if(computeFeatures=="scratch" | !(ACTEXP %in% names(experiments(mae)))){
+       experiments(mae)[[ACTEXP]] <- NULL
+       experiments(mae)[[ASSOCEXP]] <- NULL
 
        extraArgs <- list(...)
        extraArgs$features <- NULL
@@ -358,12 +358,12 @@ addATACData <- function(mae, atacData,
     }
     else{
       if(compMDS){
-        atacMat <- .convertToMatrix(assays(mae[[atacExp]])[[totalOverlapsFeatName]])
-        idx <- rowData(mae[[atacExp]])[[mdsSubRowCol]]
+        atacMat <- .convertToMatrix(assays(mae[[ATACEXP]])[[TOTALOVERLAPSFEATNAME]])
+        idx <- rowData(mae[[ATACEXP]])[[MDSSUBROWCOL]]
         atacMat <- atacMat[idx,]
         atacOrigMat <- atacMat[,setdiff(colnames(atacMat),
                                         names(atacData)), drop=FALSE]
-        mdsOrig <- metadata(mae)[[mdsDimStatsEntry]]
+        mdsOrig <- metadata(mae)[[MDSDIMSTATSENTRY]]
         mdsDimsNew <- mdsDims
         for(context in names(atacData)){
           mdsRow <- .projectOnMDS(mdsOrig, t(atacOrigMat),
@@ -373,27 +373,27 @@ addATACData <- function(mae, atacData,
           rownames(mdsRow) <- context
           mdsDimsNew <- rbind(mdsDimsNew, mdsRow)
         }
-        co <- match(rownames(mdsDimsNew), colData(mae[[atacExp]])[[annoCol]])
-        colData(mae[[atacExp]])[,mdsDimFeats] <- mdsDimsNew[co,]
+        co <- match(rownames(mdsDimsNew), colData(mae[[ATACEXP]])[[annoCol]])
+        colData(mae[[ATACEXP]])[,mdsDimFeats] <- mdsDimsNew[co,]
       }
 
-      rowData(seAtac)[[chromVarExpCol]] <- exp
-      metadata(seAtac)[[chromVarBgCol]] <- bg
-      res <- .CVwrapper(atacSe=seAtac, motifSe=mae[[motifExp]],
+      rowData(seAtac)[[CHROMVAREXPCOL]] <- exp
+      metadata(seAtac)[[CHROMVARBGCOL]] <- bg
+      res <- .CVwrapper(atacSe=seAtac, motifSe=mae[[MOTIFEXP]],
                         seed=seed, ...)
       dev <- res$dev
 
       actSe <- SummarizedExperiment(assays=assays(dev))
-      mae <- .addFeatures(mae, actSe, colsToMap=colnames(actSe), prefix=actExp)
+      mae <- .addFeatures(mae, actSe, colsToMap=colnames(actSe), prefix=ACTEXP)
     }
 
-    if(contextTfFeat %in% names(experiments(mae))){
+    if(CONTEXTTFFEAT %in% names(experiments(mae))){
 
       # get which features to recompute
       lconTfDt <- subset(lDt, feature_type=="context-tf-Feature")
       lconTfDt[,feat_name_affix:=tstrsplit(feature_matrix_column_names,
                                            split="_", keep=2)]
-      preFeats <- unlist(tstrsplit(names(assays(mae[[contextTfFeat]])),
+      preFeats <- unlist(tstrsplit(names(assays(mae[[CONTEXTTFFEAT]])),
                                             split="_", keep=2))
       conTfFeats <- subset(lconTfDt, feat_name_affix %in% preFeats)$feature_name
       conTfFeats <- intersect(conTfFeats,
@@ -428,7 +428,7 @@ addATACData <- function(mae, atacData,
 #' Constitutes the rowRanges of the RangedSummarizedExperiment object.
 #' @param motifData  Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges] containing motif matches.
 #' Ideally this argument is obtained by calling [TFBlearner::prepMotifs].
-#' Needs to contain genomic coordinates (e.g. a chr/seqnames, start and end column), a `r scoreCol` column (motif matching score).
+#' Needs to contain genomic coordinates (e.g. a chr/seqnames, start and end column), a `r SCORECOL` column (motif matching score).
 #' Ideally motifs corresponding to TFs for which `chIPData` is present are named the same in both arguments
 #' (e.g `motifData=list(JUN=...)`, `chIPData=list(K562_JUN=...)`.
 #' @param atacData Named list of [data.table::data.table]/data.frame/[GenomicRanges::GRanges]
@@ -439,9 +439,9 @@ addATACData <- function(mae, atacData,
 #' Need to contain genomic coordinates (e.g. a chr/seqnames, start and end column) and optionally a column with observational weights (`weightCol`)
 #' and/or an uncertainty label (`isUncertainCol`).
 #' @param testSet Vector of cellular context labels used for testing.
-#' @param promoterCoords Optionally coordinates of promoters of transcription factor genes. Needs to contain a column in the metadata named `r tfNameCol`.
+#' @param promoterCoords Optionally coordinates of promoters of transcription factor genes. Needs to contain a column in the metadata named `r TFNAMECOL`.
 #' @param aggregationFun Function to aggregate
-#' @param scoreCol Optional, column name of motif-matching data containing matching scores.
+#' @param SCORECOL Optional, column name of motif-matching data containing matching scores.
 #' @param weightCol Optional, column name of ChIP-seq data containing observational weights for peaks.
 #' @param isUncertainCol Optional, column name of ChIP-seq data labelling uncertain peaks (TRUE/FALSE).
 #' @param annoCol Name of column indicating cellular contexts in colData.
@@ -465,7 +465,7 @@ prepData <- function(refCoords,
                      testSet=NULL,
                      promoterCoords=NULL,
                      aggregationFun=max,
-                     scoreCol="score",
+                     SCORECOL="score",
                      weightCol=NULL,
                      isUncertainCol=NULL,
                      annoCol="context",
@@ -492,7 +492,7 @@ prepData <- function(refCoords,
                         isUncertainCol=isUncertainCol,
                         saveHdf5=saveHdf5, outDir=outDir,
                         BPPARAM=BPPARAM)
-  covTfs <- unique(colData(chIPSe)[[tfNameCol]])
+  covTfs <- unique(colData(chIPSe)[[TFNAMECOL]])
   chIPMap <- data.frame(primary=colData(chIPSe)[[annoCol]],
                         colname=colData(chIPSe)[["combination"]],
                         stringsAsFactors=FALSE)
@@ -514,7 +514,7 @@ prepData <- function(refCoords,
   motifSe <- .mapSeqData(motifData, refCoords, type="Motif",
                          aggregationFun=aggregationFun,
                          saveHdf5=saveHdf5, outDir=outDir,
-                         scoreCol=scoreCol, BPPARAM=BPPARAM)
+                         SCORECOL=SCORECOL, BPPARAM=BPPARAM)
 
   motifMap <- data.frame(primary=rep(allContexts, ncol(motifSe)),
                          colname=rep(colnames(motifSe),
@@ -533,14 +533,14 @@ prepData <- function(refCoords,
                               colname=colData(atacPromSe)[[annoCol]],
                               stringsAsFactors=FALSE)
     listMap <- list(atacMap, chIPMap, motifMap, atacPromMap)
-    expNames <- c(atacExp, chIPExp, motifExp, atacPromExp)
+    expNames <- c(ATACEXP, CHIPEXP, MOTIFEXP, ATACPROMEXP)
     names(listMap) <- expNames
     objList <- list(atacSe, chIPSe, motifSe, atacPromSe)
     names(objList) <- expNames
   }
   else{
     listMap <- list(atacMap, chIPMap, motifMap)
-    expNames <- c(atacExp, chIPExp, motifExp)
+    expNames <- c(ATACEXP, CHIPEXP, MOTIFEXP)
     names(listMap) <- expNames
     objList <- list(atacSe, chIPSe, motifSe)
     names(objList) <- expNames
@@ -560,13 +560,13 @@ prepData <- function(refCoords,
 
   # actually this is not strictly required in the sampleMap
   annoDt <- as.data.table(sampleMap(mae))
-  annoDt[,eval(isTestCol):=fifelse(primary %in% testSet, TRUE, FALSE)]
-  annoDt[,eval(isTrainCol):=fifelse(!(primary %in% testSet) &
+  annoDt[,eval(ISTESTCOL):=fifelse(primary %in% testSet, TRUE, FALSE)]
+  annoDt[,eval(ISTRAINCOL):=fifelse(!(primary %in% testSet) &
                                       primary %in% matchedContexts, TRUE, FALSE)]
 
   primary <- colData(mae)[[annoCol]]
-  colData(mae)[[isTestCol]] <- fifelse(primary %in% testSet, TRUE, FALSE)
-  colData(mae)[[isTrainCol]] <- fifelse(!(primary %in% testSet) &
+  colData(mae)[[ISTESTCOL]] <- fifelse(primary %in% testSet, TRUE, FALSE)
+  colData(mae)[[ISTRAINCOL]] <- fifelse(!(primary %in% testSet) &
                                       primary %in% matchedContexts, TRUE, FALSE)
 
   sampleMap(mae) <- annoDt

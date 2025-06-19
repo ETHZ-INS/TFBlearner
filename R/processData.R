@@ -91,7 +91,7 @@
                         saveHdf5=FALSE,
                         outDir=NULL,
                         annoCol="context",
-                        scoreCol="score",
+                        SCORECOL="score",
                         weightCol=NULL,
                         isUncertainCol=NULL,
                         aggregationFun=max,
@@ -151,7 +151,7 @@
                              BPPARAM=BPPARAM)
   }
   else if(type=="Motif"){
-    mappedSe <- .mapMotifData(data, refCoords, scoreCol=scoreCol,
+    mappedSe <- .mapMotifData(data, refCoords, SCORECOL=SCORECOL,
                               aggregationFun=aggregationFun,
                               saveHdf5=saveHdf5,
                               fileName=fileName,
@@ -164,7 +164,7 @@
 
 .mapMotifData <- function(data,
                           refCoords,
-                          scoreCol="score",
+                          SCORECOL="score",
                           aggregationFun=max,
                           saveHdf5=FALSE,
                           fileName=NULL,
@@ -178,7 +178,7 @@
   names(data) <- colNames
 
   motifScores <- BiocParallel::bplapply(data,
-                                        function(d, refCoords, scoreCol,
+                                        function(d, refCoords, SCORECOL,
                                                  aggregationFun, threads,
                                                  saveHdf5, outDir){
     data.table::setDTthreads(threads)
@@ -190,7 +190,7 @@
 
     motifScore <- genomicRangesMapping(refCoords,
                                        motifScore,
-                                       scoreCol=scoreCol,
+                                       SCORECOL=SCORECOL,
                                        byCols="motif_name",
                                        aggregationFun=aggregationFun,
                                        BPPARAM=SerialParam())
@@ -199,7 +199,7 @@
 
     if(saveHdf5){
       dataList <- list(motifScore)
-      names(dataList) <- matchAssay
+      names(dataList) <- MATCHASSAY
       .writeToHdf5(dataList,
                    paste0(file.path(outDir, name), ".h5"),
                    storage="integer")
@@ -207,7 +207,7 @@
     }
 
     return(list(motifScore, maxScore))
-  }, refCoords=refCoords, scoreCol=scoreCol,
+  }, refCoords=refCoords, SCORECOL=SCORECOL,
      aggregationFun=aggregationFun, thread=threads,
      saveHdf5=saveHdf5, outDir=outDir,
      BPPARAM=BPPARAM)
@@ -228,13 +228,13 @@
 
   colnames(motifScores) <- colNames
   motifColData <- data.table(colnames(motifScores), maxScores)
-  colnames(motifColData) <- c(motifNameCol, maxScoreCol)
+  colnames(motifColData) <- c(MOTIFNAMECOL, MAXSCORECOL)
 
   # add paths of motifs files
-  motifColData[,origin:=unlist(data[get(motifNameCol)])]
+  motifColData[,origin:=unlist(data[get(MOTIFNAMECOL)])]
 
   assayList <- list(motifScores)
-  names(assayList) <- matchAssay
+  names(assayList) <- MATCHASSAY
   motifSe <- SummarizedExperiment(assays=assayList,
                                   rowRanges=refCoords,
                                   colData=motifColData)
@@ -341,12 +341,12 @@
         ins <- suppressMessages({
           getInsertionProfiles(atacFragType, refCoords, margin=0,
                                calcProfile=FALSE, shift=FALSE)})
-        ins <- ins[[retScoresName]]
-        ins <- ins[,c("chr", "start", "end", insertFeatName),with=FALSE]}
+        ins <- ins[[RETSCORESNAME]]
+        ins <- ins[,c("chr", "start", "end", INSERTFEATNAME),with=FALSE]}
       else{
         ins <- data.table(chr=character(), start=numeric(), end=numeric(),
                           insert_counts=numeric())
-        setnames(ins, "insert_counts", insertFeatName)
+        setnames(ins, "insert_counts", INSERTFEATNAME)
       }
       ins$frag_type <- factor(type)
       ins
@@ -360,28 +360,28 @@
                                         byCols="frag_type",
                                         BPPARAM=SerialParam())
     atacTotalOvs <- Matrix::Matrix(Matrix::rowSums(atacTypeOvs), ncol=1)
-    colnames(atacTotalOvs) <- totalOverlapsFeatName
-    typeNames <- colnames(atacTypeOvs)
-    atacTypeOvs <- lapply(typeNames,
+    colnames(atacTotalOvs) <- TOTALOVERLAPSFEATNAME
+    TYPENAMES <- colnames(atacTypeOvs)
+    atacTypeOvs <- lapply(TYPENAMES,
                           function(col) atacTypeOvs[,col, drop=FALSE])
-    names(atacTypeOvs) <- paste(typeNames, overlapsAffix, sep=".")
+    names(atacTypeOvs) <- paste(TYPENAMES, OVERLAPSAFFIX, sep=".")
 
     atacTypeIns <- genomicRangesMapping(refCoords,
                                         atacIns,
-                                        scoreCol=insertFeatName,
+                                        SCORECOL=INSERTFEATNAME,
                                         byCols="frag_type",
                                         aggregationFun=sum,
                                         BPPARAM=SerialParam())
     atacTotalIns <- Matrix::Matrix(Matrix::rowSums(atacTypeIns), ncol=1)
-    colnames(atacTotalIns) <- totalInsertsFeatName
-    atacTypeIns <- lapply(typeNames,
+    colnames(atacTotalIns) <- TOTALINSERTSFEATNAME
+    atacTypeIns <- lapply(TYPENAMES,
                           function(col) atacTypeIns[,col, drop=FALSE])
-    names(atacTypeIns) <- paste(typeNames, insertsAffix, sep=".")
+    names(atacTypeIns) <- paste(TYPENAMES, INSERTSAFFIX, sep=".")
 
     atacTotalOvs <- list(atacTotalOvs)
-    names(atacTotalOvs) <- totalOverlapsFeatName
+    names(atacTotalOvs) <- TOTALOVERLAPSFEATNAME
     atacTotalIns <- list(atacTotalIns)
-    names(atacTotalIns) <- totalInsertsFeatName
+    names(atacTotalIns) <- TOTALINSERTSFEATNAME
 
     atacAssays <- c(atacTotalOvs,
                     atacTypeOvs,
@@ -493,7 +493,7 @@
     # map chIPPeaks
     chIPPeaks <- genomicRangesMapping(refCoords, chIPPeaks,
                                        aggregationFun=aggregationFun,
-                                       scoreCol=weightCol,
+                                       SCORECOL=weightCol,
                                        byCols=byCols,
                                        BPPARAM=SerialParam())
     # mark uncertains
@@ -515,7 +515,7 @@
 
     if(saveHdf5){
       dataList <- list(chIPPeaks)
-      names(dataList) <- peakAssay
+      names(dataList) <- PEAKASSAY
       .writeToHdf5(dataList,
                    paste0(file.path(outDir, unique(names(d))), ".h5"),
                    storage="double")
@@ -539,7 +539,7 @@
 
   colnames(chIPPeaks) <- colNames
   chIPColData <- data.table(combination=colNames)
-  chIPColData[,c(annoCol, tfNameCol):=tstrsplit(combination, split="_")]
+  chIPColData[,c(annoCol, TFNAMECOL):=tstrsplit(combination, split="_")]
   chIPColData[,origin:=lapply(combination, function(x){
     ds <- unlist(data[names(data)==x])
     names(ds) <- unlist(tstrsplit(names(ds), split=".", keep=2, fixed=TRUE))
@@ -547,7 +547,7 @@
     return(ds)})]
 
   assayList <- list(chIPPeaks)
-  names(assayList) <- peakAssay
+  names(assayList) <- PEAKASSAY
   chIPSe <- SummarizedExperiment(assays=assayList,
                                  rowRanges=refCoords,
                                  colData=chIPColData)

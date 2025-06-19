@@ -12,7 +12,7 @@ prepData(
   testSet = NULL,
   promoterCoords = NULL,
   aggregationFun = max,
-  scoreCol = "score",
+  SCORECOL = "score",
   weightCol = NULL,
   isUncertainCol = NULL,
   annoCol = "context",
@@ -47,7 +47,7 @@ and/or an uncertainty label (\code{isUncertainCol}).}
 
 \item{aggregationFun}{Function to aggregate}
 
-\item{scoreCol}{Optional, column name of motif-matching data containing matching scores.}
+\item{SCORECOL}{Optional, column name of motif-matching data containing matching scores.}
 
 \item{weightCol}{Optional, column name of ChIP-seq data containing observational weights for peaks.}
 
