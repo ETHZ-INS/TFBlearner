@@ -83,13 +83,13 @@ test_that("Saving and loading motif information",{
   # check saving
   outDir <- tempdir()
   modFilePath <- file.path(outDir, "testModels.txt")
-  saveModels(modTest, outPath=modFilePath)
+  saveModels(modTest, filePath=modFilePath)
   expect_true(file.exists(modFilePath))
   motifFilePath <- file.path(outDir, "motifs_testModels.tsv")
   expect_true(file.exists(motifFilePath))
 
   # check correct loading
-  modLoad <- loadModels(modFilePath)
+  modLoad <- loadModels(filePath=modFilePath)
   expect_contains(names(modLoad[[modelAllName]]$params),
                   c(preSelMotifCol, preSelActCol))
   tfMotifName <- paste(tfMotifPrefix, 1, sep="_")
@@ -99,6 +99,28 @@ test_that("Saving and loading motif information",{
                   c(preSelMotifCol, preSelActCol))
   expect_equal(modLoad[[modelTopWeightName]]$params[[preSelMotifCol]][[tfMotifName]],
                modLoad[[modelTopWeightName]]$params$tf)
+
+  file.remove(modFilePath)
+  file.remove(motifFilePath)
+})
+
+test_that("Saving and loading package version",{
+  expect_contains(names(modTest[[modelAllName]]$params), "package_version")
+  expVersion <- .getPackageVersion()
+  expect_equal(modTest[[modelAllName]]$params$package_version, expVersion)
+
+  # check saving
+  outDir <- tempdir()
+  modFilePath <- file.path(outDir, "testModels.txt")
+  motifFilePath <- file.path(outDir, "motifs_testModels.tsv")
+  saveModels(modTest, filePath=modFilePath)
+
+  # check correct loading
+  modLoad <- loadModels(filePath=modFilePath)
+  expect_contains(names(modLoad[[modelAllName]]$params), "package_version")
+  expect_equal(modLoad[[modelAllName]]$params$package_version, expVersion)
+  expect_contains(names(modLoad[[modelTopWeightName]]$params),"package_version")
+  expect_contains(modLoad[[modelTopWeightName]]$params, expVersion)
 
   file.remove(modFilePath)
   file.remove(motifFilePath)

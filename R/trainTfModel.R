@@ -719,10 +719,13 @@
 
   message(paste("Time elapsed for training the model:", round((proc.time()-ptm)[3],1), "\n"))
 
+
+  packageVers <- .getPackageVersion()
   selMotifs <- metadata(fm)[["preselMotif"]]
   selActMotifs <- metadata(fm)[["preselActMotif"]]
   fits <- lapply(fits, function(mod){
     mod$params$tf <- tfName
+    mod$params$package_version <- packageVers
     mod$params[[preSelMotifCol]] <- selMotifs
     mod$params[[preSelActCol]] <- selActMotifs
     mod})
@@ -978,20 +981,24 @@
   return(stackedMod)
 }
 
+.getPackageVersion <- function(){
+    version <- as.character(packageVersion("TFBlearner"))
+}
+
 #' Saves models on disk.
 #'
 #' Saves models obtained by [TFBlearner::trainTfModel] on disk.
 #'
 #' @name saveModels
 #' @param models List of models as obtained by [TFBlearner::trainTfModel].
-#' @param outPath Path for saving the models.
+#' @param filePath Path for saving the models.
 #' @import data.table
 #' @importFrom lightgbm lgb.save
 #' @export
-saveModels <- function(models, outPath){
+saveModels <- function(models, filePath){
 
-  outName <- basename(outPath)
-  outDir <- dirname(outPath)
+  outName <- basename(filePath)
+  outDir <- dirname(filePath)
   stackingStrat <- models[[stackingStratEntry]]
   stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
   modelNames <- c(modelTopWeightName,
@@ -1020,6 +1027,8 @@ saveModels <- function(models, outPath){
       }
       writeLines(paste("extra parameter stacking strategy:",
                        stackingStrat), con)
+      writeLines(paste("extra parameter package version:",
+                       x$params$package_version), con)
 
       writeLines("end of model", con)
       writeLines("\n", con)
@@ -1042,7 +1051,7 @@ saveModels <- function(models, outPath){
 
   allMl2 <- unlist(lapply(ml2, readLines))
   lapply(ml2, file.remove)
-  writeLines(allMl2, outPath)
+  writeLines(allMl2, filePath)
 }
 
 #' Loads models from disk.
@@ -1050,28 +1059,28 @@ saveModels <- function(models, outPath){
 #' Loads models saved by [TFBlearner::saveModels] from disk.
 #'
 #' @name loadModels
-#' @param modelPath Path of the models .txt-file.
+#' @param filePath Path of the models .txt-file.
 #' @return A list of [lightgbm::lightgbm] models saved on disk .
 #' @importFrom lightgbm lgb.load
 #' @export
-loadModels <- function(modelPath){
+loadModels <- function(filePath){
 
-  modelName <- basename(modelPath)
-  modelDir <- dirname(modelPath)
-  models <- readLines(modelPath)
+  modelName <- basename(filePath)
+  modelDir <- dirname(filePath)
+  models <- readLines(filePath)
   endParameters <- "end of parameters"
   endModel <- "end of model"
-  tempModelPath <- file.path(dirname(modelPath), "tmp_model.txt")
+  tempModelPath <- file.path(dirname(filePath), "tmp_model.txt")
   endModelLine <- which(models==endModel)[1]
 
-  stackingStrat <- unlist(tstrsplit(models[endModelLine-1], split=": ", keep=2))
+  stackingStrat <- unlist(tstrsplit(models[endModelLine-2], split=": ", keep=2))
 
   modelNames <- c(modelTopWeightName,
                   modelMedWeightName,
                   modelAllWeigthName,
                   modelAllName)
   stackedModel <- paste(modelStackedSuffix, stackingStrat, sep="_")
-  if(stackingStrat!="wMean"){modelNames <- c(modelnames, stackedModel)}
+  if(stackingStrat!="wMean"){modelNames <- c(modelNames, stackedModel)}
 
   # read preselected motifs
   modelMotifsName <- gsub(".txt", ".tsv", modelName)
@@ -1090,7 +1099,7 @@ loadModels <- function(modelPath){
 
   ml2 <- list()
   for(modelName in modelNames){
-    models <- readLines(modelPath)
+    models <- readLines(filePath)
     singleModelName <- paste0(file.path(modelDir, modelName), ".txt")
 
     # read single model
@@ -1106,16 +1115,19 @@ loadModels <- function(modelPath){
       lgbModel$params$stacking_weights <- unlist(
         tstrsplit(models[(endModelLine-2)], split=": ",
                   keep=2, type.convert=TRUE))
-      sub <- 4
+      addLine <- 1
     }
     else{
-      sub <- 3
+      addLine <- 0
     }
-    lgbModel$params$tf <- unlist(tstrsplit(models[(endModelLine-sub)],
+    lgbModel$params$tf <- unlist(tstrsplit(models[(endModelLine-(4+addLine))],
                                            split=": ", keep=2))
-    lgbModel$params$sparse_thr <- unlist(tstrsplit(models[(endModelLine-(sub-1))],
+    lgbModel$params$sparse_thr <- unlist(tstrsplit(models[(endModelLine-(3+addLine))],
                                                    split=": ", keep=2,
                                                    type.convert=TRUE))
+    lgbModel$params$package_version <- unlist(tstrsplit(models[(endModelLine-1)],
+                                                        split=": ", keep=2,
+                                                        type.convert=TRUE))
 
     # delete other models
     otherModels <- models[-(1:(endModelLine+2))]
