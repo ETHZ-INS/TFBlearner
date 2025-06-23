@@ -284,7 +284,7 @@ panContextFeatures <- function(mae,
       metadata(mae)[[MDSDIMSTATSENTRY]] <- mdsRes
 
       # add to colData of ATAC
-      co <- match(mdsDim$rn, colData(mae[[ATACEXP]])[[annoCol]])
+      co <- order(match(mdsDim$rn, colData(mae[[ATACEXP]])[[annoCol]]))
       colData(mae[[ATACEXP]]) <-  cbind(colData(mae[[ATACEXP]]), mdsDim[co,])
     }
     else{

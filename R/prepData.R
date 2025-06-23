@@ -388,7 +388,8 @@ addATACData <- function(mae, atacData,
           rownames(mdsRow) <- context
           mdsDimsNew <- rbind(mdsDimsNew, mdsRow)
         }
-        co <- match(rownames(mdsDimsNew), colData(mae[[ATACEXP]])[[annoCol]])
+        co <- order(match(rownames(mdsDimsNew),
+                          colData(mae[[ATACEXP]])[[annoCol]]))
         colData(mae[[ATACEXP]])[,mdsDimFeats] <- mdsDimsNew[co,]
       }
 
