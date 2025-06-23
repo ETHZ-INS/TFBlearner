@@ -56,7 +56,7 @@
     # in case bg atac & subInd have been computed beforehand
     idx <- which(!is.na(exp))
     exp <- exp[idx]
-    atac <- atac[idx,]
+    atac <- atac[idx,,drop=FALSE]
   }
 
   se <- motifSe
