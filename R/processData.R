@@ -87,6 +87,51 @@
   return(seqDat)
 }
 
+.commonDir <- function(data){
+  dataNames <- names(data)
+  paths <- lapply(data, function(d) {
+    if(is.character(d))
+    {
+      return(d)
+    }
+    else return(NA)})
+  paths <- unlist(paths)
+  isPath <- !is.na(paths)
+
+  pathDt <- data.table(full_path=paths[isPath])
+  pathDt <- pathDt[,tstrsplit(full_path, split="/")]
+  partialDirs <- c()
+  for(col in setdiff(colnames(pathDt), "full_path")){
+    pathDt[,n_files:=.N,by=col]
+    if(length(unique(pathDt$n_files))==1 &
+       data.table::first(pathDt$n_files)==nrow(pathDt)){
+      partialDirs <- c(partialDirs, unique(pathDt[[col]]))}
+    else{
+      break
+    }
+  }
+  baseDir <- paste(unlist(partialDirs), collapse="/")
+  filePaths <- unlist(lapply(paths, gsub, pattern=paste0(baseDir, "/"),
+                             replacement=""))
+
+  # add NA-data back (in case input is a mixture of paths and tables)
+  allPaths <- rep(NA, length(data))
+  allPaths[isPath] <- filePaths
+  names(allPaths) <- dataNames
+  return(list(baseDir=baseDir, filePaths=allPaths))
+}
+
+.unlistMixed <- function(mixedList){
+  lapply(mixedList, function(l){
+    if(is.data.table(l)){
+      return(l)
+    }
+    else{
+      return(unlist(l, recursive=TRUE))
+    }
+  })
+}
+
 .mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
                         saveHdf5=FALSE,
                         outDir=NULL,
@@ -174,6 +219,7 @@
 
   # reshape list
   colNames <- unique(names(data))
+  allNames <- names(data)
   data <- lapply(colNames, function(name) data[names(data)==name])
   names(data) <- colNames
 
@@ -231,13 +277,18 @@
   colnames(motifColData) <- c(MOTIFNAMECOL, MAXSCORECOL)
 
   # add paths of motifs files
-  motifColData[,origin:=unlist(data[get(MOTIFNAMECOL)])]
+  motifColData[,origin:=.unlistMixed(data[get(MOTIFNAMECOL)])]
+
+  dirs <- .commonDir(motifColData$origin)
+  motifColData[,origin:=dirs$filePaths]
+  baseDir <- dirs$baseDir
 
   assayList <- list(motifScores)
   names(assayList) <- MATCHASSAY
   motifSe <- SummarizedExperiment(assays=assayList,
                                   rowRanges=refCoords,
                                   colData=motifColData)
+  metadata(colData(motifSe))[[BASEDIRCOL]] <- baseDir
 
   return(motifSe)
 
@@ -319,6 +370,7 @@
 
   # reshape list
   colNames <- unique(names(data))
+  allNames <- names(data)
   data <- lapply(colNames, function(name) data[names(data)==name])
   names(data) <- colNames
 
@@ -421,23 +473,22 @@
 
   atacColData <- data.table(colNames)
   colnames(atacColData) <- annoCol
-  dataOrigin <- lapply(data, function(d) {
-    if(is.character(d))
-    {
-      return(d)
-    }
-    else return(NULL)})
-  names(dataOrigin) <- colNames
+
+  # get shared paths and file specific paths
+  data <- .unlistMixed(data)
+  names(data) <- allNames
+  dirs <- .commonDir(data)
+  dataOrigin <- dirs$filePaths
+  baseDir <- dirs$baseDir
 
   atacColData[,origin:=lapply(get(annoCol), function(x){
-    ds <- unlist(data[names(data)==x])
-    names(ds) <- unlist(tstrsplit(names(ds), split=".", keep=2, fixed=TRUE))
-    ds <- lapply(ds, function(d) fifelse(is.character(d), d, NA))
+    ds <- dataOrigin[names(dataOrigin)==x]
     return(ds)})]
 
   atacSe <- SummarizedExperiment(assays=atacAssays,
                                  rowRanges=refCoords,
                                  colData=atacColData)
+  metadata(colData(atacSe))[[BASEDIRCOL]] <- baseDir
 
   return(atacSe)
 }
@@ -458,6 +509,7 @@
 
   # reshape list
   colNames <- unique(names(data))
+  allNames <- names(data)
   data <- lapply(colNames, function(name) data[names(data)==name])
   names(data) <- colNames
 
@@ -540,10 +592,16 @@
   colnames(chIPPeaks) <- colNames
   chIPColData <- data.table(combination=colNames)
   chIPColData[,c(annoCol, TFNAMECOL):=tstrsplit(combination, split="_")]
+
+  # get shared paths and file specific paths
+  data <- .unlistMixed(data)
+  names(data) <- allNames
+  dirs <- .commonDir(data)
+  dataOrigin <- dirs$filePaths
+  baseDir <- dirs$baseDir
+
   chIPColData[,origin:=lapply(combination, function(x){
-    ds <- unlist(data[names(data)==x])
-    names(ds) <- unlist(tstrsplit(names(ds), split=".", keep=2, fixed=TRUE))
-    ds <- lapply(ds, function(d) fifelse(is.character(d), d, NA))
+    ds <- dataOrigin[names(dataOrigin)==x]
     return(ds)})]
 
   assayList <- list(chIPPeaks)
@@ -551,6 +609,7 @@
   chIPSe <- SummarizedExperiment(assays=assayList,
                                  rowRanges=refCoords,
                                  colData=chIPColData)
+  metadata(colData(chIPSe))[[BASEDIRCOL]] <- baseDir
 
   return(chIPSe)
 }

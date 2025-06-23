@@ -432,7 +432,10 @@ tfFeatures <- function(mae,
     tfs <- intersect(colData(mae[[MOTIFEXP]])[[MOTIFNAMECOL]],tfs)
 
     coCounts <- lapply(tfs, function(tf){
-      mmPath <- subset(colData(mae[[MOTIFEXP]]), get(MOTIFNAMECOL)==tf)$origin
+      mmPath <- subset(colData(mae[[MOTIFEXP]]),
+                       get(MOTIFNAMECOL)==tf)$origin
+      baseDir <- metadata(colData(mae[[MOTIFEXP]]))[[BASEDIRCOL]]
+      mmPath <- file.path(baseDir, mmPath)
       mm <- as.data.table(readRDS(mmPath))
       mm$motif <- tf
 

@@ -60,6 +60,7 @@ MAXSCORECOL <- "maxScore"
 SCORECOL <- "score"
 COOCCURRENCECOL <- "cooccurrences"
 MDSSUBROWCOL <- "mdsSubRows"
+BASEDIRCOL <- "baseDir"
 
 # return names -----------------------------------------------------------------
 

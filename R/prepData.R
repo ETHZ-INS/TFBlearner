@@ -309,8 +309,23 @@ addATACData <- function(mae, atacData,
   seAtac <- .mapSeqData(atacData, coords, type="ATAC", annoCol=annoCol,
                         shift=shift, BPPARAM=BPPARAM)
 
+  partialPaths <- colData(mae[[ATACEXP]])$origin
+  extPaths <- file.path(metadata(colData(mae[[ATACEXP]]))[[BASEDIRCOL]],
+                        unlist(colData(mae[[ATACEXP]])$origin, recursive=TRUE))
+  names(extPaths) <- unlist(lapply(partialPaths, names))
+
   mae <- .addFeatures(mae, seAtac, names(atacData), prefix=ATACEXP,
                       annoCol=annoCol)
+
+  # adapt ATAC-paths
+  dirs <- .commonDir(c(atacData, extPaths))
+  metadata(colData(mae[[ATACEXP]]))[[BASEDIRCOL]] <- dirs$baseDir
+  partialPaths <- split(dirs$filePaths, names(dirs$filePaths))
+
+  ord <- order(match(names(partialPaths), colData(mae[[ATACEXP]])[[annoCol]]))
+  names(partialPaths) <- NULL
+  colData(mae[[ATACEXP]])$origin <- partialPaths[ord]
+
   matchedContexts <- intersect(colData(mae[[ATACEXP]])[[annoCol]],
                                colData(mae[[CHIPEXP]])[[annoCol]])
 
