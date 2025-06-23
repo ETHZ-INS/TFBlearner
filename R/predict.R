@@ -46,8 +46,8 @@ predictTfBinding <- function(models,
   if(STACKINGSTRATENTRY %in% names(models)){
     stackingStrat <- models[[STACKINGSTRATENTRY]]
     stackedModelName <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")}
-  modelNamesBag <- MODELNAMES
 
+  modelNamesBag <- MODELNAMES
   modelsBag <- models[modelNamesBag]
   nWorker <- BPPARAM$workers
   preds <- bpmapply(function(model, name, data,
@@ -120,6 +120,7 @@ predictTfBinding <- function(models,
                                              annoCol=annoCol)
     predsStackedCol <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
     preds <- cbind(preds, predsStacked[,predsStackedCol, drop=FALSE])
+    cnPreds <- colnames(preds)
   }
 
   if(simplified){
