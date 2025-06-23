@@ -446,7 +446,7 @@ tfFeatures <- function(mae,
         aggregationFun <- NULL
       }
       mmc <- genomicRangesMapping(coords, mm, byCols="motif",
-                                  SCORECOL=COOCCURRENCECOL,
+                                  scoreCol=COOCCURRENCECOL,
                                   aggregationFun=aggregationFun)
     })
 

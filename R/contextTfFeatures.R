@@ -152,7 +152,7 @@ contextTfFeatures <- function(mae,
     insFeats <- lapply(scoreCols, function(scoreCol){
       feats <- genomicRangesMapping(coords,
                                     insRes[[RETSCORESNAME]],
-                                    SCORECOL=scoreCol,
+                                    scoreCol=scoreCol,
                                     byCols="type",
                                     aggregationFun=aggregationFun,
                                     BPPARAM=BPPARAM)

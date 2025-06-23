@@ -136,7 +136,7 @@
                         saveHdf5=FALSE,
                         outDir=NULL,
                         annoCol="context",
-                        SCORECOL="score",
+                        scoreCol="score",
                         weightCol=NULL,
                         isUncertainCol=NULL,
                         aggregationFun=max,
@@ -196,7 +196,7 @@
                              BPPARAM=BPPARAM)
   }
   else if(type=="Motif"){
-    mappedSe <- .mapMotifData(data, refCoords, SCORECOL=SCORECOL,
+    mappedSe <- .mapMotifData(data, refCoords, scoreCol=scoreCol,
                               aggregationFun=aggregationFun,
                               saveHdf5=saveHdf5,
                               fileName=fileName,
@@ -209,7 +209,7 @@
 
 .mapMotifData <- function(data,
                           refCoords,
-                          SCORECOL="score",
+                          scoreCol="score",
                           aggregationFun=max,
                           saveHdf5=FALSE,
                           fileName=NULL,
@@ -224,7 +224,7 @@
   names(data) <- colNames
 
   motifScores <- BiocParallel::bplapply(data,
-                                        function(d, refCoords, SCORECOL,
+                                        function(d, refCoords, scoreCol,
                                                  aggregationFun, threads,
                                                  saveHdf5, outDir){
     data.table::setDTthreads(threads)
@@ -236,7 +236,7 @@
 
     motifScore <- genomicRangesMapping(refCoords,
                                        motifScore,
-                                       SCORECOL=SCORECOL,
+                                       scoreCol=scoreCol,
                                        byCols="motif_name",
                                        aggregationFun=aggregationFun,
                                        BPPARAM=SerialParam())
@@ -253,7 +253,7 @@
     }
 
     return(list(motifScore, maxScore))
-  }, refCoords=refCoords, SCORECOL=SCORECOL,
+  }, refCoords=refCoords, scoreCol=scoreCol,
      aggregationFun=aggregationFun, thread=threads,
      saveHdf5=saveHdf5, outDir=outDir,
      BPPARAM=BPPARAM)
@@ -420,7 +420,7 @@
 
     atacTypeIns <- genomicRangesMapping(refCoords,
                                         atacIns,
-                                        SCORECOL=INSERTFEATNAME,
+                                        scoreCol=INSERTFEATNAME,
                                         byCols="frag_type",
                                         aggregationFun=sum,
                                         BPPARAM=SerialParam())
@@ -545,7 +545,7 @@
     # map chIPPeaks
     chIPPeaks <- genomicRangesMapping(refCoords, chIPPeaks,
                                        aggregationFun=aggregationFun,
-                                       SCORECOL=weightCol,
+                                       scoreCol=weightCol,
                                        byCols=byCols,
                                        BPPARAM=SerialParam())
     # mark uncertains

@@ -12,7 +12,7 @@ prepData(
   testSet = NULL,
   promoterCoords = NULL,
   aggregationFun = max,
-  SCORECOL = "score",
+  scoreCol = "score",
   weightCol = NULL,
   isUncertainCol = NULL,
   annoCol = "context",
@@ -47,8 +47,6 @@ and/or an uncertainty label (\code{isUncertainCol}).}
 
 \item{aggregationFun}{Function to aggregate}
 
-\item{SCORECOL}{Optional, column name of motif-matching data containing matching scores.}
-
 \item{weightCol}{Optional, column name of ChIP-seq data containing observational weights for peaks.}
 
 \item{isUncertainCol}{Optional, column name of ChIP-seq data labelling uncertain peaks (TRUE/FALSE).}
@@ -62,6 +60,8 @@ and/or an uncertainty label (\code{isUncertainCol}).}
 \item{outDir}{Directory to save HDF5 file to.}
 
 \item{BPPARAM}{Parallel back-end to be used. Passed to \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}}.}
+
+\item{SCORECOL}{Optional, column name of motif-matching data containing matching scores.}
 }
 \value{
 \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} with Motif, ATAC- & ChIP-seq experiments.

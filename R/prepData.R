@@ -482,7 +482,7 @@ prepData <- function(refCoords,
                      testSet=NULL,
                      promoterCoords=NULL,
                      aggregationFun=max,
-                     SCORECOL="score",
+                     scoreCol="score",
                      weightCol=NULL,
                      isUncertainCol=NULL,
                      annoCol="context",
@@ -531,7 +531,7 @@ prepData <- function(refCoords,
   motifSe <- .mapSeqData(motifData, refCoords, type="Motif",
                          aggregationFun=aggregationFun,
                          saveHdf5=saveHdf5, outDir=outDir,
-                         SCORECOL=SCORECOL, BPPARAM=BPPARAM)
+                         scoreCol=scoreCol, BPPARAM=BPPARAM)
 
   motifMap <- data.frame(primary=rep(allContexts, ncol(motifSe)),
                          colname=rep(colnames(motifSe),

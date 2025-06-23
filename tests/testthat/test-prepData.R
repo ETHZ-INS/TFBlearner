@@ -204,7 +204,7 @@ test_that("Features simple check ATAC-frag paths - addATACData",{
 
   expBaseDir <- .commonDir(c(atacData, fullPaths))
   obsBaseDir <- metadata(colData(maeAdd[[ATACEXP]]))[[BASEDIRCOL]]
-  expect_equal(obsBaseDir, expBaseDir)
+  expect_equal(obsBaseDir, expBaseDir$baseDir)
 
   expFileNames <- unlist(lapply(colData(maeAdd[[ATACEXP]])$origin, names))
   expect_equal(colData(maeAdd[[ATACEXP]])[["context"]], expFileNames)
@@ -265,7 +265,7 @@ test_that("Features from scratch check ATAC-frag paths - addATACData",{
 
   expBaseDir <- .commonDir(c(atacData, fullPaths))
   obsBaseDir <- metadata(colData(maeAdd[[ATACEXP]]))[[BASEDIRCOL]]
-  expect_equal(obsBaseDir, expBaseDir)
+  expect_equal(obsBaseDir, expBaseDir$baseDir)
 
   expFileNames <- unlist(lapply(colData(maeAdd[[ATACEXP]])$origin, names))
   expect_equal(colData(maeAdd[[ATACEXP]])[["context"]], expFileNames)

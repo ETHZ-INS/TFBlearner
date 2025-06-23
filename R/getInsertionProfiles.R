@@ -302,7 +302,7 @@ getInsertionProfiles <- function(atacData,
                                                            chr, start, end)]
       am <- genomicRangesMapping(motifRanges, assayTable=ms,
                                  byCols="sample",
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=max,
                                  type="equal", #otw this does not work in case motif matches of different TFs are overlapping
                                  BPPARAM=BPPARAM)})

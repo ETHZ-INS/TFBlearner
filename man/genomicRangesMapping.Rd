@@ -9,7 +9,7 @@ genomicRangesMapping(
   refRanges,
   assayTable,
   byCols = c("tf_name", "cellular_context"),
-  SCORECOL = NULL,
+  scoreCol = NULL,
   aggregationFun = NULL,
   minoverlap = 1,
   type = c("any", "start", "end", "within", "equal"),
@@ -30,7 +30,7 @@ Will be the columns of the resulting \link[Matrix:Matrix-class]{Matrix::Matrix}.
 the first one will constitute the list elements, the second the columns of the matrices being the list elements.
 If they are factors (preferred) aggregation will happen across all levels, otherwise across all unique entries.}
 
-\item{SCORECOL}{name of the score column (e.g. motif matching scores, atac fragment counts) to be aggregated.
+\item{scoreCol}{name of the score column (e.g. motif matching scores, atac fragment counts) to be aggregated.
 If it is NULL, the number of assay ranges overlapping the reference ranges will be counted.}
 
 \item{aggregationFun}{function (e.g. mean, median, sum) used to aggregate.
