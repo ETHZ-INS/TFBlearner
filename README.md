@@ -30,7 +30,6 @@ library(phastCons100way.UCSC.hg38)
 # load example data
 # genomic coordinates of sites
 data("example_coords")
-data("example_pwms")
 
 # atac-seq data
 exampleATAC <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
@@ -45,6 +44,7 @@ exampleChIP <- list(K562_CTCF=system.file("extdata", "example_chIP_K562_ctcf.tsv
 In a first step motif-matches can be obtained and prepared in the required format by calling `prepMotifs()`.
 
 ``` r
+data("example_pwms")
 exampleMotif <- prepMotifs(example_coords, example_pwms,
                            genome=BSgenome.Hsapiens.UCSC.hg38,
                            outputFolder=".")

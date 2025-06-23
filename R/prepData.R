@@ -459,7 +459,7 @@ addATACData <- function(mae, atacData,
 #' @param testSet Vector of cellular context labels used for testing.
 #' @param promoterCoords Optionally coordinates of promoters of transcription factor genes. Needs to contain a column in the metadata named `r TFNAMECOL`.
 #' @param aggregationFun Function to aggregate
-#' @param SCORECOL Optional, column name of motif-matching data containing matching scores.
+#' @param scoreCol Optional, column name of motif-matching data containing matching scores.
 #' @param weightCol Optional, column name of ChIP-seq data containing observational weights for peaks.
 #' @param isUncertainCol Optional, column name of ChIP-seq data labelling uncertain peaks (TRUE/FALSE).
 #' @param annoCol Name of column indicating cellular contexts in colData.

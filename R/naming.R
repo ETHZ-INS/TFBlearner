@@ -32,6 +32,7 @@ NORMEDAFFIX <- "normed"
 GCNORMEDAFFIX <- "normedGC"
 NORMEDMAXAFFIX <- "normedMaxATAC"
 PREDPREFIX <- "pred"
+BINAFFIX <- "binarized"
 
 # base-assay-names -------------------------------------------------------------
 MATCHASSAY <- "matchScores"
@@ -135,7 +136,7 @@ MOTIFFEATCOLNAME <- paste(TFFEAT, MOTIFFEATNAME, TFMOTIFPREFIX, 1, sep="_")
 MAXATACCOLNAME <- paste(PANCONTEXTFEAT, MAXATACFEATNAME, sep="_")
 GCCONTENTCOLNAME <- paste(SITEFEAT, GCCONTFEATNAME)
 CSCORECOLNAME <- paste(TFFEAT, CSCOREFEATNAME, sep="_")
-BINLABELNAME <- "labelBin"
+BINLABELNAME <- paste(BINAFFIX, "label", sep="_")
 
 # model component names --------------------------------------------------------
 
