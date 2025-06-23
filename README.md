@@ -29,11 +29,8 @@ library(phastCons100way.UCSC.hg38)
 
 # load example data
 # genomic coordinates of sites
-load(file.path(system.file("data", package="TFBlearner"), "example_coords.rda"))
-
-# motif matches
-exampleMotif <- list(CTCF=system.file("extdata", "ctcf_motif.tsv", package = "TFBlearner"),
-                     JUN=system.file("extdata", "jun_motif.tsv", package = "TFBlearner"))
+data("example_coords")
+data("example_pwms")
 
 # atac-seq data
 exampleATAC <- list(A549=system.file("extdata", "example_atac_A549.bed", package = "TFBlearner"),
@@ -45,7 +42,15 @@ exampleChIP <- list(K562_CTCF=system.file("extdata", "example_chIP_K562_ctcf.tsv
                     K562_JUN=system.file("extdata", "example_chIP_K562_jun.tsv", package = "TFBlearner"))
 ```
 
-The arguments can be passed as named lists, with names corresponding to the cellular contexts of the data, to `prepData()` which outputs a custom[MultiAssayExperiment](https://www.bioconductor.org/packages/release/bioc/html/MultiAssayExperiment.html) object with the different modalities in the `experiments()`.
+In a first step motif-matches can be obtained and prepared in the required format by calling `prepMotifs()`.
+
+``` r
+exampleMotif <- prepMotifs(example_coords, example_pwms,
+                           genome=BSgenome.Hsapiens.UCSC.hg38,
+                           outputFolder=".")
+```
+
+The arguments can be passed as named lists, with names corresponding to the cellular contexts of the data to `prepData()` which outputs a custom [MultiAssayExperiment](https://www.bioconductor.org/packages/release/bioc/html/MultiAssayExperiment.html) object with the different modalities in the `experiments()`.
 Cellular contexts used for testing / validation can already be defined at this point with the argument `testSet` and the ChIP-seq peaks of these will be excluded from all downstream feature construction steps.
 
 ``` r
@@ -58,7 +63,12 @@ mae <- prepData(example_coords,
 
 ## Feature construction
 
-The features compiled can be split in three categories; site-specific features, TF-specific features and cellular context and TF-specific features. 
+The features compiled can be split in fives categories:            
+1. site-specific       
+2. context-specific          
+3. pan-context        
+4. TF-specific   
+5. cellular context and TF-specific       
 
 An overview of the features can be obtained with: 
 
@@ -66,56 +76,46 @@ An overview of the features can be obtained with:
 listFeatures()
 ```
 
-Features are added to the provided MultiAssayExperiment objects as features. 
+Features are added to the provided MultiAssayExperiment objects as experiments. 
 
 ``` r
 # site-specific features
 mae <- siteFeatures(mae, 
-                    phast = phastCons100way.UCSC.hg38,
-                    genome = BSgenome.Hsapiens.UCSC.hg38)
+                    phast=phastCons100way.UCSC.hg38,
+                    genome=BSgenome.Hsapiens.UCSC.hg38)
+                    
+# context-specific & pan-context features
+mae <- panContextFeatures(mae, features=c("Max_ATAC_Signal"))
 
-# TF-specific features (JUN used here as unrealistic toy-example of a cofactor of CTCF)
-mae <- tfFeatures(mae, 
-                  tfName="CTCF", 
-                  tfCofactors="JUN")
+# TF-specific features (JUN used here for examplary purposes as a cofactor of CTCF)
+mae <- tfFeatures(mae, tfName="CTCF", tfCofactors="JUN")
 
 # cellular context & TF-specific features
-mae <- contextTfFeatures(mae,
-                         tfName="CTCF",
-                         addLabels=TRUE,
-                         features=c("Inserts", "Weighted_Inserts",
-                                             "Cofactor_Inserts"))
+mae <- contextTfFeatures(mae, tfName="CTCF", addLabels=TRUE)
 ```
 
 ## Training TF-specific models
 
-Training is split up in two steps, first training of single gradient-boosted tree models using the [lightgbm library] on different  strata of the data (different stringency on whats included as a ChIP-seq peak), second training of a stacking model combining the predictions of the single models.
+Training is split up in two steps, first training of single gradient-boosted tree models using the [lightgbm library](https://lightgbm.readthedocs.io/en/stable/R/reference/) on different  strata of the data (different stringency on whats included as a ChIP-seq peak), second training of a stacking model combining the predictions of the single models.
+Both steps are performed when calling `trainTfModel()`.
 
 ``` r
 # get feature matrix for training
 fmTrain <- getFeatureMatrix(mae, tfName="CTCF", whichCol="OnlyTrain")
 
-# Train single-models
-modsBagged <- trainBagged(tfName="CTCF", featMat=fmTrain[1:80,], 
-                          evalRounds=5, BPPARAM=SerialParam())
-
-# predict on training data
-predTrainBagged <- predictTfBindingBagged(modsBagged, fmTrain)
-
-# Train stacked model
-modStacked <- trainStacked(featMat[80:100,], modsBagged, stackingStrat="wMean")
+# train models
+mods <- trainTfModel(fm=fmTrain, tfName="CTCF", evalRounds=5, stackingStrat="wMean")
 ```
 
 ## Predicting binding
 
+In a last step binding predictions can be obtained with `predictTfBinding()`.
+
 ``` r
 # get feature matrix on which to predict
-fmVal <- getFeatureMatrix(mae, tfName="CTCF", whichCol="A549")
+fmVal <- getFeatureMatrix(mae, tfName="CTCF", whichCol="Col", colSel="A549")
 
-# predict with single models
-predsValBagged <- predictTfBindingBagged(modsBagged, fmVal)
-
-# predict with stacked model
-predsValStacked <- predictTfBindingStacked(motStacked, fmVal, 
-                                           predsBagged=predsValBagged)
+# predict bindings
+predsValBagged <- predictTfBinding(mods, fmVal)
 ```
+
