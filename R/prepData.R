@@ -285,6 +285,7 @@ NULL
 #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData assays
 #' @importFrom S4Vectors combineCols
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @export
 addATACData <- function(mae, atacData,
                         testSet=NULL,
                         computeFeatures=c("simple", "scratch", "none"),
