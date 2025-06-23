@@ -157,3 +157,8 @@ STACKINGSTRATENTRY <- "stacking_strategy"
 
 PACKAGEVERSION <- "package_version"
 SPARSETHR <- "sparse_thr"
+
+DICHOTTHRESH <- "dichotomization_thr"
+AUCPRENTRY <- "auc_pr_holdout_chromosomes"
+PRENTRY <- "precision_holdout_chromosomes"
+RECENTRY <- "recall_holdout_chromosomes"

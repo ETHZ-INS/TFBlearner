@@ -44,12 +44,8 @@ predictTfBinding <- function(models,
 
   if(STACKINGSTRATENTRY %in% names(models)){
     stackingStrat <- models[[STACKINGSTRATENTRY]]
-    stackedModelName <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
-    modelNamesBag <- setdiff(names(models), c(stackedModelName,
-                                              STACKINGSTRATENTRY))
-  }else{
-    modelNamesBag <- setdiff(names(models), STACKINGSTRATENTRY)
-  }
+    stackedModelName <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")}
+  modelNamesBag <- MODELNAMES
 
   modelsBag <- models[modelNamesBag]
   nWorker <- BPPARAM$workers

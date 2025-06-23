@@ -219,10 +219,10 @@
      predDt <- data.table(pred=pred,
                           labels=as.integer(labels),
                           models=grp)
-     aupr <- .getRocs(predDt, aggregate=TRUE,
-                      scores="pred",
-                      labels="labels", models="models",
-                      posClass=1, negClass=0)
+     aupr <- .getPRCurve(predDt, aggregate=TRUE,
+                         scores="pred",
+                         labels="labels", models="models",
+                         posClass=1, negClass=0)
      auc <- mean(aupr$auc_pr_mod)
      return(list(name="aucpr", value=auc, higher_better=TRUE))
    }
@@ -508,6 +508,8 @@
  #' `wMean` weighted mean all models based on performance on the feature matrix provided.
  #' `boostTree` Trains a lightgbm model on the predictions of the models in the bag, together with some additional features (e.g. gc_content, total_overlaps).
  #' @param subSample Number of rows of featMat which should be used for computing performance estimates. Only used if `stackingStrat="wMean"`.
+ #' @param valChrs Optional, holdout chromosomes to compute performance metrics (precision (P), recall (R), area under the precision-recall curve (AUC-PR))
+ #' and estimate the threshold for dichotomization of the probabilites.
  #' @param annoCol Name of column indicating cellular contexts.
  #' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
  #' @param numThreads Total number of threads to be used. In case [BiocParallel::MulticoreParam] or [BiocParallel::SnowParam] with several workers are
@@ -543,6 +545,7 @@
                           stackingStrat=c("last", "wLast",
                                           "wMean", "boostTree"),
                           subSample=1e5,
+                          valChrs=NULL,
                           annoCol="context",
                           seed=42,
                           numThreads=10,
@@ -563,8 +566,8 @@
   rangeDt <- as.data.table(rangesFm)
   rangeDt[,row_id:=1:nrow(rangeDt)]
   chrLevels <- unique(rangeDt$seqnames)
-  if(all(c("chr9", "chr19") %in% chrLevels)){
-    trainStackChr <- c("chr9", "chr19")
+  if(all(c("chr10", "chr11") %in% chrLevels)){
+    trainStackChr <- c("chr10", "chr11")
     stackInd <- subset(rangeDt, seqnames %in% trainStackChr)$row_id
     stackRanges <- rangesFm[stackInd]
   }
@@ -578,8 +581,23 @@
     nSub <- floor(length(rangesFm)*0.1)
     stackRanges <- rangesFm[sample(1:length(rangesFm), nSub)]
   }
+
+  if(!is.null(valChrs)){
+    valChrs <- intersect(valChrs, chrLevels)
+    valChrs <- setdiff(valChrs, trainStackChr)
+    if(length(valChrs)>0){
+      valInd <- subset(rangeDt, seqnames %in% valChrs)$row_id
+      valRanges <- rangesFm[valInd]
+      fmVal <- IRanges::subsetByOverlaps(fm, valRanges, type="equal")
+    }
+    nonTrainRanges <- c(valRanges, stackRanges)
+  }
+  else{
+    nonTrainRanges <- stackRanges
+  }
+
   fmStacked <- IRanges::subsetByOverlaps(fm, stackRanges, type="equal")
-  fm <- IRanges::subsetByOverlaps(fm, stackRanges, invert=TRUE, type="equal")
+  fm <- IRanges::subsetByOverlaps(fm, nonTrainRanges, invert=TRUE, type="equal")
 
   featMat <- assays(fm)$features
   measureName <- match.arg(measureName, choices=c("classif.aucpr",
@@ -746,9 +764,33 @@
       mod}, fits, fitStacked)
   }
   fitStacked <- list(fitStacked)
-  names(fitStacked) <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
+  modelStackedName <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
+  names(fitStacked) <- modelStackedName
   fits <- append(fits, fitStacked)
   fits[[STACKINGSTRATENTRY]] <- stackingStrat
+
+  if(!is.null(valChrs) & length(valChrs)>0){
+    message("Computing performance on holdout-chromosomes and determining dichotomization threshold")
+    predVal <- predictTfBinding(fits, fmVal,
+                                annoCol=annoCol,
+                                numThreads=numThreads,
+                                simplified=FALSE,
+                                BPPARAM=BPPARAM)
+    predsStackedCol <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
+    predVal <- as.matrix(predVal[,c(BINLABELNAME, predsStackedCol)])
+    predVal <- as.data.table(predVal)
+
+    prOut <- .getPRCurve(predVal, labels=BINLABELNAME,
+                         scores=paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_"),
+                         posClass=1, negClass=0,
+                         aggregate=TRUE)
+
+    # get performance save this too? Save AUCPR + Precision + Recall at dichotomization
+    fits[[DICHOTTHRESH]] <- prOut$thr
+    fits[[AUCPRENTRY]] <- prOut$auc_pr_mod
+    fits[[PRENTRY]] <- prOut$pr
+    fits[[RECENTRY]] <- prOut$recall
+  }
 
   return(fits)
 }
@@ -785,7 +827,6 @@
   if(retAll) return(res)
   res$thres[1]
 }
-
 
 #' Training transcription factor-specific tree-based gradient boosting Models
 #'
@@ -900,9 +941,9 @@
   predsDt <- melt(predsDt, id.vars=ids)
 
   # get weights based on auc-pr
-  auprDt <- .getRocs(predsDt, labels=BINLABELNAME, scores="value",
-                     models="variable", posClass=1, negClass=0, seed=seed,
-                     subSample=FALSE, aggregate=TRUE)
+  auprDt <- .getPRCurve(predsDt, labels=BINLABELNAME, scores="value",
+                        models="variable", posClass=1, negClass=0, seed=seed,
+                        subSample=FALSE, aggregate=TRUE)
   auprDt[,w:=auc_pr_mod/sum(auc_pr_mod)]
   modelWeights <-  as.list(auprDt$w)
   names(modelWeights) <- auprDt$variable
@@ -1018,18 +1059,12 @@ saveModels <- function(models, filePath){
       singleModelName <- paste0(file.path(outDir, modelName), ".txt")
       lgb.save(x, singleModelName)
       con <- file(singleModelName, "a")
-      writeLines(paste("extra paramter tf:", x$params[[TFNAMECOL]]), con)
       writeLines(paste("extra parameter sparse thres:",
                        as.character(x$params[[SPARSETHR]])), con)
       if(stackingStrat=="wMean"){
         writeLines(paste("extra parameter stacking weights:",
                          as.character(x$params$stacking_weights)), con)
       }
-      writeLines(paste("extra parameter stacking strategy:",
-                       stackingStrat), con)
-      writeLines(paste("extra parameter package version:",
-                       x$params[[PACKAGEVERSION]]), con)
-
       writeLines("end of model", con)
       writeLines("\n", con)
       close(con)
@@ -1037,18 +1072,37 @@ saveModels <- function(models, filePath){
     }
   }
 
+  tfName <- models[[MODELALLNAME]]$params[[TFNAMECOL]]
   selMotifs <- models[[MODELALLNAME]]$params[[PRESELMOTIFCOL]]
   selActMotifs <- models[[MODELALLNAME]]$params[[PRESELACTCOL]]
+  packageVers <- models[[MODELALLNAME]]$params[[PACKAGEVERSION]]
 
   allMl2 <- unlist(lapply(ml2, readLines))
   lapply(ml2, file.remove)
   writeLines(allMl2, filePath)
 
+  # write the extra parameters
   con <- file(filePath, open="a")
+  writeLines("General Parameters", con=con)
+  writeLines("TF-name:", con=con)
+  dput(tfName, file=con)
   writeLines("Associated Motifs:", con=con)
   dput(selMotifs, file=con)
   writeLines("Motifs with associated Activity:", con=con)
   dput(selActMotifs, file=con)
+  writeLines("Stacking Strategy:", con=con)
+  dput(stackingStrat, file=con)
+  writeLines("Dichotomization thres:", con=con)
+  dput(models[[DICHOTTHRESH]], file=con)
+  writeLines("AUC Precision-Recall-curve holdout chromosomes:", con=con)
+  dput(models[[AUCPRENTRY]], file=con)
+  writeLines("Precision holdout chromosomes:", con=con)
+  dput(models[[PRENTRY]], file=con)
+  writeLines("Recall holdout chromosomes:", con=con)
+  dput(models[[RECENTRY]], file=con)
+
+  writeLines("Package Version:", con=con)
+  dput(packageVers, file=con)
   close(con)
 }
 
@@ -1069,24 +1123,29 @@ loadModels <- function(filePath){
   endParameters <- "end of parameters"
   endModel <- "end of model"
   tempModelPath <- file.path(dirname(filePath), "tmp_model.txt")
-  endModelLine <- which(models==endModel)[1]
 
-  stackingStrat <- unlist(tstrsplit(models[endModelLine-2], split=": ", keep=2))
+  # read general parameters
+  con <- file(filePath, open="r")
+  modParams <- readLines(con=con)
+  nLines <- length(modParams)
+  tfName <-  eval(parse(text=modParams[nLines-16]))
+  selMotifs <- eval(parse(text=modParams[nLines-14]))
+  selActMotifs <- eval(parse(text=modParams[nLines-12]))
+  stackingStrat <- eval(parse(text=modParams[nLines-10]))
+  dichotThres <- eval(parse(text=modParams[nLines-8]))
+  aucPr <- eval(parse(text=modParams[nLines-6]))
+  pr <- eval(parse(text=modParams[nLines-4]))
+  rcl <- eval(parse(text=modParams[nLines-2]))
+  packageVers <- eval(parse(text=modParams[nLines]))
+  close(con)
 
+  # loop over models in bag
   MODELNAMES <- c(MODELTOPWEIGHTNAME,
                   MODELMEDWEIGHTNAME,
                   MODELALLWEIGHTNAME,
                   MODELALLNAME)
   stackedModel <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
   if(stackingStrat!="wMean"){MODELNAMES <- c(MODELNAMES, stackedModel)}
-
-  # read preselected motifs
-  con <- file(filePath, open="r")
-  modParams <- readLines(con=con)
-  nLines <- length(modParams)
-  selMotifs <- eval(parse(text=modParams[nLines-2]))
-  selActMotifs <- eval(parse(text=modParams[nLines]))
-  close(con)
 
   ml2 <- list()
   for(modelName in MODELNAMES){
@@ -1104,21 +1163,18 @@ loadModels <- function(filePath){
     endModelLine <- which(models==endModel)[1]
     if(stackingStrat=="wMean"){
       lgbModel$params$stacking_weights <- unlist(
-        tstrsplit(models[(endModelLine-2)], split=": ",
+        tstrsplit(models[(endModelLine-1)], split=": ",
                   keep=2, type.convert=TRUE))
       addLine <- 1
     }
     else{
       addLine <- 0
     }
-    lgbModel$params[[TFNAMECOL]] <- unlist(tstrsplit(models[(endModelLine-(4+addLine))],
-                                           split=": ", keep=2))
-    lgbModel$params[[SPARSETHR]] <- unlist(tstrsplit(models[(endModelLine-(3+addLine))],
+    lgbModel$params[[TFNAMECOL]] <- tfName
+    lgbModel$params[[SPARSETHR]] <- unlist(tstrsplit(models[(endModelLine-(1+addLine))],
                                                    split=": ", keep=2,
                                                    type.convert=TRUE))
-    lgbModel$params[[PACKAGEVERSION]] <- unlist(tstrsplit(models[(endModelLine-1)],
-                                                        split=": ", keep=2,
-                                                        type.convert=TRUE))
+    lgbModel$params[[PACKAGEVERSION]] <- packageVers
 
     # delete other models
     otherModels <- models[-(1:(endModelLine+2))]
@@ -1133,6 +1189,10 @@ loadModels <- function(filePath){
   file.remove(tempModelPath)
   names(ml2) <- MODELNAMES
   ml2[[STACKINGSTRATENTRY]] <- stackingStrat
+  ml2[[DICHOTTHRESH]] <- dichotThres
+  ml2[[AUCPRENTRY]] <- aucPr
+  ml2[[PRENTRY]] <- pr
+  ml2[[RECENTRY]] <- rcl
 
   return(ml2)
 }

@@ -15,6 +15,7 @@ trainTfModel(
   tuneHyperparams = TRUE,
   stackingStrat = c("last", "wLast", "wMean", "boostTree"),
   subSample = 1e+05,
+  valChrs = NULL,
   annoCol = "context",
   seed = 42,
   numThreads = 10,
@@ -49,6 +50,9 @@ observational weights for the ChIP-seq peaks. \code{wLast} using the last model 
 \code{boostTree} Trains a lightgbm model on the predictions of the models in the bag, together with some additional features (e.g. gc_content, total_overlaps).}
 
 \item{subSample}{Number of rows of featMat which should be used for computing performance estimates. Only used if \code{stackingStrat="wMean"}.}
+
+\item{valChrs}{Optional, holdout chromosomes to compute performance metrics (precision (P), recall (R), area under the precision-recall curve (AUC-PR))
+and estimate the threshold for dichotomization of the probabilites.}
 
 \item{annoCol}{Name of column indicating cellular contexts.}
 
