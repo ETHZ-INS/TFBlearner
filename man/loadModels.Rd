@@ -15,3 +15,6 @@ A list of \link[lightgbm:lightgbm]{lightgbm::lightgbm} models saved on disk .
 \description{
 Loads models saved by \link{saveModels} from disk.
 }
+\author{
+Emanuel Sonder
+}

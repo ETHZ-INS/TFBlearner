@@ -27,6 +27,7 @@
 #' If already an experiment of this feature group exists, columns are added to it.
 #' @import MultiAssayExperiment
 #' @importFrom BiocParallel bpmapply bplapply SerialParam MulticoreParam SnowParam register
+#' @author Emanuel Sonder
 #' @export
 contextTfFeatures <- function(mae,
                               tfName,

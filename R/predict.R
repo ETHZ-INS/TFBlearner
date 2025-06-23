@@ -17,6 +17,7 @@
 #' If `simplified=FALSE` a [Matrix::Matrix] is returned with columns corresponding to predictions the models.
 #' @import Matrix
 #' @importFrom BiocParallel bplapply SerialParam MulticoreParam SnowParam
+#' @author Emanuel Sonder
 #' @export
 predictTfBinding <- function(models,
                              fm,
@@ -154,6 +155,7 @@ predictTfBinding <- function(models,
 #' @return Matrix with predicted binding probabilities.
 #' @import data.table
 #' @import Matrix
+#' @author Emanuel Sonder
 .predictTfBindingStacked <- function(models, fm,
                                      predsBagged=NULL, annoCol=NULL, ...){
 

@@ -69,3 +69,6 @@ and/or an uncertainty label (\code{isUncertainCol}).}
 \description{
 Creates \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment-class } object for downstream feature construction.
 }
+\author{
+Emanuel Sonder
+}

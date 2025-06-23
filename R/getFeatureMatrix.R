@@ -119,6 +119,7 @@
 #' @importFrom MatrixGenerics colQuantiles rowQuantiles
 #' @importFrom IRanges ranges
 #' @importClassesFrom HDF5Array HDF5Array
+#' @author Emanuel Sonder
 #' @export
 getFeatureMatrix <- function(mae,
                              tfName,

@@ -72,3 +72,6 @@ Hyperparameter selection is performed for each model seperately using model-base
 The lightgbm classification learner used for the hyperparameter selection has been copied from the GitHub repository \url{https://github.com/mlr-org/mlr3extralearners}, whichs
 contains the package mlr3extralearners developed by Raphael Sonabend and Patrick Schratz and Sebastian Fischer.
 }
+\author{
+Emanuel Sonder
+}

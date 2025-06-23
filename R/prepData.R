@@ -285,6 +285,7 @@ NULL
 #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData assays
 #' @importFrom S4Vectors combineCols
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @author Emanuel Sonder
 #' @export
 addATACData <- function(mae, atacData,
                         testSet=NULL,
@@ -474,6 +475,7 @@ addATACData <- function(mae, atacData,
 #' @importClassesFrom SummarizedExperiment SummarizedExperiment RangedSummarizedExperiment
 #' @importClassesFrom HDF5Array HDF5Array
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @author Emanuel Sonder
 #' @export
 prepData <- function(refCoords,
                      motifData,

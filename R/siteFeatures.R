@@ -44,6 +44,7 @@
 #' @importFrom Biostrings getSeq dinucleotideFrequency letterFrequency
 #' @importFrom GenomicScores gscores
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @author Emanuel Sonder
 #' @export
 siteFeatures <- function(mae,
                          aggregationFun=max,

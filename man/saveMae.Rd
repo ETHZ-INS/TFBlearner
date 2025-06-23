@@ -21,3 +21,6 @@ NULL.
 \description{
 saveMae - Save a MultiAssayExperiment
 }
+\author{
+Pierre-Luc Germain
+}

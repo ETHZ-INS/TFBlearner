@@ -58,3 +58,6 @@ Compiles feature matrix based on pre-computed features stored in experiments of 
 Columns in the feature matrix returned are named the following:
 \verb{<featureType>_<featureName>} depending of the feature followed by (\verb{<motifSuffix>, <i>, <normedSuffix>}).
 }
+\author{
+Emanuel Sonder
+}

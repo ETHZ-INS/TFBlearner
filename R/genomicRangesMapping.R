@@ -35,6 +35,7 @@
 #' @importFrom GenomicAlignments readGAlignmentPairs start end strand
 #' @importFrom Rsamtools ScanBamParam
 #' @importFrom S4Vectors split
+#' @author Emanuel Sonder
 #' @export
 genomicRangesMapping <- function(refRanges,
                                  assayTable,

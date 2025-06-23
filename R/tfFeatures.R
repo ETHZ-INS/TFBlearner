@@ -214,6 +214,7 @@
   }
 }
 
+# Adapted from: https://github.com/ETHZ-INS/DTFAB/blob/main/Scripts/GCnorm.R
 .GCSmoothQuantile <- function(gc, counts, nBins=20, round=FALSE) {
   gcBins <- cut(gc, breaks=nBins)
   counts <- as.matrix(counts)
@@ -308,6 +309,7 @@
 #' @importFrom preprocessCore normalize.quantiles
 #' @importFrom MatrixGenerics colMaxs rowMaxs
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @author Emanuel Sonder
 #' @export
 tfFeatures <- function(mae,
                        tfName,

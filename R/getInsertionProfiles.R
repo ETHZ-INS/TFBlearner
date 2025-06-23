@@ -96,6 +96,7 @@
 #' @import data.table
 #' @importFrom GenomicRanges findOverlaps GPos resize GRanges
 #' @importClassesFrom GenomicRanges GRanges
+#' @author Emanuel Sonder
 #' @export
 getInsertionProfiles <- function(atacData,
                                  motifRanges,

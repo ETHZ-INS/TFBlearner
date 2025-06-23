@@ -532,6 +532,7 @@
  #' @importFrom BiocParallel bpmapply SerialParam MulticoreParam SnowParam register
  #' @importFrom lightgbm lgb.Dataset lightgbm
  #' @importFrom PRROC pr.curve
+ #' @author Emanuel Sonder
  #' @export
  trainTfModel <- function(tfName,
                           fm,
@@ -865,6 +866,7 @@
 #' @importFrom lightgbm lgb.Dataset lightgbm
 #' @importFrom PRROC pr.curve
 #' @importFrom MatrixGenerics colMaxs
+#' @author Emanuel Sonder
 .trainStacked <- function(fm, modsBagged,
                           stackingStrat=c("last", "wLast",
                                           "wMean", "boostTree"),
@@ -1035,6 +1037,7 @@
 #' @param filePath Path for saving the models.
 #' @import data.table
 #' @importFrom lightgbm lgb.save
+#' @author Emanuel Sonder
 #' @export
 saveModels <- function(models, filePath){
 
@@ -1114,6 +1117,7 @@ saveModels <- function(models, filePath){
 #' @param filePath Path of the models .txt-file.
 #' @return A list of [lightgbm::lightgbm] models saved on disk .
 #' @importFrom lightgbm lgb.load
+#' @author Emanuel Sonder
 #' @export
 loadModels <- function(filePath){
 

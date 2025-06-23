@@ -57,3 +57,6 @@ cell type and further labels such as tfs to reference coordinates. The resulting
 table will have dimension ref coords x byCols (or ref coord x byCols\verb{[1]} x byCols\verb{[2]}).
 ByCols can be for instance cell type labels and/or transcription factor names.
 }
+\author{
+Emanuel Sonder
+}

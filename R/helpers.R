@@ -59,6 +59,7 @@
   return(atacFrag)
 }
 
+#' @author Pierre-Luc Germain
 .getNonRedundantMotifs <- function(tfNames,
                                    format=c("PFMatrix","universal","PWMatrix"),
                                    species=c("Hsapiens","Mmusculus")){

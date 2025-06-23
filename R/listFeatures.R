@@ -18,6 +18,7 @@
 #' @name listFeatures
 #' @return [data.table::data.table] containing an overview of the features.
 #' @import data.table
+#' @author Emanuel Sonder
 #' @export
 listFeatures <- function(){
   motifPrefices <- c(PRIORMOTIFPREFIX, TFMOTIFPREFIX, TFCOFACTORMOTIFPREFIX,

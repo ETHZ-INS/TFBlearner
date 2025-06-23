@@ -41,3 +41,6 @@ If \code{simplified=FALSE} a \link[Matrix:Matrix]{Matrix::Matrix} is returned wi
 \description{
 Predicts bindings with each model in the bag (as obtained by \link{trainTfModel}) seperately.
 }
+\author{
+Emanuel Sonder
+}

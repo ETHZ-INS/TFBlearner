@@ -28,3 +28,6 @@ The column \code{parameters} contains the names of parameters for the respective
 The column \code{context_normed} indicates if the feature does not need to be normalized across cellular contexts when constructing the feature matrix.
 Note feature matrix column names and assay names of the MultiAssayExperiment object are the same.
 }
+\author{
+Emanuel Sonder
+}

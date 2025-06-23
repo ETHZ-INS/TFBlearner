@@ -54,3 +54,6 @@ If already an experiment with transcription factor-specific features exists in t
 \description{
 Adds an experiment with features specific for the specified transcription factor, such as co-occuring motifs and binding patterns, to the provided MultiAssayExperiment object.
 }
+\author{
+Emanuel Sonder
+}

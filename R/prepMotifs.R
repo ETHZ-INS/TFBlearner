@@ -26,7 +26,7 @@
 #' `isTop` column. Note that to identify the top match per region, a very low
 #' threshold is used in order for most regions to end up with a match.
 #'
-#' @author Pierre-Luc
+#' @author Pierre-Luc Germain
 #' @returns A named vector of paths to the files created, which can be used for
 #'   input to \code{\link{prepData}}.
 #' @importFrom motifmatchr matchMotifs

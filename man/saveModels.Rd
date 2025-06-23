@@ -14,3 +14,6 @@ saveModels(models, filePath)
 \description{
 Saves models obtained by \link{trainTfModel} on disk.
 }
+\author{
+Emanuel Sonder
+}
