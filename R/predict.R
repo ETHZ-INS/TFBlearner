@@ -29,7 +29,7 @@ predictTfBinding <- function(models,
                              BPPARAM=SerialParam()){
 
   fmTfName <- metadata(fm)[[TFNAMECOL]]
-  modTfName <- models[[1]]$params[[TFNAMECOL]]
+  modTfName <- models[[MODELALLNAME]]$params[[TFNAMECOL]]
   if(fmTfName!=modTfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and model trained for", modTfName))
   }
@@ -118,8 +118,7 @@ predictTfBinding <- function(models,
     predsStacked <- .predictTfBindingStacked(models, fm,
                                              predsBagged=preds,
                                              annoCol=annoCol)
-    predsStackedCol <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
-    preds <- cbind(preds, predsStacked[,predsStackedCol, drop=FALSE])
+    preds <- cbind(preds, predsStacked)
     cnPreds <- colnames(preds)
   }
 
@@ -160,8 +159,9 @@ predictTfBinding <- function(models,
 .predictTfBindingStacked <- function(models, fm,
                                      predsBagged=NULL, annoCol=NULL, ...){
 
-  tfName <- models[[1]]$params[[TFNAMECOL]]
+  tfName <- models[[MODELALLNAME]]$params[[TFNAMECOL]]
   stackingStrat <- models[[STACKINGSTRATENTRY]]
+  dichotThres <- models[[DICHOTTHRESH]]
 
   stackedModelName <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
   modelStacked <- models[[stackedModelName]]
@@ -174,8 +174,7 @@ predictTfBinding <- function(models,
   }
   else if(stackingStrat=="wMean"){
     if(is.null(predsBagged)) stop("Provide bagged predictions")
-    modelNamesBag <- setdiff(names(models), c(stackedModelName,
-                                              STACKINGSTRATENTRY))
+    modelNamesBag <- MODELNAMES
     preds <- lapply(modelNamesBag, function(modelName){
       modelWeight <- models[[modelName]]$params$stacking_weights
       predsBagged[,paste(PREDPREFIX, modelName, sep="_"),drop=FALSE]*modelWeight
@@ -209,7 +208,16 @@ predictTfBinding <- function(models,
     preds <- predictTfBinding(models, fmStack, simplified=FALSE, ...)
     preds <- preds[,paste(PREDPREFIX, stackingStrat, sep="_"), drop=FALSE]
   }
-  colnames(preds) <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
+  predsStackedCol <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
+  colnames(preds) <- predsStackedCol
+
+  if(!is.null(dichotThres)){
+    predsBin <- Matrix(fifelse(preds[,predsStackedCol,drop=TRUE]>=dichotThres,
+                               1L, 0L), ncol=1)
+    colnames(predsBin) <- paste(PREDPREFIX, MODELSTACKEDSUFFIX,
+                                BINAFFIX, sep="_")
+    preds <- cbind(preds, predsBin)
+  }
 
   return(preds)
 }
