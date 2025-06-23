@@ -214,6 +214,7 @@
   }
 }
 
+# Adapted from: https://github.com/ETHZ-INS/DTFAB/blob/main/Scripts/GCnorm.R
 .GCSmoothQuantile <- function(gc, counts, nBins=20, round=FALSE) {
   gcBins <- cut(gc, breaks=nBins)
   counts <- as.matrix(counts)
@@ -308,6 +309,7 @@
 #' @importFrom preprocessCore normalize.quantiles
 #' @importFrom MatrixGenerics colMaxs rowMaxs
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @author Emanuel Sonder
 #' @export
 tfFeatures <- function(mae,
                        tfName,
@@ -432,7 +434,10 @@ tfFeatures <- function(mae,
     tfs <- intersect(colData(mae[[MOTIFEXP]])[[MOTIFNAMECOL]],tfs)
 
     coCounts <- lapply(tfs, function(tf){
-      mmPath <- subset(colData(mae[[MOTIFEXP]]), get(MOTIFNAMECOL)==tf)$origin
+      mmPath <- subset(colData(mae[[MOTIFEXP]]),
+                       get(MOTIFNAMECOL)==tf)$origin
+      baseDir <- metadata(colData(mae[[MOTIFEXP]]))[[BASEDIRCOL]]
+      mmPath <- file.path(baseDir, mmPath)
       mm <- as.data.table(readRDS(mmPath))
       mm$motif <- tf
 
@@ -443,7 +448,7 @@ tfFeatures <- function(mae,
         aggregationFun <- NULL
       }
       mmc <- genomicRangesMapping(coords, mm, byCols="motif",
-                                  SCORECOL=COOCCURRENCECOL,
+                                  scoreCol=COOCCURRENCECOL,
                                   aggregationFun=aggregationFun)
     })
 

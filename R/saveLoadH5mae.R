@@ -7,6 +7,7 @@
 #'   the different experiments contained in `mae`.
 #'
 #' @returns The `mae` object with updated HDF5 file links.
+#' @author Pierre-Luc Germain
 #' @export
 rebaseMaeH5paths <- function(mae, newBase=vector("character")){
   stopifnot(is.character(newBase) & length(newBase)>0)
@@ -48,6 +49,7 @@ rebaseMaeH5paths <- function(mae, newBase=vector("character")){
 #'
 #' @returns A named list containing the path(s) to the HDF5 file(s) underlying
 #'   each experiment.
+#' @author Pierre-Luc Germain
 #' @export
 getMaeH5paths <- function(x){
   if(inherits(x, "MultiAssayExperiment"))
@@ -72,6 +74,7 @@ getMaeH5paths <- function(x){
 #'
 #' @returns A \code{\link[MultiAssayExperiment]{MultiAssayExperiment-class}}
 #'   object.
+#' @author Pierre-Luc Germain
 #' @export
 loadMae <- function(filepath, keepAbsPaths=NULL){
   mae <- readRDS(filepath)
@@ -102,6 +105,7 @@ loadMae <- function(filepath, keepAbsPaths=NULL){
 #'   in the directory of `filepath` and link the saved `mae` to those.
 #'
 #' @returns NULL.
+#' @author Pierre-Luc Germain
 #' @export
 saveMae <- function(mae, filepath, copyH5=FALSE){
   if(!copyH5) return(base::saveRDS(mae, filepath))

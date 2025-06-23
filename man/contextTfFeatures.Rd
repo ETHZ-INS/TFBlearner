@@ -59,3 +59,6 @@ If already an experiment of this feature group exists, columns are added to it.
 Adds an experiment with features specific for the specified transcription factor and the cellular-contexts it is covered for,
 such as Tn5 insertion around motif matches and footprint profiles.
 }
+\author{
+Emanuel Sonder
+}

@@ -50,7 +50,7 @@ test_that("Dimensionality checks: Number of list elements", {
 test_that("Aggregation checks: Simple case mean aggregation - one byCol",{
   mapRes <- genomicRangesMapping(refCoords, assayTableSimple1,
                                  byCols=c("group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=mean)
   expect_equal(mapRes@x, c(2.5,6.0))
   expect_equal(mapRes[1,1][[1]], 2.5)
@@ -61,7 +61,7 @@ test_that("Aggregation checks: Simple case mean aggregation - two byCols",{
   assayTableSimple <- rbind(assayTableSimple1, assayTableSimple2)
   mapRes <- genomicRangesMapping(refCoords, assayTableSimple,
                                  byCols=c("tf","group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=mean)
 
   expect_equal(mapRes$YY1[1,1][[1]], 2.5)
@@ -73,7 +73,7 @@ test_that("Aggregation checks: Simple case mean aggregation - two byCols",{
 test_that("Aggregation checks: Simple case sum aggregation - one byCol",{
   mapRes <- genomicRangesMapping(refCoords, assayTableSimple1,
                                  byCols=c("group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=sum)
 
   expect_equal(mapRes[1,1][[1]], 5.0)
@@ -84,7 +84,7 @@ test_that("Aggregation checks: Simple case sum aggregation - two byCols",{
   assayTableSimple <- rbind(assayTableSimple1, assayTableSimple2)
   mapRes <- genomicRangesMapping(refCoords, assayTableSimple,
                                  byCols=c("tf","group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=sum)
 
   expect_equal(mapRes$YY1[1,1][[1]], 5.0)
@@ -96,7 +96,7 @@ test_that("Aggregation checks: Simple case sum aggregation - two byCols",{
 test_that("Aggregation checks: Simple case no aggregation function provided - one byCol",{
   mapRes <- genomicRangesMapping(refCoords, assayTableSimple1,
                                  byCols=c("group"),
-                                 SCORECOL="score")
+                                 scoreCol="score")
 
   expect_equal(mapRes[1,1][[1]], 2.0)
   expect_equal(mapRes[10,2][[1]], 2.0)
@@ -106,7 +106,7 @@ test_that("Aggregation checks: Simple case no aggregation function provided - tw
   assayTableSimple <- rbind(assayTableSimple1, assayTableSimple2)
   mapRes <- genomicRangesMapping(refCoords, assayTableSimple,
                                  byCols=c("tf","group"),
-                                 SCORECOL="score")
+                                 scoreCol="score")
 
   expect_equal(mapRes$YY1[1,1][[1]], 2.0)
   expect_equal(mapRes$YY1[10,2][[1]], 2.0)
@@ -118,7 +118,7 @@ test_that("Aggregation checks: Simple case no aggregation function provided - tw
 test_that("Aggregation checks: Simple case no score column provided - one byCol",{
   mapRes <- genomicRangesMapping(refCoords, assayTableSimple1,
                                  byCols=c("group"),
-                                 SCORECOL="score")
+                                 scoreCol="score")
 
   expect_equal(mapRes[1,1][[1]], 2.0)
   expect_equal(mapRes[10,2][[1]], 2.0)
@@ -139,7 +139,7 @@ test_that("Aggregation checks: Reference implementation mean aggregation - one b
 
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  byCols=c("group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=mean)
 
   assayTableTestRanges <- makeGRangesFromDataFrame(as.data.frame(assayTableTest))
@@ -163,7 +163,7 @@ test_that("Aggregation checks: Reference implementation mean aggregation - two b
 
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  byCols=c("tf","group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=mean)
 
   tfs <- unique(assayTableTest$tf)
@@ -194,7 +194,7 @@ test_that("Aggregation checks: Reference implementation mean aggregation - two b
 test_that("Aggregation checks: Reference implementation sum aggregation - one byCol",{
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  byCols=c("group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=sum)
 
   assayTableTestRanges <- makeGRangesFromDataFrame(as.data.frame(assayTableTest))
@@ -218,7 +218,7 @@ test_that("Aggregation checks: Reference implementation sum aggregation - two by
 
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  byCols=c("tf","group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  aggregationFun=sum)
 
   tfs <- unique(assayTableTest$tf)
@@ -249,7 +249,7 @@ test_that("Aggregation checks: Reference implementation sum aggregation - two by
 test_that("Aggregation checks: Reference implementation no aggregation function provided - one byCol",{
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  byCols=c("group"),
-                                 SCORECOL="score")
+                                 scoreCol="score")
 
   assayTableTestRanges <- makeGRangesFromDataFrame(as.data.frame(assayTableTest))
   ov <- findOverlaps(refCoords, assayTableTestRanges)
@@ -272,7 +272,7 @@ test_that("Aggregation checks: Reference implementation no aggregation function 
 
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  byCols=c("tf","group"),
-                                 SCORECOL="score")
+                                 scoreCol="score")
 
   tfs <- unique(assayTableTest$tf)
   refResMats <- lapply(tfs, function(tf_i){
@@ -303,7 +303,7 @@ test_that("Aggregation checks: Reference implementation no aggregation function 
 test_that("Aggregation checks: Reference implementation no aggregation function provided & chunked - one byCol",{
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  byCols=c("group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  chunk=TRUE)
 
   assayTableTestRanges <- makeGRangesFromDataFrame(as.data.frame(assayTableTest))
@@ -327,7 +327,7 @@ test_that("Aggregation checks: Reference implementation no aggregation function 
 
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  byCols=c("tf","group"),
-                                 SCORECOL="score",
+                                 scoreCol="score",
                                  chunk=TRUE)
 
   tfs <- unique(assayTableTest$tf)
@@ -360,7 +360,7 @@ test_that("Aggregation checks: Change of overlap type to within",{
   mapRes <- genomicRangesMapping(refCoords, assayTableTest,
                                  type="within",
                                  byCols=c("group"),
-                                 SCORECOL="score")
+                                 scoreCol="score")
 
   assayTableTestRanges <- makeGRangesFromDataFrame(as.data.frame(assayTableTest))
   ov <- findOverlaps(refCoords, assayTableTestRanges, type="within")

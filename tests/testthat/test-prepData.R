@@ -46,10 +46,14 @@ test_that("Object construction: Train test assignment", {
                                     chIPData=exampleChIP,
                                     testSet="A549")})
 
-  expect_true(file.exists(subset(colData(mae[[MOTIFEXP]]),
-                          get(MOTIFNAMECOL)==names(exampleMotif)[[1]])$origin))
-  expect_true(file.exists(subset(colData(mae[[MOTIFEXP]]),
-                          get(MOTIFNAMECOL)==names(exampleMotif)[[2]])$origin))
+  baseDir <- metadata(colData(mae[[MOTIFEXP]]))[[BASEDIRCOL]]
+  mmPath <- subset(colData(mae[[MOTIFEXP]]),
+                   get(MOTIFNAMECOL)==names(exampleMotif)[[1]])$origin
+  expect_true(file.exists(file.path(baseDir, mmPath)))
+
+  mmPath <- subset(colData(mae[[MOTIFEXP]]),
+                   get(MOTIFNAMECOL)==names(exampleMotif)[[2]])$origin
+  expect_true(file.exists(file.path(baseDir, mmPath)))
 })
 
 test_that("Object construction: Train test assignment", {
@@ -61,6 +65,24 @@ test_that("Object construction: Train test assignment", {
 
   expect_equal(unique(subset(colData(mae), get(ISTESTCOL))$context), "A549")
   expect_equal(unique(subset(colData(mae), get(ISTRAINCOL))$context), "K562")
+})
+
+test_that("Object construction: ATAC-frag path assignment", {
+  mae <- suppressMessages({prepData(example_coords,
+                                    motifData=exampleMotif,
+                                    atacData=exampleATAC,
+                                    chIPData=exampleChIP,
+                                    testSet="A549")})
+  baseDirs <- lapply(exampleATAC, dirname)
+  baseDir <- unique(unlist(baseDirs))
+
+  obsBaseDir <- metadata(colData(mae[[ATACEXP]]))[[BASEDIRCOL]]
+  expect_equal(obsBaseDir, baseDir)
+
+  expFileNames <- unlist(lapply(colData(mae[[ATACEXP]])$origin, names))
+  expect_equal(colData(mae[[ATACEXP]])[["context"]], expFileNames)
+  expect_true(all(file.exists(file.path(obsBaseDir,
+                                        colData(mae[[ATACEXP]])$origin))))
 })
 
 test_that("Object construction: Motif scores in column data", {
@@ -165,6 +187,31 @@ test_that("Features simple check - addATACData", {
                   c("MCF7_CTCF", "JURKAT_CTCF"))
 })
 
+test_that("Features simple check ATAC-frag paths - addATACData",{
+
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- suppressSdWarning(addATACData,
+                              list(mae=maeTest, atacData=atacData,
+                                   shift=FALSE,
+                                   computeFeatures="simple"))
+
+  partialPaths <-  colData(maeTest[[ATACEXP]])$origin
+  fullPaths <- file.path(metadata(colData(maeTest[[ATACEXP]]))[[BASEDIRCOL]],
+                         partialPaths)
+  names(fullPaths) <- unlist(lapply(partialPaths, names))
+
+  expBaseDir <- .commonDir(c(atacData, fullPaths))
+  obsBaseDir <- metadata(colData(maeAdd[[ATACEXP]]))[[BASEDIRCOL]]
+  expect_equal(obsBaseDir, expBaseDir$baseDir)
+
+  expFileNames <- unlist(lapply(colData(maeAdd[[ATACEXP]])$origin, names))
+  expect_equal(colData(maeAdd[[ATACEXP]])[["context"]], expFileNames)
+  expect_true(all(file.exists(file.path(obsBaseDir,
+                                        colData(maeAdd[[ATACEXP]])$origin))))
+})
+
 test_that("Features simple check including MDS-projection - addATACData", {
   atacData <- exampleATAC
   names(atacData) <- c("MCF7", "JURKAT")
@@ -199,6 +246,31 @@ test_that("Features from scratch check - addATACData", {
                   %in% colnames(rowData(maeAdd[[ATACEXP]]))))
   expect_contains(colnames(maeAdd[[CONTEXTTFFEAT]]),
                   c("MCF7_CTCF", "JURKAT_CTCF"))
+})
+
+test_that("Features from scratch check ATAC-frag paths - addATACData",{
+
+  atacData <- exampleATAC
+  names(atacData) <- c("MCF7", "JURKAT")
+
+  maeAdd <- suppressSdWarning(addATACData,
+                              list(mae=maeTest, atacData=atacData,
+                                   shift=FALSE,
+                                   computeFeatures="scratch"))
+
+  partialPaths <-  colData(maeTest[[ATACEXP]])$origin
+  fullPaths <- file.path(metadata(colData(maeTest[[ATACEXP]]))[[BASEDIRCOL]],
+                         partialPaths)
+  names(fullPaths) <- unlist(lapply(partialPaths, names))
+
+  expBaseDir <- .commonDir(c(atacData, fullPaths))
+  obsBaseDir <- metadata(colData(maeAdd[[ATACEXP]]))[[BASEDIRCOL]]
+  expect_equal(obsBaseDir, expBaseDir$baseDir)
+
+  expFileNames <- unlist(lapply(colData(maeAdd[[ATACEXP]])$origin, names))
+  expect_equal(colData(maeAdd[[ATACEXP]])[["context"]], expFileNames)
+  expect_true(all(file.exists(file.path(obsBaseDir,
+                                        colData(maeAdd[[ATACEXP]])$origin))))
 })
 
 test_that("Features none check - addATACData", {

@@ -20,3 +20,6 @@ The \code{mae} object with updated HDF5 file links.
 \description{
 rebaseMaeH5paths - Change the paths of the HDF5 files in a MultiAssayExperiment object.
 }
+\author{
+Pierre-Luc Germain
+}

@@ -26,6 +26,10 @@ test_that("Arguments check: Basic training setup",{
   fm <- as(fm, "CsparseMatrix")
   coords <- refCoords[sample(1:length(refCoords),
                       floor(nrow(fm)/2), replace=TRUE)]
+  coords <- as.data.table(coords)
+  coords[,seqnames:=sample(paste0("chr", 1:20), .N, replace=TRUE)]
+  coords <- makeGRangesFromDataFrame(as.data.frame(coords),
+                                     keep.extra.columns=TRUE)
   coords <- c(coords, coords)
   coords@elementMetadata[[annoCol]] <- cellTypeCol[,1,drop=TRUE]
   fm <- SummarizedExperiment(assays=list(features=fm),
@@ -41,6 +45,7 @@ test_that("Arguments check: Basic training setup",{
   expect_no_error(mods <- trainTfModel(tfName, fm, evalRounds=2,
                                        stackingStrat=c("wMean"),
                                        subSample=100,
+                                       valChrs=c("chr9", "chr4"),
                                        BPPARAM=SerialParam()))
   expect_contains(names(mods), c(modsBaggedNames,
                                  paste(MODELSTACKEDSUFFIX, "wMean", sep="_"),
@@ -63,6 +68,13 @@ test_that("Arguments check: Basic training setup",{
                modLoad[[MODELMEDWEIGHTNAME]]$tf)
   expect_equal(mods[[MODELMEDWEIGHTNAME]]$stacking_weights,
                modLoad[[MODELMEDWEIGHTNAME]]$stacking_weights)
+
+  # test saved thresholds
+  expect_equal(mods[[DICHOTTHRESH]], modLoad[[DICHOTTHRESH]])
+  expect_equal(mods[[RECENTRY]], modLoad[[RECENTRY]])
+  expect_equal(mods[[PRENTRY]], modLoad[[PRENTRY]])
+  expect_equal(mods[[AUCPRENTRY]], modLoad[[AUCPRENTRY]])
+
   file.remove(modFilePath)
 })
 

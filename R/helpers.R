@@ -59,6 +59,7 @@
   return(atacFrag)
 }
 
+#' @author Pierre-Luc Germain
 .getNonRedundantMotifs <- function(tfNames,
                                    format=c("PFMatrix","universal","PWMatrix"),
                                    species=c("Hsapiens","Mmusculus")){
@@ -113,34 +114,53 @@
   return(gr)
 }
 
-.getRocs <- function(dt,
-                     scores="score",
-                     labels="cond",
-                     models="method",
-                     posClass="pos",
-                     negClass="neg",
-                     subSample=FALSE,
-                     aggregate=FALSE,
-                     seed=42){
-
+.getPRCurve <- function(dt,
+                        scores="score",
+                        labels="cond",
+                        models=NULL,
+                        posClass="pos",
+                        negClass="neg",
+                        subSample=FALSE,
+                        aggregate=FALSE,
+                        seed=42){
   set.seed(seed)
+
+  if(is.null(models)){
+    dt$model <- "all"
+    models <- "model"
+  }
 
   dt <- copy(dt)
   setnames(dt, scores, "scores")
+  setnames(dt, labels, "labels")
+
   setorder(dt, -scores)
   if(subSample)
   {
     dt <- dt[,.SD[sample(.N, min(1e5,.N))], by=c(models)]
   }
 
-  dt[,tpr:=cumsum(.SD==posClass)/sum(.SD==posClass), by=c(models), .SD=labels]
-  dt[,fpr:=cumsum(.SD==negClass)/sum(.SD==negClass), by=c(models), .SD=labels]
-  dt[,fdr:=cumsum(.SD==negClass)/seq_len(.N), by=c(models), .SD=labels]
-  dt[,ppv:=cumsum(.SD==posClass)/seq_len(.N), by=c(models), .SD=labels]
+  dt[,tpr:=cumsum(labels==posClass)/sum(labels==posClass), by=c(models)]
+  dt[,fpr:=cumsum(labels==negClass)/sum(labels==negClass), by=c(models)]
+  dt[,fdr:=cumsum(labels==negClass)/seq_len(.N), by=c(models)]
+  dt[,ppv:=cumsum(labels==posClass)/seq_len(.N), by=c(models)]
   dt[,p:=seq_len(.N), by=c(models)]
   dt[,idx:=1:.N, by=c(models)]
 
-  setnames(dt, c(labels), c("labels"))
+  # compute distance to top right
+  dt[,dist:=sqrt((1-ppv)^2+(1-tpr)^2)]
+
+  # find sparsification threshold
+  dt$is_opt <- FALSE
+  dt[which.min(dist), is_opt:= TRUE, by=c(models)]
+  dt[, thr:=data.table::first(scores[is_opt == TRUE]), by = c(models)]
+
+  # get precision and recall at optimum
+  dt[,tpr_thr:=sum(scores>=thr & labels==posClass)/sum(.SD==posClass),
+     by=c(models)]
+  dt[,ppv_thr:=sum(scores>=thr & labels==posClass)/sum(scores>=thr),
+     by=c(models)]
+
   dt[,sum_pos:=sum(labels==posClass), by=c(models)]
   dt[,sum_neg:=sum(labels==negClass), by=c(models)]
   dt <- subset(dt, sum_pos>0 & sum_neg>0)
@@ -154,7 +174,10 @@
     setnames(dt, c("labels"), c(labels))
 
     if(aggregate){
-      dt <- dt[,.(auc_pr_mod=data.table::first(auc_pr_mod)), by=c(models)]
+      dt <- dt[,.(auc_pr_mod=data.table::first(auc_pr_mod),
+                  pr=data.table::first(ppv_thr),
+                  thr=data.table::first(thr),
+                  recall=data.table::first(tpr_thr)), by=c(models)]
     }
 
     return(dt)

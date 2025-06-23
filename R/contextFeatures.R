@@ -17,6 +17,7 @@
 #'
 #' @importFrom chromVAR getBackgroundPeaks computeDeviations computeExpectations
 #' @returns A chromVARDeviations object
+#' @author Pierre-Luc Germain, Emanuel Sonder
 .CVwrapper <- function(atacSe, motifSe,
                        nSites=5e5L, chunkSize=20L, seed=1234,
                        trimTop=100L, trimBottom=2e5L, threshold1=1e5L, minMatches=2000L,
@@ -56,7 +57,7 @@
     # in case bg atac & subInd have been computed beforehand
     idx <- which(!is.na(exp))
     exp <- exp[idx]
-    atac <- atac[idx,]
+    atac <- atac[idx,,drop=FALSE]
   }
 
   se <- motifSe
@@ -99,6 +100,7 @@
 #' @param BPPARAM Parallel back-end to be used. Passed to [BiocParallel::bplapply()].
 #' @importFrom rhdf5 h5createFile h5createDataset h5write h5closeAll
 #' @returns [SummarizedExperiment::RangedSummarizedExperiment-class] object containg assocations between ATAC-seq signal and chromVAR-devations.
+#' @author Pierre-Luc Germain, Emanuel Sonder
 .CV2localAssociation <- function(cvSe, atacSe, sparTh=200L,
                                  saveHdf5=TRUE,
                                  outDir=getwd(),
@@ -226,6 +228,7 @@
 #' @importClassesFrom HDF5Array HDF5Array
 #' @importClassesFrom SummarizedExperiment SummarizedExperiment RangedSummarizedExperiment
 #' @importFrom stats cmdscale
+#' @author Emanuel Sonder
 #' @export
 panContextFeatures <- function(mae,
                                nVarSites=1e5,
@@ -284,7 +287,7 @@ panContextFeatures <- function(mae,
       metadata(mae)[[MDSDIMSTATSENTRY]] <- mdsRes
 
       # add to colData of ATAC
-      co <- match(mdsDim$rn, colData(mae[[ATACEXP]])[[annoCol]])
+      co <- order(match(mdsDim$rn, colData(mae[[ATACEXP]])[[annoCol]]))
       colData(mae[[ATACEXP]]) <-  cbind(colData(mae[[ATACEXP]]), mdsDim[co,])
     }
     else{

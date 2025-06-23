@@ -53,5 +53,5 @@ passing threshold are saved, and the top per region is flagged using an
 threshold is used in order for most regions to end up with a match.
 }
 \author{
-Pierre-Luc
+Pierre-Luc Germain
 }

@@ -15,7 +15,7 @@
 #' Will be the columns of the resulting [Matrix::Matrix-class]. If byCols is a vector with two elements,
 #' the first one will constitute the list elements, the second the columns of the matrices being the list elements.
 #' If they are factors (preferred) aggregation will happen across all levels, otherwise across all unique entries.
-#' @param SCORECOL name of the score column (e.g. motif matching scores, atac fragment counts) to be aggregated.
+#' @param scoreCol name of the score column (e.g. motif matching scores, atac fragment counts) to be aggregated.
 #' If it is NULL, the number of assay ranges overlapping the reference ranges will be counted.
 #' @param aggregationFun function (e.g. mean, median, sum) used to aggregate.
 #' If it is NULL, the number of assay ranges overlapping the reference ranges will be counted.
@@ -35,12 +35,13 @@
 #' @importFrom GenomicAlignments readGAlignmentPairs start end strand
 #' @importFrom Rsamtools ScanBamParam
 #' @importFrom S4Vectors split
+#' @author Emanuel Sonder
 #' @export
 genomicRangesMapping <- function(refRanges,
                                  assayTable,
                                  byCols=c("tf_name",
                                           "cellular_context"),
-                                 SCORECOL=NULL,
+                                 scoreCol=NULL,
                                  aggregationFun=NULL,
                                  minoverlap=1,
                                  type=c("any", "start", "end",
@@ -75,7 +76,7 @@ genomicRangesMapping <- function(refRanges,
     assayTable <- assayTable[names(refRangesList)]
     overlapTable <- mapply(genomicRangesMapping,
                            refRangesList, assayTable,
-                           MoreArgs=list(byCols=byCols, SCORECOL=SCORECOL,
+                           MoreArgs=list(byCols=byCols, scoreCol=scoreCol,
                                          aggregationFun=aggregationFun,
                                          chunk=FALSE, shift=shift,
                                          type=type,
@@ -187,7 +188,7 @@ genomicRangesMapping <- function(refRanges,
   # retrieve tf and cell type ids
   overlapTable <- cbind(overlapTable$queryHits,
                         assayTable[overlapTable$subjectHits,
-                                   c(byCols, SCORECOL),
+                                   c(byCols, scoreCol),
                                    with=FALSE])
   rm(assayTable)
 
@@ -196,11 +197,11 @@ genomicRangesMapping <- function(refRanges,
   if(multiTf)
   {
     setkey(overlapTable, V1, col_width)
-    if(!is.null(SCORECOL)) setnames(overlapTable, SCORECOL, "SCORECOL")
+    if(!is.null(scoreCol)) setnames(overlapTable, scoreCol, "scoreCol")
     overlapTable <- split(overlapTable, by=c("col_depth"))
 
     overlapTable <- BiocParallel::bplapply(overlapTable, function(table,
-                                                                  SCORECOL,
+                                                                  scoreCol,
                                                                   aggregationFun,
                                                                   nRefs,
                                                                   colsWidth,
@@ -208,11 +209,11 @@ genomicRangesMapping <- function(refRanges,
 
       data.table::setDTthreads(threads)
 
-      if(is.null(SCORECOL) | is.null(aggregationFun)){
+      if(is.null(scoreCol) | is.null(aggregationFun)){
         table <- table[,.(value=.N),
                        by=c("V1", "col_width")]}
       else{
-        table <- table[,.(value=aggregationFun(SCORECOL)),
+        table <- table[,.(value=aggregationFun(scoreCol)),
                        by=c("V1", "col_width")]}
 
       nColsWidth <- length(colsWidth)
@@ -223,7 +224,7 @@ genomicRangesMapping <- function(refRanges,
                             dims=c(nRefs, nColsWidth),
                             x=table$value)
       colnames(table) <- colsWidth
-      return(table)}, SCORECOL=SCORECOL, aggregationFun=aggregationFun,
+      return(table)}, scoreCol=scoreCol, aggregationFun=aggregationFun,
                       nRefs=nRefs, colsWidth=colsWidth, threads=threads,
       BPPARAM=BPPARAM)
   }
@@ -234,19 +235,19 @@ genomicRangesMapping <- function(refRanges,
     setkey(overlapTable, col_width, V1)
 
     # overlap with ref. coordinates
-    if(is.null(SCORECOL) | is.null(aggregationFun)){
-      overlapTable <- overlapTable[,.(SCORECOL=.N),
+    if(is.null(scoreCol) | is.null(aggregationFun)){
+      overlapTable <- overlapTable[,.(scoreCol=.N),
                                    by=c("col_width", "V1")]}
     else{
-      setnames(overlapTable, SCORECOL, "SCORECOL")
-      overlapTable <- overlapTable[,.(SCORECOL=aggregationFun(SCORECOL)),
+      setnames(overlapTable, scoreCol, "scoreCol")
+      overlapTable <- overlapTable[,.(scoreCol=aggregationFun(scoreCol)),
                                    by=c("col_width", "V1")]}
 
     # convert to sparse matrix
     overlapTable <- Matrix::sparseMatrix(i=overlapTable$V1,
                                          j=overlapTable$col_width,
                                          dims=c(nRefs, nColsWidth),
-                                         x=overlapTable$SCORECOL)
+                                         x=overlapTable$scoreCol)
     overlapTable <- Matrix::Matrix(overlapTable)
 
     colnames(overlapTable) <- colsWidth

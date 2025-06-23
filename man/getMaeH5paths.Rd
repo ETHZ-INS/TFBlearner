@@ -18,3 +18,6 @@ each experiment.
 \description{
 getMaeH5paths - extract HDF5 file paths from MAE
 }
+\author{
+Pierre-Luc Germain
+}

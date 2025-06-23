@@ -41,3 +41,6 @@ Features are stored in the assays of the added experiment. See \link{listFeature
 \description{
 Adds an experiment with features specific for each site, such as CpG-content and conservation scores, to the provided MultiAssayExperiment object.
 }
+\author{
+Emanuel Sonder
+}

@@ -44,6 +44,7 @@
 #' @importFrom Biostrings getSeq dinucleotideFrequency letterFrequency
 #' @importFrom GenomicScores gscores
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @author Emanuel Sonder
 #' @export
 siteFeatures <- function(mae,
                          aggregationFun=max,
@@ -86,13 +87,13 @@ siteFeatures <- function(mae,
       scoreCols <- rep(scoreCols, length(annoData))
     }
 
-    annotFeats <- mapply(function(ad, an, SCORECOL, ...){
+    annotFeats <- mapply(function(ad, an, scoreCol, ...){
       annoDt <- .processData(ad, readAll=TRUE)
       annoDt$type <- an
       annoFeat <- genomicRangesMapping(coords,
                                        annoDt,
                                        byCols=c("type"),
-                                       SCORECOL=SCORECOL,
+                                       scoreCol=scoreCol,
                                        aggregationFun=aggregationFun,
                                        ...)},
       annoData, names(annoData), scoreCols, ...)

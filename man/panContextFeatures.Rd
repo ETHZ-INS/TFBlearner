@@ -46,3 +46,6 @@ and its association to the ATAC-signal of a site across contexts (name: Activity
 Either site or cellular-context-specific features which are computed based on ATAC-seq data of all contexts combined.
 Examples are site-specific variance in the ATAC-signal across contexts or a MDS projection of the cellular contexts.
 }
+\author{
+Emanuel Sonder
+}

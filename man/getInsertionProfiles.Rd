@@ -59,3 +59,6 @@ Assays correspond to the different insertion counts computed, columns will corre
 Counts Tn5 insertions around provided motif-matches.
 If requested also computes insertion footprint profiles and weighted insertion counts.
 }
+\author{
+Emanuel Sonder
+}

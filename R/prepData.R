@@ -285,6 +285,8 @@ NULL
 #' @importFrom SummarizedExperiment SummarizedExperiment rowRanges colData assays
 #' @importFrom S4Vectors combineCols
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @author Emanuel Sonder
+#' @export
 addATACData <- function(mae, atacData,
                         testSet=NULL,
                         computeFeatures=c("simple", "scratch", "none"),
@@ -309,8 +311,23 @@ addATACData <- function(mae, atacData,
   seAtac <- .mapSeqData(atacData, coords, type="ATAC", annoCol=annoCol,
                         shift=shift, BPPARAM=BPPARAM)
 
+  partialPaths <- colData(mae[[ATACEXP]])$origin
+  extPaths <- file.path(metadata(colData(mae[[ATACEXP]]))[[BASEDIRCOL]],
+                        unlist(colData(mae[[ATACEXP]])$origin, recursive=TRUE))
+  names(extPaths) <- unlist(lapply(partialPaths, names))
+
   mae <- .addFeatures(mae, seAtac, names(atacData), prefix=ATACEXP,
                       annoCol=annoCol)
+
+  # adapt ATAC-paths
+  dirs <- .commonDir(c(atacData, extPaths))
+  metadata(colData(mae[[ATACEXP]]))[[BASEDIRCOL]] <- dirs$baseDir
+  partialPaths <- split(dirs$filePaths, names(dirs$filePaths))
+
+  ord <- order(match(names(partialPaths), colData(mae[[ATACEXP]])[[annoCol]]))
+  names(partialPaths) <- NULL
+  colData(mae[[ATACEXP]])$origin <- partialPaths[ord]
+
   matchedContexts <- intersect(colData(mae[[ATACEXP]])[[annoCol]],
                                colData(mae[[CHIPEXP]])[[annoCol]])
 
@@ -373,7 +390,8 @@ addATACData <- function(mae, atacData,
           rownames(mdsRow) <- context
           mdsDimsNew <- rbind(mdsDimsNew, mdsRow)
         }
-        co <- match(rownames(mdsDimsNew), colData(mae[[ATACEXP]])[[annoCol]])
+        co <- order(match(rownames(mdsDimsNew),
+                          colData(mae[[ATACEXP]])[[annoCol]]))
         colData(mae[[ATACEXP]])[,mdsDimFeats] <- mdsDimsNew[co,]
       }
 
@@ -457,6 +475,7 @@ addATACData <- function(mae, atacData,
 #' @importClassesFrom SummarizedExperiment SummarizedExperiment RangedSummarizedExperiment
 #' @importClassesFrom HDF5Array HDF5Array
 #' @importFrom GenomeInfoDb seqlevelsStyle
+#' @author Emanuel Sonder
 #' @export
 prepData <- function(refCoords,
                      motifData,
@@ -465,7 +484,7 @@ prepData <- function(refCoords,
                      testSet=NULL,
                      promoterCoords=NULL,
                      aggregationFun=max,
-                     SCORECOL="score",
+                     scoreCol="score",
                      weightCol=NULL,
                      isUncertainCol=NULL,
                      annoCol="context",
@@ -514,7 +533,7 @@ prepData <- function(refCoords,
   motifSe <- .mapSeqData(motifData, refCoords, type="Motif",
                          aggregationFun=aggregationFun,
                          saveHdf5=saveHdf5, outDir=outDir,
-                         SCORECOL=SCORECOL, BPPARAM=BPPARAM)
+                         scoreCol=scoreCol, BPPARAM=BPPARAM)
 
   motifMap <- data.frame(primary=rep(allContexts, ncol(motifSe)),
                          colname=rep(colnames(motifSe),

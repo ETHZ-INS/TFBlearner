@@ -53,3 +53,6 @@ For both \code{simple} & \code{scratch}, context-tf-features for the newly added
 Adds additional columns for provided ATAC-seq datasets in the ATAC experiment and
 computes features if requested.
 }
+\author{
+Emanuel Sonder
+}

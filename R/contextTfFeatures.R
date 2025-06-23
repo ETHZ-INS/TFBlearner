@@ -27,6 +27,7 @@
 #' If already an experiment of this feature group exists, columns are added to it.
 #' @import MultiAssayExperiment
 #' @importFrom BiocParallel bpmapply bplapply SerialParam MulticoreParam SnowParam register
+#' @author Emanuel Sonder
 #' @export
 contextTfFeatures <- function(mae,
                               tfName,
@@ -87,13 +88,17 @@ contextTfFeatures <- function(mae,
     warning(msg)
   }
 
-  atacFragPaths <- unlist(subset(colData(maeSub[[ATACEXP]]),
+  atacFragFilePaths <- unlist(subset(colData(maeSub[[ATACEXP]]),
                                  get(annoCol) %in% contexts)$origin)
+  baseDir <- metadata(colData(maeSub[[ATACEXP]]))[[BASEDIRCOL]]
+  atacFragPaths <- file.path(baseDir, atacFragFilePaths)
+  names(atacFragPaths) <- names(atacFragFilePaths)
 
   # get list of motif ranges, this will eventually be refactored anyways
   motifPath <- subset(colData(maeSub[[MOTIFEXP]]),
                       get(MOTIFNAMECOL)==tfName)$origin
-  motifRanges <- readRDS(motifPath)
+  baseDir <- metadata(colData(maeSub[[MOTIFEXP]]))[[BASEDIRCOL]]
+  motifRanges <- readRDS(file.path(baseDir, motifPath))
 
   if(addLabels){
     colDataChIP <- colData(mae[[CHIPEXP]])
@@ -145,16 +150,16 @@ contextTfFeatures <- function(mae,
     if("Inserts" %in% features) scoreCols <- c(scoreCols, INSERTFEATNAME)
 
     # aggregate features across ranges of interest
-    insFeats <- lapply(scoreCols, function(SCORECOL){
+    insFeats <- lapply(scoreCols, function(scoreCol){
       feats <- genomicRangesMapping(coords,
                                     insRes[[RETSCORESNAME]],
-                                    SCORECOL=SCORECOL,
+                                    scoreCol=scoreCol,
                                     byCols="type",
                                     aggregationFun=aggregationFun,
                                     BPPARAM=BPPARAM)
-      colnames(feats) <- paste(paste(SCORECOL, colnames(feats), sep="."),
+      colnames(feats) <- paste(paste(scoreCol, colnames(feats), sep="."),
                                TFMOTIFPREFIX, 1, sep="_")
-      if(SCORECOL==DEVFEATNAME){
+      if(scoreCol==DEVFEATNAME){
         feats <- list(Matrix::Matrix(rowSums(feats), ncol=1))
         names(feats) <- DEVFEATNAME
       }else{

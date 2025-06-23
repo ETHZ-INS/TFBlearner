@@ -22,3 +22,6 @@ object.
 \description{
 loadMae - load a MultiAssayExperiment object
 }
+\author{
+Pierre-Luc Germain
+}
