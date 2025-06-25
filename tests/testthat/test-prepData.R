@@ -68,21 +68,41 @@ test_that("Object construction: Train test assignment", {
 })
 
 test_that("Object construction: ATAC-frag path assignment", {
+
+  # case:provide two entries with the same name
+  exampleATAC2 <- list(A549=system.file("extdata",
+                                        "example_atac_A549.bed",
+                                        package = "TFBlearner"),
+                       K562=system.file("extdata",
+                                        "example_atac_K562.bed",
+                                        package = "TFBlearner"),
+                       K562=system.file("extdata",
+                                        "example_atac_K562.bed",
+                                        package = "TFBlearner"))
+
+
   mae <- suppressMessages({prepData(example_coords,
                                     motifData=exampleMotif,
-                                    atacData=exampleATAC,
+                                    atacData=exampleATAC2,
                                     chIPData=exampleChIP,
                                     testSet="A549")})
   baseDirs <- lapply(exampleATAC, dirname)
   baseDir <- unique(unlist(baseDirs))
 
+  # check that correct base directory is obtained
   obsBaseDir <- metadata(colData(mae[[ATACEXP]]))[[BASEDIRCOL]]
   expect_equal(obsBaseDir, baseDir)
 
-  expFileNames <- unlist(lapply(colData(mae[[ATACEXP]])$origin, names))
+  expFileNames <- unique(unlist(lapply(colData(mae[[ATACEXP]])$origin, names)))
   expect_equal(colData(mae[[ATACEXP]])[["context"]], expFileNames)
-  expect_true(all(file.exists(file.path(obsBaseDir,
-                                        colData(mae[[ATACEXP]])$origin))))
+
+  # check that correct file- paths are assigned
+  expFilePaths <- lapply(exampleATAC2, gsub,
+                        pattern=paste0(baseDir, "/"), replacement="")
+  expFilePaths <- unlist(expFilePaths)
+  filePartialPaths <- unlist(colData(mae[[ATACEXP]])$origin)
+  expect_contains(filePartialPaths, expFilePaths)
+  expect_true(all(file.exists(file.path(obsBaseDir,filePartialPaths))))
 })
 
 test_that("Object construction: Motif scores in column data", {

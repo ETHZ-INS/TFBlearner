@@ -122,7 +122,7 @@
 }
 
 .unlistMixed <- function(mixedList){
-  lapply(mixedList, function(l){
+  d <- lapply(mixedList, function(l){
     if(is.data.table(l)){
       return(l)
     }
@@ -130,6 +130,7 @@
       return(unlist(l, recursive=TRUE))
     }
   })
+  unlist(d)
 }
 
 .mapSeqData <- function(data, refCoords, type=c("ATAC", "ChIP", "Motif"),
