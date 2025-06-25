@@ -59,7 +59,7 @@ CHROMVAREXPCOL <- "chromVarExpecations"
 CHROMVARBGCOL <- "chromVarBackgrounds"
 MAXSCORECOL <- "maxScore"
 SCORECOL <- "score"
-COOCCURRENCECOL <- "cooccurrences"
+COOCCURRENCECOL <- "cooccurences"
 MDSSUBROWCOL <- "mdsSubRows"
 BASEDIRCOL <- "baseDir"
 
