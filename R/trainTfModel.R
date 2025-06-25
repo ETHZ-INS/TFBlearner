@@ -631,6 +631,7 @@
     weightsDt[,sum_w:=sum(w), by=.(con)]
     weightsDt[,scaled_w:=(w/sum(w))*1e3, by=.(con)]
     weights <- weightsDt$scaled_w
+    loContext <- FALSE
   }
   else if(loContext)
   {
