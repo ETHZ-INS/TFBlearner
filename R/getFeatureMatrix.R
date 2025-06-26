@@ -246,7 +246,7 @@ getFeatureMatrix <- function(mae,
     h5createDataset(hdf5FileName, "feature_matrix",
                     dims=c(nrow(seAtac)*length(contexts),nFeats),
                     storage.mode=store,
-                    level=1, chunk=c(1, nFeats))
+                    level=1, chunk=c(min(1e6, nrow(seAtac)), nFeats))
   }
   else{
     saveChunk <- FALSE
