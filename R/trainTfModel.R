@@ -613,21 +613,22 @@
   # remove rows with missing values in essential columns -----------------------
   message("Preparing training data")
 
-  featMat <- featMat[!is.na(featMat[,LABELCOLNAME]) &
-                     !is.na(featMat[,COUNTCOLNAME]) &
-                     !is.na(featMat[,MOTIFFEATCOLNAME]),]
-
   # remove peak-flanks
-  featMat <- featMat[!featMat[,LABELCOLNAME]<0, ]
+  rawLabels <- featMat[,LABELCOLNAME]
+  isNonFlank <- which(!(rawLabels<0))
+  featMat <- featMat[isNonFlank, ]
+  rawLabels <- rawLabels[isNonFlank]
 
   # weights of sites -----------------------------------------------------------
-  contexts <- unique(featMat[,annoCol])
-  scalFact <- max(featMat[,LABELCOLNAME])
-  weights <- featMat[,LABELCOLNAME]/scalFact
+  contextLabels <- featMat[,annoCol]
+  contexts <- unique(contextLabels)
+  scalFact <- max(rawLabels)
+  weights <- rawLabels/scalFact
 
+  message("Compute weights")
   if(!loContext | length(contexts)==1){
     # scale to weight positives of contexts overall the same
-    weightsDt <- data.table(w=weights, con=featMat[,annoCol])
+    weightsDt <- data.table(w=weights, con=contextLabels)
     weightsDt[,sum_w:=sum(w), by=.(con)]
     weightsDt[,scaled_w:=(w/sum(w))*1e3, by=.(con)]
     weights <- weightsDt$scaled_w
@@ -635,7 +636,7 @@
   }
   else if(loContext)
   {
-    weightsDt <- data.table(w=weights, con=featMat[,annoCol])
+    weightsDt <- data.table(w=weights, con=contextLabels)
     weightsDt$ind <- 1:nrow(weightsDt)
     weightsDt <- subset(weightsDt, w>0)
     weightsDt[,n_pos:=.N, by=con]
@@ -666,8 +667,7 @@
 
   # label and weight the instances
   weights <- fifelse(weights==0,1,weights)
-  label <- featMat[,LABELCOLNAME,drop=TRUE]
-  labelInd <- which(featMat[,LABELCOLNAME, drop=TRUE]>0)
+  labelInd <- which(rawLabels>0)
   labels <- rep(0, nrow(featMat))
   labels[labelInd] <- 1
 
@@ -675,9 +675,8 @@
   allFeats <- TFBlearner::listFeatures()
   colsToRemove <- unlist(subset(allFeats,
                              !included_in_training)$feature_matrix_column_names)
-  colsToRemove <- c(colsToRemove, LABELCOLNAME)
-  colsToRemoveUnWeighted <- colsToRemove
-  colsToRemoveWeighted <- setdiff(colsToRemove, CSCORECOLNAME)
+  colsToRemoveWeighted <- c(colsToRemove, LABELCOLNAME, CSCORECOLNAME)
+  colsToRemoveUnWeighted <- setdiff(colsToRemoveWeighted, CSCORECOLNAME)
 
   setsWeighted <- .chooseBags(featMat,
                               weights,
