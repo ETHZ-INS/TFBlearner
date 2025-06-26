@@ -124,6 +124,7 @@
                         aggregate=FALSE,
                         seed=42){
   set.seed(seed)
+  dt <- as.data.table(dt)
 
   if(is.null(models)){
     dt$model <- "all"
@@ -137,7 +138,7 @@
   setorder(dt, -scores)
   if(subSample)
   {
-    dt <- dt[,.SD[sample(.N, min(1e5,.N))], by=c(models)]
+    dt <- dt[,.SD[sample(.N, min(5e5,.N))], by=c(models)]
   }
 
   dt[,tpr:=cumsum(labels==posClass)/sum(labels==posClass), by=c(models)]
