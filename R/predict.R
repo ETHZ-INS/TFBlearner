@@ -57,8 +57,8 @@ predictTfBinding <- function(models,
     allFeats <- listFeatures()
     colsToRemove <- unlist(subset(allFeats,
                                   !included_in_training)$feature_matrix_column_names)
-    colsToRemove <- c(colsToRemove, LABELCOLNAME, contextColName)
-    if(name!=MODELALLNAME){
+    colsToRemove <- c(colsToRemove, LABELCOLNAME, contextColName, CSCORECOLNAME)
+    if(name==MODELALLNAME){
       colsToRemove <- setdiff(colsToRemove, CSCORECOLNAME)
     }
 
@@ -123,7 +123,7 @@ predictTfBinding <- function(models,
   }
 
   if(simplified){
-    contextNames <- metadata(fm)[[annoCol]]
+    contextNames <- as.character(unique(rowData(fm)[[annoCol]]))
     preds <- lapply(setdiff(cnPreds, annoCol), function(col){
       predCol <- as.data.table(as.matrix(preds[,c(col, annoCol),drop=FALSE]))
       predCol <- split(predCol, by=annoCol)
