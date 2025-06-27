@@ -590,6 +590,9 @@
       valInd <- subset(rangeDt, seqnames %in% valChrs)$row_id
       valRanges <- rangesFm[valInd]
       fmVal <- IRanges::subsetByOverlaps(fm, valRanges, type="equal")
+      if(nrow(fmVal)>4e6){
+        fmVal <- fmVal[sample(1:nrow(fmVal), 4e6),]
+      }
     }
     nonTrainRanges <- c(valRanges, stackRanges)
   }
@@ -780,6 +783,7 @@
     predsStackedCol <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
     predVal <- as.matrix(predVal[,c(BINLABELNAME, predsStackedCol)])
     predVal <- as.data.table(predVal)
+    predVal <- subset(predVal, get(BINLABELNAME)>=0)
 
     prOut <- .getPRCurve(predVal, labels=BINLABELNAME,
                          scores=paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_"),
