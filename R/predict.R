@@ -29,7 +29,7 @@ predictTfBinding <- function(models,
                              BPPARAM=SerialParam()){
 
   fmTfName <- metadata(fm)[[TFNAMECOL]]
-  modTfName <- models[[MODELALLNAME]]$params[[TFNAMECOL]]
+  modTfName <- models[[1]]$params[[TFNAMECOL]]
   if(fmTfName!=modTfName){
     stop(paste("Feature matrix has been computed for", fmTfName, "and model trained for", modTfName))
   }
@@ -47,8 +47,8 @@ predictTfBinding <- function(models,
     stackingStrat <- models[[STACKINGSTRATENTRY]]
     stackedModelName <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")}
 
-  modelNamesBag <- MODELNAMES
-  modelsBag <- models[modelNamesBag]
+  modelNamesBag <- c(MODELNAMES, STACKEDMODEL)
+  modelsBag <- models[names(models) %in% modelNamesBag]
   nWorker <- BPPARAM$workers
   preds <- bpmapply(function(model, name, data,
                              npDt, chunk, contextColName){
@@ -114,7 +114,6 @@ predictTfBinding <- function(models,
   colnames(preds) <- cnPreds
 
   if(STACKINGSTRATENTRY %in% names(models)){
-    modelStacked <- models[[stackedModelName]]
     predsStacked <- .predictTfBindingStacked(models, fm,
                                              predsBagged=preds,
                                              annoCol=annoCol)
@@ -159,7 +158,7 @@ predictTfBinding <- function(models,
 .predictTfBindingStacked <- function(models, fm,
                                      predsBagged=NULL, annoCol=NULL, ...){
 
-  tfName <- models[[MODELALLNAME]]$params[[TFNAMECOL]]
+  tfName <- models[[1]]$params[[TFNAMECOL]]
   stackingStrat <- models[[STACKINGSTRATENTRY]]
   dichotThres <- models[[DICHOTTHRESH]]
 
@@ -168,9 +167,11 @@ predictTfBinding <- function(models,
 
   if(stackingStrat %in% c("last", "wLast")){
     models <- list(modelStacked)
-    names(models) <- stackingStrat
+    names(models) <- fifelse(stackingStrat=="last",
+                             MODELALLNAME, MODELALLWEIGHTNAME)
     preds <- predictTfBinding(models, fm, simplified=FALSE, ...)
-    preds <- preds[,paste(PREDPREFIX, stackingStrat, sep="_"), drop=FALSE]
+    preds <- preds[,paste(PREDPREFIX, names(models), sep="_"), drop=FALSE]
+    colnames(preds) <- paste(PREDPREFIX, stackingStrat, sep="_")
   }
   else if(stackingStrat=="wMean"){
     if(is.null(predsBagged)) stop("Provide bagged predictions")
@@ -204,9 +205,10 @@ predictTfBinding <- function(models,
     metadata(fmStack)[[TFNAMECOL]] <- tfName
 
     models <- list(modelStacked)
-    names(models) <- stackingStrat
+    names(models) <- STACKEDMODEL
     preds <- predictTfBinding(models, fmStack, simplified=FALSE, ...)
-    preds <- preds[,paste(PREDPREFIX, stackingStrat, sep="_"), drop=FALSE]
+    preds <- preds[,paste(PREDPREFIX, STACKEDMODEL, sep="_"), drop=FALSE]
+    colnames(preds) <- paste(PREDPREFIX, stackingStrat, sep="_")
   }
   predsStackedCol <- paste(PREDPREFIX, MODELSTACKEDSUFFIX, sep="_")
   colnames(preds) <- predsStackedCol

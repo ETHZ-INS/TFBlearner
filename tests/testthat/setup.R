@@ -147,7 +147,16 @@ maeTestHdf5 <- contextTfFeatures(maeTestHdf5, tfName="CTCF", subSample=20,
 # Training & Prediction testing ------------------------------------------------
 
 fmTest <- getFeatureMatrix(maeTest, tfName="CTCF",
-                         addLabels=TRUE,
-                         saveHdf5=FALSE)
+                           addLabels=TRUE,
+                           saveHdf5=FALSE)
 modTest <- trainTfModel(tfName="CTCF", fmTest, evalRounds=2,
                         stackingStrat="wMean")
+# train the stacked model
+modTestLast <- modTest
+modTestLast[[paste(MODELSTACKEDSUFFIX, "wMean", sep="_")]] <- NULL
+fitStacked <- .trainStacked(fmTest, modTest[MODELNAMES], stackingStrat="last")
+fitStacked <- list(fitStacked)
+modelStackedName <- paste(MODELSTACKEDSUFFIX,"last", sep="_")
+names(fitStacked) <- modelStackedName
+modTestLast <- append(modTestLast, fitStacked)
+modTestLast[[STACKINGSTRATENTRY]] <- "last"
