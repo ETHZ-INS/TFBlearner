@@ -185,7 +185,7 @@ test_that("Feature Matrix: columns are named correctly", {
 
 test_that("Feature Matrix: correct features are normalized", {
   annoCol <- "context"
-  fm <- getFeatureMatrix(maeTest, tfName="CTCF",
+  fm <- getFeatureMatrix(maeTest2, tfName="CTCF",
                          addLabels=TRUE,
                          annoCol=annoCol,
                          saveHdf5=FALSE)

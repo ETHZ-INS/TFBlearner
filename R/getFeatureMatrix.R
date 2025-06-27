@@ -15,7 +15,7 @@
 
 .robustNormalization <- function(mat){
    qs <- .marginQuant(mat, probs=c(0.25,0.5,0.75), margin="col")
-   Matrix::Matrix(t(t(sweep(mat, 2, qs[2,], "-"))/(qs[3,]-qs[1,])))
+   Matrix::Matrix(t(t(sweep(mat, 2, qs[2,], "-"))/max((qs[3,]-qs[1,]),1e-5)))
 }
 
 .minMaxNormalization <- function(mat, useMax=FALSE){
@@ -25,7 +25,7 @@
   else{
     qs <- .marginQuant(mat, probs=c(0.0,0.9), margin="col")
   }
-  Matrix::Matrix(t(t(mat)/(qs[2,]-qs[1,])))
+  Matrix::Matrix(t(t(mat)/max((qs[2,]-qs[1,]),1e-5)))
 }
 
 .contextNormalization <- function(mat, method=c("robust", "min-max",
@@ -34,7 +34,7 @@
   method <- match.arg(method, choices=c("robust", "min-max",
                                         "column", "none"))
   if(method=="column"){
-    normMat <- Matrix::t(Matrix::t(mat)/colSums(mat))
+    normMat <- Matrix::t(Matrix::t(mat)/pmax(colSums(mat), rep(1e-5, nrow(mat))))
   }
   else if(method=="min-max"){
     normMat <- .minMaxNormalization(mat)
@@ -303,7 +303,8 @@ getFeatureMatrix <- function(mae,
 
     # determine sub-mat to be normalized
     featsNormed <- unlist(subset(listFeatures(),
-                                 feature_type=="context-tf-Feature" &
+                                 (feature_type=="context-tf-Feature" |
+                                  feature_type=="context-Feature") &
                                  context_normed)$feature_matrix_column_names)
     enumFeats <- unlist(tstrsplit(colnames(featsContextMat), split="_"))
     enumFeats <- as.integer(enumFeats[grepl("^[-+]?[0-9]+$", enumFeats)])
