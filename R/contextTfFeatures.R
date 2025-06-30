@@ -16,8 +16,8 @@
 #' "Insert" features will always be computed.
 #' See [TFBlearner::listFeatures] for an overview of the features.
 #' @param annoCol Name of column indicating cellular contexts in colData.
-#' @param insertionProfile Pre-computed insertion footprint profile for the specified transcription factor.
-#' Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").
+#' @param insertionProfile Pre-computed insertion footprint profile for the specified transcription factor (as computed by [TFBlearner::getInsertionProfiles()]).
+#' Needs to contain a column with relative positions wrt to the center of the motif match (termed "rel_pos") and weight column (termed "w").
 #' @param aggregationFun function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 #' provided [MultiAssayExperiment::MultiAssayExperiment-class] object.
 #' @param seed Integer value for setting the seed for random number generation with [base::set.seed].
@@ -135,13 +135,12 @@ contextTfFeatures <- function(mae,
 
     addArgs <- list(...)
     addArgs <- addArgs[names(addArgs) %in% c("margin", "shift",
-                                             "symmetric", "stranded")]
+                                             "subSample","symmetric",
+                                             "stranded")]
     args <- c(list(atacData=atacFrag, motifRanges=motifRanges,
-                   profiles=profile, calcProfile=calcProfile,
-                   subSample=1e8, BPPARAM=BPPARAM),
+                   profiles=profile, calcProfile=calcProfile, BPPARAM=BPPARAM),
               addArgs)
-    insRes <- suppressWarnings(suppressMessages(do.call(getInsertionProfiles,
-                                                        args)))
+    insRes <- do.call(getInsertionProfiles, args)
 
     scoreCols <- c()
     if("Weighted_Inserts" %in% features) scoreCols <- c(scoreCols,

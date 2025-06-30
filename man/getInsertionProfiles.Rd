@@ -32,9 +32,8 @@ Needs to contain a metadata column \code{motif_id} if insertion profiles should 
 
 \item{calcProfile}{If insertion footprint profiles should be computed.}
 
-\item{profiles}{Pre-computed insertion footprint profile to compute weighted insertion counts in case \code{calcProfile=FALSE}.
-Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w") summing to one across all the coordinates.
-If provided for several motifs, should be a list of profiles with names corresponding to motif names.}
+\item{profiles}{Pre-computed insertion footprint profile as obtained by this function when running with \code{calcProfile=TRUE}.
+Needs to contain a column with relative positions wrt to the center of the motif match (termed "rel_pos") and weight column (termed "w").}
 
 \item{symmetric}{If transcription factor footprint profiles should be symmetric around the motif matches. Only used if \code{calcProfile=TRUE}.}
 

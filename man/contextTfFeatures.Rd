@@ -39,8 +39,8 @@ See \link{listFeatures} for an overview of the features.}
 
 \item{annoCol}{Name of column indicating cellular contexts in colData.}
 
-\item{insertionProfile}{Pre-computed insertion footprint profile for the specified transcription factor.
-Needs to contain coordinate (chr/seqnames, start, end) columns and weight column (termed "w").}
+\item{insertionProfile}{Pre-computed insertion footprint profile for the specified transcription factor (as computed by \code{\link[=getInsertionProfiles]{getInsertionProfiles()}}).
+Needs to contain a column with relative positions wrt to the center of the motif match (termed "rel_pos") and weight column (termed "w").}
 
 \item{aggregationFun}{function (e.g. mean, median, sum) used to aggregate features across the rowRanges of experiments of the
 provided \link[MultiAssayExperiment:MultiAssayExperiment-class]{MultiAssayExperiment::MultiAssayExperiment} object.}
