@@ -256,6 +256,7 @@ getFeatureMatrix <- function(mae,
   if(convertInteger){
     nonContextTfFeat<- .roundingCompression(nonContextTfFeat)}
 
+  gc()
   featMats <- lapply(contexts, function(context, seAtac,
                                         seTfContext,
                                         tfName, tfCofactors,
@@ -347,6 +348,7 @@ getFeatureMatrix <- function(mae,
     featsContextMat <- cbind(featsContextMat, featsNormedMat)
     featsContextMat <- cbind(featsContextMat, maxScaledMat)
     featsContextMat <- cbind(featsContextMat, labelCol)
+    gc()
 
     if(convertInteger){
       featsContextMat <- .roundingCompression(featsContextMat)
