@@ -775,7 +775,8 @@
 
   if(!is.null(valChrs) & length(valChrs)>0){
     message("Computing performance on holdout-chromosomes and determining dichotomization threshold")
-    predVal <- predictTfBinding(fits, fmVal,
+    fits2 <- fits
+    predVal <- predictTfBinding(fits2, fmVal,
                                 annoCol=annoCol,
                                 numThreads=numThreads,
                                 simplified=FALSE,
@@ -1049,14 +1050,10 @@ saveModels <- function(models, filePath){
   outDir <- dirname(filePath)
   stackingStrat <- models[[STACKINGSTRATENTRY]]
   stackedModel <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
-  MODELNAMES <- c(MODELTOPWEIGHTNAME,
-                  MODELMEDWEIGHTNAME,
-                  MODELALLWEIGHTNAME,
-                  MODELALLNAME,
-                  stackedModel)
+  modelNames <- c(MODELNAMES, stackedModel)
 
   ml2 <- list()
-  for(modelName in MODELNAMES){
+  for(modelName in modelNames){
     if(modelName==stackedModel & stackingStrat=="wMean"){
       next
     }
@@ -1084,9 +1081,11 @@ saveModels <- function(models, filePath){
   selActMotifs <- models[[MODELALLNAME]]$params[[PRESELACTCOL]]
   packageVers <- models[[MODELALLNAME]]$params[[PACKAGEVERSION]]
 
-  allMl2 <- unlist(lapply(ml2, readLines))
+  allMl2 <- lapply(ml2, readLines)
   lapply(ml2, file.remove)
-  writeLines(allMl2, filePath)
+  con <- file(filePath, open="a")
+  lapply(allMl2, writeLines, con=con)
+  close(con)
 
   # write the extra parameters
   con <- file(filePath, open="a")
@@ -1094,9 +1093,11 @@ saveModels <- function(models, filePath){
   writeLines("TF-name:", con=con)
   dput(tfName, file=con)
   writeLines("Associated Motifs:", con=con)
-  dput(selMotifs, file=con)
+  selMotifsString <- paste(capture.output(dput(selMotifs)), collapse="")
+  writeLines(selMotifsString, con=con)
   writeLines("Motifs with associated Activity:", con=con)
-  dput(selActMotifs, file=con)
+  selActString <- paste(capture.output(dput(selActMotifs)), collapse="")
+  writeLines(selActString, con=con)
   writeLines("Stacking Strategy:", con=con)
   dput(stackingStrat, file=con)
   writeLines("Dichotomization thres:", con=con)
@@ -1107,7 +1108,6 @@ saveModels <- function(models, filePath){
   dput(models[[PRENTRY]], file=con)
   writeLines("Recall holdout chromosomes:", con=con)
   dput(models[[RECENTRY]], file=con)
-
   writeLines("Package Version:", con=con)
   dput(packageVers, file=con)
   close(con)
@@ -1131,6 +1131,7 @@ loadModels <- function(filePath){
   endParameters <- "end of parameters"
   endModel <- "end of model"
   tempModelPath <- file.path(dirname(filePath), "tmp_model.txt")
+  modelPath <- filePath
 
   # read general parameters
   con <- file(filePath, open="r")
@@ -1148,30 +1149,32 @@ loadModels <- function(filePath){
   close(con)
 
   # loop over models in bag
-  MODELNAMES <- c(MODELTOPWEIGHTNAME,
-                  MODELMEDWEIGHTNAME,
-                  MODELALLWEIGHTNAME,
-                  MODELALLNAME)
+  modelNames <- MODELNAMES
   stackedModel <- paste(MODELSTACKEDSUFFIX, stackingStrat, sep="_")
-  if(stackingStrat!="wMean"){MODELNAMES <- c(MODELNAMES, stackedModel)}
+  if(stackingStrat!="wMean"){modelNames <- c(modelNames, stackedModel)}
+
+  con <- file(modelPath, open="r")
+  models <- readLines(con=con)
+  close(con)
+
+  subModel <- models
 
   ml2 <- list()
-  for(modelName in MODELNAMES){
-    models <- readLines(filePath)
-    singleModelName <- paste0(file.path(modelDir, modelName), ".txt")
+  for(modelName in modelNames){
 
+    singleModelName <- paste0(file.path(modelDir, modelName), ".txt")
     # read single model
-    endParamLine <- which(models==endParameters)[1]
-    lgbModel <- models[1:endParamLine]
+    endParamLine <- which(subModel==endParameters)[1]
+    lgbModel <- subModel[1:endParamLine]
     writeLines(lgbModel, singleModelName)
     lgbModel <- lgb.load(filename=singleModelName)
     file.remove(singleModelName)
 
     # read extra parameters
-    endModelLine <- which(models==endModel)[1]
+    endModelLine <- which(subModel==endModel)[1]
     if(stackingStrat=="wMean"){
       lgbModel$params$stacking_weights <- unlist(
-        tstrsplit(models[(endModelLine-1)], split=": ",
+        tstrsplit(subModel[(endModelLine-1)], split=": ",
                   keep=2, type.convert=TRUE))
       addLine <- 1
     }
@@ -1179,22 +1182,19 @@ loadModels <- function(filePath){
       addLine <- 0
     }
     lgbModel$params[[TFNAMECOL]] <- tfName
-    lgbModel$params[[SPARSETHR]] <- unlist(tstrsplit(models[(endModelLine-(1+addLine))],
+    lgbModel$params[[SPARSETHR]] <- unlist(tstrsplit(subModel[(endModelLine-(1+addLine))],
                                                    split=": ", keep=2,
                                                    type.convert=TRUE))
     lgbModel$params[[PACKAGEVERSION]] <- packageVers
 
     # delete other models
-    otherModels <- models[-(1:(endModelLine+2))]
-    modelPath <- tempModelPath
-    writeLines(otherModels, modelPath)
+    subModel <- subModel[-(1:(endModelLine+2))]
 
     lgbModel$params[[PRESELMOTIFCOL]] <- selMotifs
     lgbModel$params[[PRESELACTCOL]] <- selActMotifs
     ml2[[modelName]] <- lgbModel
   }
 
-  file.remove(tempModelPath)
   names(ml2) <- MODELNAMES
   ml2[[STACKINGSTRATENTRY]] <- stackingStrat
   ml2[[DICHOTTHRESH]] <- dichotThres

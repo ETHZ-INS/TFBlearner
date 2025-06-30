@@ -113,6 +113,17 @@ test_that("Saving and loading motif information",{
   file.remove(modFilePath)
 })
 
+test_that("Saving and loading maintains functioning model",{
+  outDir <- tempdir()
+  modFilePath <- file.path(outDir, "testModels.txt")
+  saveModels(modTest, filePath=modFilePath)
+
+  # check correct loading
+  modLoad <- loadModels(filePath=modFilePath)
+  expect_no_error(preds <- predictTfBinding(modLoad, fmTest, sparsify=FALSE))
+  file.remove(modFilePath)
+})
+
 test_that("Saving and loading package version",{
   expect_contains(names(modTest[[MODELALLNAME]]$params), "package_version")
   expVersion <- .getPackageVersion()
