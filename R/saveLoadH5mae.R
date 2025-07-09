@@ -110,7 +110,6 @@ loadMae <- function(filepath, keepAbsPaths=NULL){
 saveMae <- function(mae, filepath, copyH5=FALSE){
   if(!copyH5) return(base::saveRDS(mae, filepath))
   stopifnot(dir.exists(dirname(filepath)))
-  h5paths <- h5paths[!sapply(h5paths, is.null)]
   for(f in unlist(getMaeH5paths(mae))){
     if(!is.null(f)){
       newpath <- file.path(dirname(filepath), basename(f))

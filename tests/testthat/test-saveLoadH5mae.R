@@ -14,6 +14,22 @@ test_that("Saving & loading Hdf5 mae", {
   file.remove(maeFilePath)
 })
 
+test_that("Saving & loading Hdf5 mae with copying h5 file", {
+
+  outDir <- tempdir()
+  # save model
+  maeFilePath <- file.path(outDir, "maeTestHdf5.rds")
+  expect_no_error(saveMae(maeTestHdf5, filepath=maeFilePath, copyH5=TRUE))
+  expect_true(file.exists(maeFilePath))
+
+  # load model
+  maeLoaded <- NULL
+  expect_no_error(maeLoaded <- loadMae(maeFilePath))
+  expect_equal(names(experiments(maeTestHdf5)),
+               names(experiments(maeLoaded)))
+  file.remove(maeFilePath)
+})
+
 test_that("Change the paths of the HDF5 files", {
   outDir <- tempdir()
   file.copy("./test_data/ATAC_mapped.h5", to=file.path(outDir,
