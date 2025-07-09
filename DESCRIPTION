@@ -1,6 +1,6 @@
 Package: TFBlearner
 Title: Functionality for training TF-specific classifiers to predict TF bindings based on ATAC-seq data.
-Version: 0.0.0.9000
+Version: 0.0.1.0000
 Authors@R: 
     person("Emanuel", "Sonder", , "emanuel.sonder@hest.ethz.ch", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-4788-9508"))
