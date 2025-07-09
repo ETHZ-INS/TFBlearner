@@ -4,7 +4,7 @@ Version: 0.0.0.9000
 Authors@R: 
     person("Emanuel", "Sonder", , "emanuel.sonder@hest.ethz.ch", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-4788-9508"))
-Description: Functionality for training TF-specific classifiers to predict TF bindings based on ATAC-seq data. Classifiers are trained using ChIP-seq peaks as ground truthfor TF binding. Functions for compiling features, training and predicting is provided. For convenience all features and datasets used are contained within a MultiAssayExperiment object.
+Description: Functionality for training TF-specific classifiers to predict TF bindings based on ATAC-seq data. Classifiers are trained using ChIP-seq peaks as ground truth for TF binding. Functions for compiling features, training and predicting are provided. For convenience all features and datasets used are contained within a MultiAssayExperiment object.
 License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
