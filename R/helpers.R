@@ -152,12 +152,11 @@
   dt[,dist:=sqrt((1-ppv)^2+(1-tpr)^2)]
 
   # find sparsification threshold
-  dt$is_opt <- FALSE
-  dt[which.min(dist), is_opt:= TRUE, by=c(models)]
-  dt[, thr:=data.table::first(scores[is_opt == TRUE]), by = c(models)]
+  dt[,min_dist:=min(dist), by=c(models)]
+  dt[, thr:=data.table::first(scores[dist==min_dist]), by = c(models)]
 
   # get precision and recall at optimum
-  dt[,tpr_thr:=sum(scores>=thr & labels==posClass)/sum(.SD==posClass),
+  dt[,tpr_thr:=sum(scores>=thr & labels==posClass)/sum(labels==posClass),
      by=c(models)]
   dt[,ppv_thr:=sum(scores>=thr & labels==posClass)/sum(scores>=thr),
      by=c(models)]
