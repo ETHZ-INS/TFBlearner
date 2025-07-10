@@ -3,7 +3,7 @@
 on:
   push:
     branches:
-      - test_coverage_badge
+      - main
   pull_request:
     branches:
       - main
