@@ -47,3 +47,9 @@ jobs:
           upload-snapshots: true
           build_args: 'c("--no-manual")'
           error-on: '"warning"'
+
+      - name: Test coverage
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: covr::codecov(token = Sys.getenv("CODECOV_TOKEN"))
+        shell: Rscript {0}
