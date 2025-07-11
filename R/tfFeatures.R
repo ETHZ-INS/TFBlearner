@@ -394,7 +394,7 @@ tfFeatures <- function(mae,
   }
 
   if("Promoter_Association" %in% features &
-     "ATAC_promoters" %in% names(experiments(mae))){
+     ATACPROMEXP %in% names(experiments(mae))){
     message("Promoter association Features")
 
     isProm <- which(rowData(mae[[ATACPROMEXP]])[[TFNAMECOL]]==tfName)
