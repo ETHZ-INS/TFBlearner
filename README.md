@@ -1,6 +1,6 @@
 # TFBlearner
 
- [![R-CMD-check](https://github.com/ETHZ-INS/TFBlearner/actions/workflows/r_cmd_check.yaml/badge.svg)](https://github.com/ETHZ-INS/TFBlearner/actions/workflows/r_cmd_check.yaml)
+ [![R-CMD-check](https://github.com/ETHZ-INS/TFBlearner/actions/workflows/r_cmd_check_coverage.yaml/badge.svg)](https://github.com/ETHZ-INS/TFBlearner/actions/workflows/r_cmd_check_coverage.yaml)
  [![codecov](https://codecov.io/gh/ETHZ-INS/TFBlearner/graph/badge.svg)](https://codecov.io/gh/ETHZ-INS/TFBlearner)
  
 Package for computing features and training of TF-specific models for TF-binding predictions based on ATAC-seq data.
