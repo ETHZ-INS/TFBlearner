@@ -136,6 +136,7 @@ getFeatureMatrix <- function(mae,
 
   .checkObject(mae, checkFor=c("site", "context", "tf", "tf-context"),
                tfName=tfName)
+  tf <- tfName
 
   norm <- match.arg(norm, choices=c("robust", "min-max",
                                     "column", "none"))
@@ -166,17 +167,17 @@ getFeatureMatrix <- function(mae,
 
   # get the cofactors
   tfCofactors <- unique(unlist(subset(colData(mae[[TFFEAT]]),
-                                      get(TFNAMECOL)==tfName)[[TFCOFACTORSCOL]]))
+                                      get(TFNAMECOL)==tf)[[TFCOFACTORSCOL]]))
 
   message("Attaching Site & TF-Features")
   selMotifs <- subset(colData(mae[[TFFEAT]]),
-                      get(TFNAMECOL)==tfName)[[PRESELMOTIFCOL]]
+                      get(TFNAMECOL)==tf)[[PRESELMOTIFCOL]]
   selMotifs <- unlist(selMotifs)
   motifMat <- assays(mae[[MOTIFEXP]])[[MATCHASSAY]][,selMotifs,drop=FALSE]
   colnames(motifMat) <- paste(TFFEAT, MOTIFFEATNAME, names(selMotifs), sep="_")
 
   selActMotifs <- subset(colData(mae[[TFFEAT]]),
-                         get(TFNAMECOL)==tfName)[[PRESELACTCOL]]
+                         get(TFNAMECOL)==tf)[[PRESELACTCOL]]
   selActMotifs <- unlist(selActMotifs)
   actMat <- assays(mae[[ASSOCEXP]])[[ASSOCASSAY]][,selActMotifs,drop=FALSE]
   colnames(actMat) <- paste(TFFEAT, ACTASSOCFEATNAME, names(selActMotifs), sep="_") #TODO: should be saved with actual motif name or name like names(selActMotifs)
