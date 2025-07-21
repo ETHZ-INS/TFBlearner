@@ -202,8 +202,7 @@
 
   if(length(tfCofactors)>0){
     cofactBindings <- lapply(tfCofactors, function(tfCol){
-      cofactBinding <- Matrix::Matrix(
-        Matrix::rowMeans(chIPMat[,tfCols==tfCol, drop=FALSE]), ncol=1)
+      cofactBinding <- .aggregate(chIPMat[,tfCols==tfCol, drop=FALSE], aggVar="tf")
       colnames(cofactBinding) <- paste(COBINDFEATNAME, tfCol, sep=".")
       cofactBinding})
     names(cofactBindings) <- paste(COBINDFEATNAME,
