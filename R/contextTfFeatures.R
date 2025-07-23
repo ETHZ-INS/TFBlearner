@@ -45,6 +45,7 @@ contextTfFeatures <- function(mae,
                               ...){
 
   .checkObject(mae, checkFor=c("site", "context", "tf"), tfName=tfName)
+  tf <- tfName
 
   whichCol <- match.arg(whichCol, choices=c("All", "OnlyTrain", "Col"))
   whichContexts <- fifelse(addLabels, "Both", "ATAC")
@@ -79,7 +80,7 @@ contextTfFeatures <- function(mae,
   features <- unique(c(features, "Inserts"))
 
   tfCofactors <- unique(unlist(subset(colData(maeSub[[TFFEAT]]),
-                                      get(TFNAMECOL)==tfName)[[TFCOFACTORSCOL]]))
+                                      get(TFNAMECOL)==tf)[[TFCOFACTORSCOL]]))
 
   if(("Cofactor_ChromVAR_Scores" %in% features) & is.null(tfCofactors)){
     msg <- c("No cofactors have been specified when computing transcription ",
@@ -95,14 +96,13 @@ contextTfFeatures <- function(mae,
   names(atacFragPaths) <- names(atacFragFilePaths)
 
   # get list of motif ranges, this will eventually be refactored anyways
-  motifPath <- subset(colData(maeSub[[MOTIFEXP]]),
-                      get(MOTIFNAMECOL)==tfName)$origin
+  motifPath <- subset(colData(maeSub[[MOTIFEXP]]), get(MOTIFNAMECOL)==tf)$origin
   baseDir <- metadata(colData(maeSub[[MOTIFEXP]]))[[BASEDIRCOL]]
   motifRanges <- readRDS(file.path(baseDir, motifPath))
 
   if(addLabels){
-    colDataChIP <- colData(mae[[CHIPEXP]])
-    colDataChIP <- subset(colDataChIP, get(TFNAMECOL)==tfName)
+    colDataChIP <- as.data.table(colData(mae[[CHIPEXP]]))
+    colDataChIP <- subset(colDataChIP, get(TFNAMECOL)==tf)
     labelCols <- colDataChIP$combination
     names(labelCols) <- colDataChIP[[annoCol]]
     labels <- lapply(labelCols, function(col){
@@ -194,7 +194,7 @@ contextTfFeatures <- function(mae,
       warning("ChromVAR activity estimates can not be added if tfFeatures() with `Associated_Motif_Activity` and panContextFeatures() have not been called before")}
     else{
       selActMotifs <- unlist(subset(colData(mae[[TFFEAT]]),
-                                    get(TFNAMECOL)==tfName)[[PRESELACTCOL]])
+                                    get(TFNAMECOL)==tf)[[PRESELACTCOL]])
       devMat <- t(assays(mae[[ACTEXP]])[[NORMDEVASSAY]][selActMotifs, contexts, drop=FALSE])
       devMat <- as.matrix(devMat)
 

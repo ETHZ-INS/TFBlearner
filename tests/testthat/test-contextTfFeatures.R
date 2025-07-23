@@ -27,6 +27,18 @@ test_that("Context-TF-features: Correct training context selection", {
   expect_equal(rownames(colData(maeTest[[CONTEXTTFFEAT]])), "K562_CTCF")
 })
 
+test_that("Context-TF-features: Correct labelling",{
+  maeTest <- tfFeatures(maeTest, tfName="JUN", tfCofactors="CTCF",
+                        features="Binding_Patterns")
+  maeTest <- contextTfFeatures(maeTest, tfName="JUN",
+                               whichCol="OnlyTrain",
+                               features=c("Inserts", "Weighted_Inserts"))
+  expect_equal(assays(maeTest[[CHIPEXP]])[[PEAKASSAY]][,"K562_JUN",
+                                                       drop=TRUE],
+               assays(maeTest[[CONTEXTTFFEAT]])[[LABELCOLNAME]][,"K562_JUN",
+                                                                drop=TRUE])
+})
+
 test_that("Assays are preserved when computing for new TF", {
   assayNamesOrig <- names(assays(maeTest[[CONTEXTTFFEAT]]))
   maeTest <- tfFeatures(maeTest, tfName="JUN",

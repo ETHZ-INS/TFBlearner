@@ -202,8 +202,7 @@
 
   if(length(tfCofactors)>0){
     cofactBindings <- lapply(tfCofactors, function(tfCol){
-      cofactBinding <- Matrix::Matrix(
-        Matrix::rowMeans(chIPMat[,tfCols==tfCol, drop=FALSE]), ncol=1)
+      cofactBinding <- .aggregate(chIPMat[,tfCols==tfCol, drop=FALSE], aggVar="tf")
       colnames(cofactBinding) <- paste(COBINDFEATNAME, tfCol, sep=".")
       cofactBinding})
     names(cofactBindings) <- paste(COBINDFEATNAME,
@@ -359,7 +358,7 @@ tfFeatures <- function(mae,
   atacMat <- .convertToMatrix(assays(mae[[ATACEXP]])[[TOTALOVERLAPSFEATNAME]])
   colnames(atacMat) <- colnames(mae[[ATACEXP]])
   whichCol <- which(mae[[CHIPEXP]][[TFNAMECOL]]!=tfName)
-  chIPMat <- as(assays(mae[[CHIPEXP]])$peaks[,whichCol],"CsparseMatrix")
+  chIPMat <- as(assays(mae[[CHIPEXP]])[[PEAKASSAY]][,whichCol],"CsparseMatrix")
   colnames(chIPMat) <- paste(colData(mae[[CHIPEXP]])[whichCol,annoCol],
                              colData(mae[[CHIPEXP]])[whichCol,TFNAMECOL],
                              sep="_")
@@ -397,11 +396,12 @@ tfFeatures <- function(mae,
      ATACPROMEXP %in% names(experiments(mae))){
     message("Promoter association Features")
 
-    isProm <- which(rowData(mae[[ATACPROMEXP]])[[TFNAMECOL]]==tfName)
+    # TODO: Adapt the naming (in prepData.R)
+    isProm <- which(rowData(mae[[ATACPROMEXP]])[["tf_name"]]==tfName)
     atacPromMat <- atacPromMat[isProm,,drop=FALSE]
 
     promAsc <- .getAssociation(atacMat, atacPromMat)
-    colnames(promAsc) <- paste(promoterPrefix, colnames(promAsc), sep="_")
+    colnames(promAsc) <- paste(PROMOTERAFFIX, colnames(promAsc), sep="_")
     colNamesPromAsc <- colnames(promAsc)
 
     promAsc <- lapply(colNamesPromAsc, function(col) promAsc[,col,drop=FALSE])
