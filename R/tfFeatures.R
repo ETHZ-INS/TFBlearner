@@ -141,7 +141,6 @@
 .selectMotifs <- function(matchScores,
                           maxScores,
                           labels,
-                          addThr=4,
                           nMotifs=10,
                           subSample=10000)
 {
@@ -156,10 +155,9 @@
 
   # top motif scores
   matchCoScores <- matchSubScores
-  matchCoScores@x[matchCoScores@x < thr[matchCoScores@j + 1] &
-                    matchCoScores@x<addThr*scalFactMotif] <- 0
-  matchCoScores@x[matchCoScores@x >= thr[matchCoScores@j + 1] &
-                    matchCoScores@x>=addThr*scalFactMotif] <- 1
+  matchCoScores@x[matchCoScores@x < thr[matchCoScores@j + 1]] <- 0
+  matchCoScores@x[matchCoScores@x >= thr[matchCoScores@j + 1]] <- 1
+  matchCoScores <- drop0(matchCoScores)
 
   # get mutually exclusive motif scores
   zeroInd <- which(matchSubScores==0, arr.ind = TRUE)
@@ -168,28 +166,34 @@
                                 x=rep(1, nrow(zeroInd)),
                                 dims=c(nrow(matchSubScores),
                                        ncol(matchSubScores)))
+  colnames(matchExScores) <- colnames(matchSubScores)
 
   # jaccard index of mutually exclusive and top co-occuring motifs
   labels <- matrix(labels, nrow=length(labels), ncol=1)
   matchCo <- .jaccard(matchCoScores, labels)
-  matchCo[,motif_id:=1:.N]
   setorder(matchCo, -cont)
-  topCoMotif <- matchCo$motif_id[1:nMotifs]
+  topCoMotif <- matchCo$set1_col[1:nMotifs]
 
   matchEx <- .jaccard(matchExScores, labels)
-  matchEx[,motif_id:=1:.N]
   setorder(matchEx, -cont)
-  topExMotif <- matchEx$motif_id[1:nMotifs]
+  topExMotif <- matchEx$set1_col[1:nMotifs]
 
-  topExMotif <- intersect(topExMotif, colnames(matchScores))
-  topCoMotif <- intersect(topCoMotif, colnames(matchScores))
   selectedMotifs <- c(topCoMotif, topExMotif)
   if(length(selectedMotifs)>0){
-  names(selectedMotifs) <- c(paste(COMOTIFAFFIX, 1:length(topCoMotif), sep="_"),
-                             paste(EXMOTIFAFFIX, 1:length(topExMotif), sep="_"))}
-
-  # can happen if the motif-matches matrix has less columns than motifs to select
-  selectedMotifs <- unique(selectedMotifs[!is.na(selectedMotifs)])
+     if(length(topCoMotif)>0){
+       namesCo <- paste(COMOTIFAFFIX, 1:length(topCoMotif), sep="_")
+     }
+     else{
+       namesCo <- NULL
+     }
+     if(length(topExMotif)>0){
+       namesEx <- paste(EXMOTIFAFFIX, 1:length(topExMotif), sep="_")
+     }
+    else{
+      namesEx <- NULL
+    }
+    names(selectedMotifs) <- c(namesCo, namesEx)
+  }
 
   return(selectedMotifs)
 }
@@ -510,8 +514,9 @@ tfFeatures <- function(mae,
 
     maxScores <- colDataMotifs[[MAXSCORECOL]]
     selMotifs <- .selectMotifs(matchScores, maxScores, labels, nMotifs=nMotifs)
+    print(names(selMotifs))
     if(length(selMotifs)>0){
-      names(selMotifs) <- paste0(SELMOTIFPREFIX, names(selMotifs))}
+      names(selMotifs) <- paste(SELMOTIFPREFIX, names(selMotifs), sep=".")}
   }
   else{
     selMotifs <- NULL
@@ -559,7 +564,7 @@ tfFeatures <- function(mae,
     actAssoc <- assays(mae[[ASSOCEXP]])[[ASSOCASSAY]]
     actAssoc <- actAssoc[,!c(colnames(actAssoc) %in% priorMotifCols), drop=FALSE]
     selActMotifs <- .selectMotifs(actAssoc, rep(1, ncol(actAssoc)), labels,
-                                  addThr=0, nMotifs=nMotifs)
+                                  nMotifs=nMotifs)
     if(length(selActMotifs)>0){
       names(selActMotifs) <- paste0(SELMOTIFPREFIX, names(selActMotifs))}
   }
