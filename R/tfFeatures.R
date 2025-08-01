@@ -474,8 +474,7 @@ tfFeatures <- function(mae,
     names(tfSimMotifCols) <- paste(PRIORMOTIFPREFIX, 1:length(tfSimMotifCols),
                                 sep="_")}
 
-  tfCofactorCols <- unique(grep(paste(tfCofactors,collapse="|"),
-                                motifNames, value=TRUE))
+  tfCofactorCols <- intersect(tfCofactors, motifNames)
   if(length(tfCofactorCols)>0){
     names(tfCofactorCols) <- paste(TFCOFACTORMOTIFPREFIX,
                                    1:length(tfCofactorCols), sep="_")}
@@ -514,7 +513,6 @@ tfFeatures <- function(mae,
 
     maxScores <- colDataMotifs[[MAXSCORECOL]]
     selMotifs <- .selectMotifs(matchScores, maxScores, labels, nMotifs=nMotifs)
-    print(names(selMotifs))
     if(length(selMotifs)>0){
       names(selMotifs) <- paste(SELMOTIFPREFIX, names(selMotifs), sep=".")}
   }
@@ -531,8 +529,7 @@ tfFeatures <- function(mae,
     names(tfSimMotifCols) <- paste(PRIORMOTIFPREFIX, 1:length(tfSimMotifCols),
                                    sep="_")}
 
-  tfCofactorCols <- unique(grep(paste(tfCofactors,collapse="|"),
-                                actMotifNames, value=TRUE))
+  tfCofactorCols <- intersect(tfCofactors, actMotifNames)
   if(length(tfCofactorCols)>0){
     names(tfCofactorCols) <- paste(TFCOFACTORMOTIFPREFIX,
                                    1:length(tfCofactorCols), sep="_")}
