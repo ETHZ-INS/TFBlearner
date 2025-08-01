@@ -229,13 +229,13 @@ getFeatureMatrix <- function(mae,
             length(assays(seTfContext))+
             length(assays(seAtac))+
             length(intersect(colnames(colData(seAtac)),
-                   paste(MDSDIMFEATNAME, 1:2, sep="_")))
+                   paste(MDSDIMFEATNAME, 1:2, sep="_")))+
+           sum(addLabels)
 
   if(MAXATACCOLNAME %in% colnames(nonContextTfFeat)){
    nFeats <- nFeats+sum(grepl(INSERTFEATNAME, names(assays(seTfContext))))+
                     sum(TOTALOVERLAPSFEATNAME %in% names(assays(seAtac)))
   }
-  if(addLabels) nFeats <- nFeats+1 # for context-label column
 
   if(saveHdf5)
   {
