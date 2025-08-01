@@ -71,10 +71,22 @@
   mats <- lapply(mats, as, "TsparseMatrix")
   js <- cumsum(nCols)
   indDt <- lapply(1:length(mats), function(i){
-      j <- js[[i]]
+      if(i==1){
+        s <- 1
+      }else{
+        s <- js[[i-1]]+1
+      }
+      jNew <- s:js[[i]]
+      jOld <- mats[[i]]@j
+      if(length(jOld)==0){
+        repTimes <- 0}
+      else{
+        repTimes <- table(jOld)
+      }
+      jFull <- rep(jNew, times=repTimes)
       indDt <- data.table(x=mats[[i]]@x,
                           i=mats[[i]]@i+1,
-                          j=rep(j, length(mats[[i]]@x)))})
+                          j=jFull)})
   indDt <- rbindlist(indDt)
 
   # Get matrix
@@ -217,13 +229,13 @@ getFeatureMatrix <- function(mae,
             length(assays(seTfContext))+
             length(assays(seAtac))+
             length(intersect(colnames(colData(seAtac)),
-                   paste(MDSDIMFEATNAME, 1:2, sep="_")))
+                   paste(MDSDIMFEATNAME, 1:2, sep="_")))+
+           sum(addLabels)
 
   if(MAXATACCOLNAME %in% colnames(nonContextTfFeat)){
    nFeats <- nFeats+sum(grepl(INSERTFEATNAME, names(assays(seTfContext))))+
                     sum(TOTALOVERLAPSFEATNAME %in% names(assays(seAtac)))
   }
-  if(addLabels) nFeats <- nFeats+1 # for context-label column
 
   if(saveHdf5)
   {
@@ -326,13 +338,13 @@ getFeatureMatrix <- function(mae,
                                                  colnames(featsNormedMat))]
 
     # normalize by maximum ATAC-signal
-    if(MAXATACCOLNAME %in% colnames(nonContextTfFeat)){
+    if(MAXATACCOLNAME %in% colnames(otherFeatMat)){
       whichCol <- grepl(paste(CONTEXTTFFEAT, INSERTFEATNAME, sep="_"),
                         colnames(featsContextMat))
       countCols <- c(colnames(featsContextMat)[whichCol],
                    paste(CONTEXTFEAT, TOTALOVERLAPSFEATNAME, sep="_"))
       scaledSig <- .minMaxNormalization(featsContextMat[,countCols, drop=FALSE])
-      maxSig <- nonContextTfFeat[,MAXATACCOLNAME, drop=TRUE]
+      maxSig <- otherFeatMat[,MAXATACCOLNAME, drop=TRUE]
       maxScaledMat <- scaledSig / pmax(maxSig, 1e-4)
       colnames(maxScaledMat) <- paste(colnames(maxScaledMat),
                                       NORMEDMAXAFFIX, sep="_")
@@ -380,12 +392,12 @@ getFeatureMatrix <- function(mae,
     else{
       return(featsMat)
     }
-  }, seAtac, seTfContext,
-     tfName, tfCofactors,
-     nonContextTfFeat, norm,
-     saveChunk, hdf5FileName,
-     annoCol,
-     addLabels, convertInteger)
+  }, seAtac=seAtac, seTfContext=seTfContext,
+     tfName=tfName, tfCofactors=tfCofactors,
+     otherFeatMat=nonContextTfFeat, norm=norm,
+     saveChunk=saveChunk, hdf5FileName=hdf5FileName,
+     annoCol=annoCol, addLabels=addLabels,
+     convertInteger=convertInteger)
 
   featMats <- Reduce("rbind", featMats[-1], featMats[[1]])
   featMats <- suppressWarnings({Matrix::Matrix(featMats)})

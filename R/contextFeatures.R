@@ -119,7 +119,7 @@
                                               saveHdf5, outDir){
 
                                        data.table::setDTthreads(threads)
-                                       x <- as.integer(round(1000*cor(atacMat, assay(cvSe, NORMDEVASSAY)[motif,])))
+                                       x <- as.integer(round(scaleFactAct*cor(atacMat, assay(cvSe, NORMDEVASSAY)[motif,])))
                                        q <- as.integer(round(quantile(x, prob=c(0,0.1,0.2,0.8,0.9,1), na.rm=TRUE)))
                                        x[abs(x)<sparTh] <- 0L
                                        asc <- Matrix::Matrix(x, ncol=1)
