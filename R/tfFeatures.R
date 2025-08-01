@@ -563,8 +563,8 @@ tfFeatures <- function(mae,
     # select motifs co-occuring around ChIP-peaks or motif matches of TF of interest
     actAssoc <- assays(mae[[ASSOCEXP]])[[ASSOCASSAY]]
     actAssoc <- actAssoc[,!c(colnames(actAssoc) %in% priorMotifCols), drop=FALSE]
-    selActMotifs <- .selectMotifs(actAssoc, rep(1, ncol(actAssoc)), labels,
-                                  nMotifs=nMotifs)
+    selActMotifs <- .selectMotifs(actAssoc, rep(1*scaleFactAct, ncol(actAssoc)),
+                                  labels, nMotifs=nMotifs)
     if(length(selActMotifs)>0){
       names(selActMotifs) <- paste0(SELMOTIFPREFIX, names(selActMotifs))}
   }
