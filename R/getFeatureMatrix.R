@@ -239,7 +239,7 @@ getFeatureMatrix <- function(mae,
 
   if(saveHdf5)
   {
-    saveChunk <- fifelse(length(contexts)>3, TRUE, FALSE)
+    saveChunk <- fifelse(length(contexts)>1, TRUE, FALSE)
     if(is.null(outDir)) outDir <- getwd() # .
     if(!is.null(prefix)){
       fileName <- paste(prefix, "feature_matrix", tfName, sep="_")}
