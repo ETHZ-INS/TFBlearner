@@ -415,10 +415,12 @@ tfFeatures <- function(mae,
   if("Cofactor_Binding" %in% features){
     message("Cofactor Bindings")
     if(is.null(tfCofactors)){
-      stop("Please provide cofactor names (`tfCofactors`) if Cofactor_Bindings should be computed.")}
-    cofactBindings <- .getCofactorBindings(chIPMat, tfCofactors)
-    if(!is.null(cofactBindings)){
-      featMats <- append(featMats, cofactBindings)
+      warning("Please provide cofactor names (`tfCofactors`) if Cofactor_Bindings should be computed.")
+    }else{
+      cofactBindings <- .getCofactorBindings(chIPMat, tfCofactors)
+      if(!is.null(cofactBindings)){
+        featMats <- append(featMats, cofactBindings)
+      }
     }
   }
 
