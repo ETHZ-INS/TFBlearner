@@ -558,7 +558,7 @@ tfFeatures <- function(mae,
     selActMotifs <- .selectMotifs(actAssoc, rep(1*scaleFactAct, ncol(actAssoc)),
                                   labels, nMotifs=nMotifs)
     if(length(selActMotifs)>0){
-      names(selActMotifs) <- paste0(SELMOTIFPREFIX, names(selActMotifs))}
+      names(selActMotifs) <- paste(SELMOTIFPREFIX, names(selActMotifs), sep=".")}
   }
   else{
     selActMotifs <- NULL
