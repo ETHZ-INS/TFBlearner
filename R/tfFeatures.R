@@ -142,7 +142,7 @@
                           maxScores,
                           labels,
                           nMotifs=10,
-                          subSample=10000)
+                          subSample=2e5)
 {
   labels <- .binMat(labels, threshold=0L)
   labels <- .marginMax(labels, margin="row")
