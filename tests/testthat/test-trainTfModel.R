@@ -337,3 +337,12 @@ test_that("Sampling of additional points for training unweighted",{
   expect_equal(sum(labels[trainSet]==1)/length(trainSet),
                posFracExp, tolerance=0.01)
 })
+
+test_that("Context containing no positive labels",{
+  assays(fmTest)$features[rowData(fmTest)$context=="A549", LABELCOLNAME] <- 0
+  expect_no_error(trainTfModel(tfName="CTCF", fmTest, evalRounds=1))
+  expect_warning(trainTfModel(tfName="CTCF", fmTest, evalRounds=1),
+                 regexp="A549.*no positive labels")
+})
+
+# Context(s): A549 contain(s) no positive labels - removed from training data
