@@ -200,9 +200,7 @@
 
 .getCofactorBindings <- function(chIPMat, tfCofactors){
   tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
-  namesSub <- names(tfCofactors)[which(tfCofactors %in% tfCols)]
-  tfCofactors <- intersect(tfCols, tfCofactors)
-  names(tfCofactors) <- namesSub
+  tfCofactors <- tfCofactors[tfCofactors %in% tfCols]
 
   if(length(tfCofactors)>0){
     cofactBindings <- lapply(tfCofactors, function(tfCol){
@@ -210,7 +208,8 @@
       colnames(cofactBinding) <- paste(COBINDFEATNAME, tfCol, sep=".")
       cofactBinding})
     names(cofactBindings) <- paste(COBINDFEATNAME,
-                                   gsub(MOTIFAFFIX, "", namesSub), sep="_")
+                                   gsub(MOTIFAFFIX, "", names(tfCofactors)),
+                                   sep="_")
     return(cofactBindings)}
   else{
     return(NULL)
@@ -474,10 +473,7 @@ tfFeatures <- function(mae,
     names(tfSimMotifCols) <- paste(PRIORMOTIFPREFIX, 1:length(tfSimMotifCols),
                                 sep="_")}
 
-  tfCofactorCols <- intersect(tfCofactors, motifNames)
-  if(length(tfCofactorCols)>0){
-    names(tfCofactorCols) <- paste(TFCOFACTORMOTIFPREFIX,
-                                   1:length(tfCofactorCols), sep="_")}
+  tfCofactorCols <- tfCofactors[tfCofactors %in% motifNames]
   tfMotifCols <- intersect(tfName, motifNames)
   if(length(tfMotifCols)>0){
     names(tfMotifCols) <- paste(TFMOTIFPREFIX, 1:length(tfMotifCols), sep="_")}
@@ -529,10 +525,7 @@ tfFeatures <- function(mae,
     names(tfSimMotifCols) <- paste(PRIORMOTIFPREFIX, 1:length(tfSimMotifCols),
                                    sep="_")}
 
-  tfCofactorCols <- intersect(tfCofactors, actMotifNames)
-  if(length(tfCofactorCols)>0){
-    names(tfCofactorCols) <- paste(TFCOFACTORMOTIFPREFIX,
-                                   1:length(tfCofactorCols), sep="_")}
+  tfCofactorCols <- tfCofactors[tfCofactors %in% actMotifNames]
   tfMotifCols <- intersect(tfName, actMotifNames)
   if(length(tfMotifCols)>0){
     names(tfMotifCols) <- paste(TFMOTIFPREFIX, 1:length(tfMotifCols), sep="_")}
