@@ -60,3 +60,9 @@ test_that("Preselected motifs are saved in colData", {
   expect_true(is.vector(preSelActMotifs))
   expect_equal(preSelActMotifs[[paste(TFMOTIFPREFIX, 1, sep="_")]], "JUN")
 })
+
+test_that("No cofactors provided for co-binding features", {
+  experiments(maeTest2)[[TFFEAT]] <- NULL
+  expect_warning(tfFeatures(maeTest2, tfName="JUN", tfCofactors=NULL),
+                 regexp="provide cofactor names")
+})

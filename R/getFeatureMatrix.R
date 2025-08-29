@@ -178,8 +178,8 @@ getFeatureMatrix <- function(mae,
   }
 
   # get the cofactors
-  tfCofactors <- unique(unlist(subset(colData(mae[[TFFEAT]]),
-                                      get(TFNAMECOL)==tf)[[TFCOFACTORSCOL]]))
+  tfCofactors <- unlist(subset(colData(mae[[TFFEAT]]),
+                               get(TFNAMECOL)==tf)[[TFCOFACTORSCOL]])
 
   message("Attaching Site & TF-Features")
   selMotifs <- subset(colData(mae[[TFFEAT]]),

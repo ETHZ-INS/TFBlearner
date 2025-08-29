@@ -142,7 +142,7 @@
                           maxScores,
                           labels,
                           nMotifs=10,
-                          subSample=10000)
+                          subSample=2e5)
 {
   labels <- .binMat(labels, threshold=0L)
   labels <- .marginMax(labels, margin="row")
@@ -200,9 +200,7 @@
 
 .getCofactorBindings <- function(chIPMat, tfCofactors){
   tfCols <- unlist(tstrsplit(colnames(chIPMat), split="_", keep=2))
-  namesSub <- names(tfCofactors)[which(tfCofactors %in% tfCols)]
-  tfCofactors <- intersect(tfCols, tfCofactors)
-  names(tfCofactors) <- namesSub
+  tfCofactors <- tfCofactors[tfCofactors %in% tfCols]
 
   if(length(tfCofactors)>0){
     cofactBindings <- lapply(tfCofactors, function(tfCol){
@@ -210,7 +208,8 @@
       colnames(cofactBinding) <- paste(COBINDFEATNAME, tfCol, sep=".")
       cofactBinding})
     names(cofactBindings) <- paste(COBINDFEATNAME,
-                                   gsub(MOTIFAFFIX, "", namesSub), sep="_")
+                                   gsub(MOTIFAFFIX, "", names(tfCofactors)),
+                                   sep="_")
     return(cofactBindings)}
   else{
     return(NULL)
@@ -416,10 +415,12 @@ tfFeatures <- function(mae,
   if("Cofactor_Binding" %in% features){
     message("Cofactor Bindings")
     if(is.null(tfCofactors)){
-      stop("Please provide cofactor names (`tfCofactors`) if Cofactor_Bindings should be computed.")}
-    cofactBindings <- .getCofactorBindings(chIPMat, tfCofactors)
-    if(!is.null(cofactBindings)){
-      featMats <- append(featMats, cofactBindings)
+      warning("Please provide cofactor names (`tfCofactors`) if Cofactor_Bindings should be computed.")
+    }else{
+      cofactBindings <- .getCofactorBindings(chIPMat, tfCofactors)
+      if(!is.null(cofactBindings)){
+        featMats <- append(featMats, cofactBindings)
+      }
     }
   }
 
@@ -474,10 +475,7 @@ tfFeatures <- function(mae,
     names(tfSimMotifCols) <- paste(PRIORMOTIFPREFIX, 1:length(tfSimMotifCols),
                                 sep="_")}
 
-  tfCofactorCols <- intersect(tfCofactors, motifNames)
-  if(length(tfCofactorCols)>0){
-    names(tfCofactorCols) <- paste(TFCOFACTORMOTIFPREFIX,
-                                   1:length(tfCofactorCols), sep="_")}
+  tfCofactorCols <- tfCofactors[tfCofactors %in% motifNames]
   tfMotifCols <- intersect(tfName, motifNames)
   if(length(tfMotifCols)>0){
     names(tfMotifCols) <- paste(TFMOTIFPREFIX, 1:length(tfMotifCols), sep="_")}
@@ -529,10 +527,7 @@ tfFeatures <- function(mae,
     names(tfSimMotifCols) <- paste(PRIORMOTIFPREFIX, 1:length(tfSimMotifCols),
                                    sep="_")}
 
-  tfCofactorCols <- intersect(tfCofactors, actMotifNames)
-  if(length(tfCofactorCols)>0){
-    names(tfCofactorCols) <- paste(TFCOFACTORMOTIFPREFIX,
-                                   1:length(tfCofactorCols), sep="_")}
+  tfCofactorCols <- tfCofactors[tfCofactors %in% actMotifNames]
   tfMotifCols <- intersect(tfName, actMotifNames)
   if(length(tfMotifCols)>0){
     names(tfMotifCols) <- paste(TFMOTIFPREFIX, 1:length(tfMotifCols), sep="_")}
@@ -563,7 +558,7 @@ tfFeatures <- function(mae,
     selActMotifs <- .selectMotifs(actAssoc, rep(1*scaleFactAct, ncol(actAssoc)),
                                   labels, nMotifs=nMotifs)
     if(length(selActMotifs)>0){
-      names(selActMotifs) <- paste0(SELMOTIFPREFIX, names(selActMotifs))}
+      names(selActMotifs) <- paste(SELMOTIFPREFIX, names(selActMotifs), sep=".")}
   }
   else{
     selActMotifs <- NULL

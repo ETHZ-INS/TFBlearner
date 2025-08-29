@@ -22,7 +22,9 @@
 #' @export
 listFeatures <- function(){
   motifPrefices <- c(PRIORMOTIFPREFIX, TFMOTIFPREFIX, TFCOFACTORMOTIFPREFIX,
-                     SELMOTIFPREFIX, CTCFMOTIFPREFIX)
+                     paste(SELMOTIFPREFIX, COMOTIFAFFIX, sep="."),
+                     paste(SELMOTIFPREFIX, EXMOTIFAFFIX, sep="."),
+                     CTCFMOTIFPREFIX)
   featList <- data.table(feature_name=c("Sequence",
                                         "Width",
                                         "Annot",

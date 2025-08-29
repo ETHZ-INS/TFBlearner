@@ -560,6 +560,17 @@
     stop(paste("Feature matrix has been computed for", fmTfName, "and not for", tfName))
   }
 
+  # check for cellular contexts containing no-positive labels
+  labelCountDt <- as.data.table(table(isPos=assays(fm)$features[,LABELCOLNAME]>0,
+                                      context=rowData(fm)[[annoCol]]))
+  labelCountDt[,isPos:=as.logical(isPos)]
+  zeroContexts <- subset(labelCountDt, isPos & N==0)$context
+  if(length(zeroContexts)>0){
+    warning(paste("Context(s):", paste(zeroContexts, collapse=","),
+          "contain(s) no positive labels - removed from training data"))
+    fm <- fm[!(rowData(fm)[[annoCol]] %in% zeroContexts),]
+  }
+
   # sample stacked chrs
   rangesFm <- unique(rowRanges(fm))
   mcols(rangesFm) <- NULL
