@@ -93,7 +93,9 @@ test_that("Feature Matrix: Correct context selection - only for specified contex
                "A549")
   expect_equal(obsRanges, expRanges)
   expect_equal(metadata(fm)[[annoCol]], "A549")
-  expect_equal(metadata(fm)[[TFCOFACTORSCOL]], "JUN")
+  expCofactors <- c("JUN")
+  names(expCofactors) <- c("tfCofactorMotif_1")
+  expect_equal(metadata(fm)[[TFCOFACTORSCOL]], expCofactors)
 })
 
 test_that("Feature Matrix: Correct metadata assignment", {
