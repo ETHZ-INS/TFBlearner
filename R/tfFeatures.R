@@ -61,6 +61,10 @@
       chIPMat <- .binMat(chIPMat, threshold=0)
     }
 
+    message(paste("Applying nonnegative matrix factorization on a matrix of dimension",
+            nrow(chIPMat),"x", ncol(chIPMat), collapse=" "))
+    message(paste("Requested rank", nPatterns))
+
     if(is.null(aggFun)){
       chIPMat <- as(chIPMat, "CsparseMatrix")
       nmfRes <- suppressMessages(RcppML::nmf(chIPMat, k=nPatterns,
@@ -360,7 +364,10 @@ tfFeatures <- function(mae,
   # assay-matrices
   atacMat <- .convertToMatrix(assays(mae[[ATACEXP]])[[TOTALOVERLAPSFEATNAME]])
   colnames(atacMat) <- colnames(mae[[ATACEXP]])
-  whichCol <- which(mae[[CHIPEXP]][[TFNAMECOL]]!=tfName)
+  whichCol <- which(mae[[CHIPEXP]][[TFNAMECOL]]!=tfName &
+                    !(mae[[CHIPEXP]][["combination"]] %in%
+                    subset(sampleMap(mae), get(ISTESTCOL) & assay==CHIPEXP)$colname))
+
   chIPMat <- as(assays(mae[[CHIPEXP]])[[PEAKASSAY]][,whichCol],"CsparseMatrix")
   colnames(chIPMat) <- paste(colData(mae[[CHIPEXP]])[whichCol,annoCol],
                              colData(mae[[CHIPEXP]])[whichCol,TFNAMECOL],

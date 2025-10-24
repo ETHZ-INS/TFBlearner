@@ -66,3 +66,12 @@ test_that("No cofactors provided for co-binding features", {
   expect_warning(tfFeatures(maeTest2, tfName="JUN", tfCofactors=NULL),
                  regexp="provide cofactor names")
 })
+
+test_that("None of the testing ChIP-seq datasets used for binding pattern features", {
+  experiments(maeTest)[[TFFEAT]] <- NULL
+  experiments(maeTest2)[[TFFEAT]] <- NULL
+  expect_message(tfFeatures(maeTest, tfName="JUN", tfCofactors="CTCF"),
+                 regexp="dimension 100 x 1")
+  expect_message(tfFeatures(maeTest2, tfName="JUN", tfCofactors="CTCF"),
+                 regexp="dimension 100 x 1")
+})
