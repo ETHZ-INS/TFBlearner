@@ -208,3 +208,24 @@ test_that("Feature Matrix: correct features are normalized", {
   normedCols <- colnames(fm)[grepl(NORMEDAFFIX,colnames(fm))]
   expect_length(setdiff(normedCols, colNamesAll), 0)
 })
+
+test_that("Feature Matrix: normalization does not fail with NA containing columns", {
+
+  randMat <- matrix(runif(1e3), ncol=10, nrow=100)
+  randMat[sample(1:length(randMat),100)] <- NA
+
+  robNormed <- .robustNormalization(randMat)
+  expect_equal(which(is.na(robNormed)), which(is.na(randMat)))
+  expect_equal(which(is.na(robNormed)), which(is.na(randMat)))
+  expect_equal(sum(!is.na(robNormed)), sum(!is.na(randMat)))
+
+  minMaxNormed <- .minMaxNormalization(randMat)
+  expect_equal(which(is.na(minMaxNormed)), which(is.na(randMat)))
+  expect_equal(which(is.na(minMaxNormed)), which(is.na(randMat)))
+  expect_equal(sum(!is.na(minMaxNormed)), sum(!is.na(randMat)))
+
+  colNormed <- .contextNormalization(randMat, method="column")
+  expect_equal(which(is.na(colNormed)), which(is.na(randMat)))
+  expect_equal(which(is.na(colNormed)), which(is.na(randMat)))
+  expect_equal(sum(!is.na(colNormed)), sum(!is.na(randMat)))
+})
