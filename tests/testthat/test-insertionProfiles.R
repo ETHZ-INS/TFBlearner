@@ -83,7 +83,7 @@ test_that("Using precomputed profiles", {
                                                 symmetric=TRUE,
                                                 profiles=profiles,
                                                 margin=10),
-                 regexp="Using precomputed profiles")
+                 regexp="Skipped insertion-profiles computation. Using provided pre-computed ones")
   profiles <- rbindlist(profiles, idcol="motif_id")
   expect_equal(insRes$insertProfiles, profiles)
 })
@@ -120,4 +120,25 @@ test_that("Simplified output format", {
                                         WINSERTSFEATNAME,
                                         DEVFEATNAME))
   expect_identical(motifCoords, rowRanges(insRes))
+})
+
+test_that("Warning when using precomputed profile - not maching the motifRanges by name", {
+  profile <- data.table(rel_pos=-200:200)
+  profile[,w:=1/nrow(profile)]
+  profile <- list("ATF2"=profile)
+
+  motifRanges <-  readRDS(exampleMotif[["JUN"]])
+  motifRanges$motif_id <- "JUN"
+
+  atacData <- fread(exampleATAC$K562)
+  expect_warning(getInsertionProfiles(atacData,
+                                      motifRanges=motifRanges,
+                                      profiles=profile,
+                                      calcProfile=FALSE),
+                 regexp="Not all motif-ranges have an insertion-profile provided")
+  expect_message(suppressWarnings(getInsertionProfiles(atacData,
+                                      motifRanges=motifRanges,
+                                      profiles=profile,
+                                      calcProfile=FALSE)),
+                 regexp="Computing insertion-profiles")
 })

@@ -99,6 +99,7 @@ contextTfFeatures <- function(mae,
   motifPath <- subset(colData(maeSub[[MOTIFEXP]]), get(MOTIFNAMECOL)==tf)$origin
   baseDir <- metadata(colData(maeSub[[MOTIFEXP]]))[[BASEDIRCOL]]
   motifRanges <- readRDS(file.path(baseDir, motifPath))
+  motifRanges$motif_id <- tfName
 
   if(addLabels){
     colDataChIP <- as.data.table(colData(mae[[CHIPEXP]]))

@@ -116,6 +116,14 @@ getInsertionProfiles <- function(atacData,
     motifData[,motif_id:=1L]
   }
 
+  if(!calcProfile & !is.null(profiles) &
+     length(setdiff(motifData$motif_id, names(profiles)))>0){
+      warning("Not all motif-ranges have an insertion-profile provided.
+      If wished to use a pre-computed profile provide one for all the motifs specified in the motifRanges arg.
+      Switching to computing profiles for all (calcProfile=FALSE).")
+    calcProfile <- TRUE
+  }
+
   margin <- as.integer(margin)
   if(margin>0){
     motifMarginRanges <- as.data.table(GenomicRanges::resize(motifRanges,
@@ -180,6 +188,7 @@ getInsertionProfiles <- function(atacData,
   atacFrag <- split(atacFrag, by="chr")
 
   if(calcProfile){
+   message("Computing insertion-profiles")
    atacProfiles <- BiocParallel::bpmapply(function(md, af, stranded, shiftLeft){
       atacInserts <- .getInsertsPos(af, md, stranded, shiftLeft)
       atacProfile <- atacInserts[,.(pos_count_global=.N),
@@ -238,7 +247,7 @@ getInsertionProfiles <- function(atacData,
   else{
     atacProfiles <- profiles
     if(is.list(atacProfiles)){
-      message("Using precomputed profiles")
+      message("Skipped insertion-profiles computation. Using provided pre-computed ones")
       atacProfiles <- rbindlist(atacProfiles, idcol="motif_id")}
   }
 
