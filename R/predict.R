@@ -54,18 +54,15 @@ predictTfBinding <- function(models,
                              npDt, chunk, contextColName){
     data.table::setDTthreads(floor(numThreads/nWorker))
 
-    allFeats <- listFeatures()
-    colsToRemove <- unlist(subset(allFeats,
-                                  !included_in_training)$feature_matrix_column_names)
-    colsToRemove <- c(colsToRemove, LABELCOLNAME, contextColName, CSCORECOLNAME)
-    if(name==MODELALLNAME){
-      colsToRemove <- setdiff(colsToRemove, CSCORECOLNAME)
-    }
+    # get feature order, to ensure the same order of features
+    modText <- model$save_model_to_string()
+    featOrder <- unlist(tstrsplit(modText, split="\n", keep=8))
+    featOrder <- unlist(tstrsplit(gsub("feature_names=","", featOrder), split=" "))
 
     if(!is.null(chunk) & is.numeric(chunk)){
     predDts <- lapply(npDt, function(indDt){
-      pred  <- predict(model, as.matrix(data[indDt$ind, !(colnames(data) %in% colsToRemove)]))
-      predDt <- data.table(pred=pred)
+      preds  <- predict(model, as.matrix(data[indDt$ind,featOrder]))
+      predDt <- data.table(pred=preds)
 
       if(sparsify) predDt[,pred:=fifelse(pred*scalFactPred>model$params[[SPARSETHR]],pred,0L)]
       predDt
@@ -74,7 +71,7 @@ predictTfBinding <- function(models,
       predMat <- Matrix::Matrix(as.matrix(predDt))
     }
     else{
-      preds  <- predict(model, as.matrix(data[,!(colnames(data) %in% colsToRemove)]))
+      preds  <- predict(model, as.matrix(data[,featOrder]))
       predDt <- data.table(pred=preds)
       if(sparsify) predDt[,pred:=fifelse(pred*scalFactPred>model$params[[SPARSETHR]],pred,0L)]
       predMat <- Matrix::Matrix(as.matrix(predDt))

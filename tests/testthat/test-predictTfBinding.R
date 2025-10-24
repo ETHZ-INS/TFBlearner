@@ -45,8 +45,15 @@ test_that("Predictions: sparsification",{
   expect_no_error(preds <- predictTfBinding(modTest, fmTest, sparsify=TRUE))
 })
 
-
 test_that("Predictions: chunking",{
   preds <- NULL
   expect_no_error(preds <- predictTfBinding(modTest, fmTest, chunk=10))
+})
+
+# TODO: rethink this test, as lightgbm will not throw an error with mixed-up feature order.
+# Meaning the case here does not check the feature order just that correct number of columns is removed
+test_that("Feature order matches",{
+  featCols <- sample(colnames(fmTest), replace=FALSE)
+  expect_no_error(predictTfBinding(modTest, fmTest[,featCols]))
+  expect_no_warning(predictTfBinding(modTest, fmTest[,featCols]))
 })
