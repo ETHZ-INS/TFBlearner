@@ -61,9 +61,14 @@ test_that("Using precomputed profile", {
   profile[,w:=1/nrow(profile)]
   profile <- list("CTCF"=profile)
 
-  expect_message(contextTfFeatures(maeTest, tfName="CTCF",
+  contextTfFeatures(maeTest, tfName="CTCF",
+                    insertionProfile=profile)
+  expect_no_message(contextTfFeatures(maeTest, tfName="CTCF",
                                    insertionProfile=profile),
-                 regexp="Using pre-computed insertion-profiles")
+                    message="No insertion-profile provided, pre-computing on training data")
+  expect_no_message(contextTfFeatures(maeTest, tfName="CTCF",
+                                      insertionProfile=profile),
+                    message="Computing insertion-profiles")
   expect_message(maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
                                    insertionProfile=profile),
                  regexp="Skipped insertion-profiles computation. Using provided pre-computed ones")
@@ -98,15 +103,18 @@ test_that("Using precomputed profile - add provided via ... (profiles) arg", {
   profile[,w:=1/nrow(profile)]
   profile <- list("CTCF"=profile)
 
-  expect_message(contextTfFeatures(maeTest, tfName="CTCF",
+  expect_no_message(contextTfFeatures(maeTest, tfName="CTCF",
                                    profiles=profile),
-                 regexp="Using pre-computed insertion-profiles")
+                 message="No insertion-profile provided, pre-computing on training data")
+  expect_no_message(contextTfFeatures(maeTest, tfName="CTCF",
+                                      profiles=profile),
+                    message="Computing insertion-profiles")
   expect_message(maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
                                               profiles=profile),
                  regexp="Skipped insertion-profiles computation. Using provided pre-computed ones")
 })
 
-test_that("Warning when using precomputed profille -  via ... (profiles) and insertionProfile arg",{
+test_that("Warning when using precomputed profile -  via ... (profiles) and insertionProfile arg",{
   experiments(maeTest)[[CONTEXTTFFEAT]] <- NULL
   profile <- data.table(rel_pos=-200:200)
   profile[,w:=1/nrow(profile)]
@@ -116,4 +124,29 @@ test_that("Warning when using precomputed profille -  via ... (profiles) and ins
                                    profiles=profile,
                                    insertionProfile=profile),
                  regexp="*Provided duplicated argument*")
+})
+
+test_that("Using message when no pre-computed profile provided", {
+  experiments(maeTest)[[CONTEXTTFFEAT]] <- NULL
+
+  expect_message(contextTfFeatures(maeTest, tfName="CTCF",
+                                   insertionProfile=NULL),
+                 regexp="No insertion-profile provided, pre-computing on training data")
+  expect_message(contextTfFeatures(maeTest, tfName="CTCF",
+                                   insertionProfile=NULL),
+                 regexp="Computing insertion-profiles")
+})
+
+test_that("Weighted_Inserts not in features", {
+  experiments(maeTest)[[CONTEXTTFFEAT]] <- NULL
+
+  expect_no_message(contextTfFeatures(maeTest, features="Inserts",
+                                   tfName="CTCF"),
+                    message="No insertion-profile provided, pre-computing on training data")
+  expect_no_message(maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
+                                                 features="Inserts"),
+                    message="Computing insertion-profiles")
+
+  expect_equal(sum(grepl("weightedInserts", names(assays(maeTest[["contextTfFeat"]])))),
+               0)
 })
