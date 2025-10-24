@@ -91,3 +91,29 @@ test_that("Warning when using precomputed profile - not maching the motifRanges 
                                   insertionProfile=profile)),
                  regexp="Computing insertion-profiles")
 })
+
+test_that("Using precomputed profile - add provided via ... (profiles) arg", {
+  experiments(maeTest)[[CONTEXTTFFEAT]] <- NULL
+  profile <- data.table(rel_pos=-200:200)
+  profile[,w:=1/nrow(profile)]
+  profile <- list("CTCF"=profile)
+
+  expect_message(contextTfFeatures(maeTest, tfName="CTCF",
+                                   profiles=profile),
+                 regexp="Using pre-computed insertion-profiles")
+  expect_message(maeTest <- contextTfFeatures(maeTest, tfName="CTCF",
+                                              profiles=profile),
+                 regexp="Skipped insertion-profiles computation. Using provided pre-computed ones")
+})
+
+test_that("Warning when using precomputed profille -  via ... (profiles) and insertionProfile arg",{
+  experiments(maeTest)[[CONTEXTTFFEAT]] <- NULL
+  profile <- data.table(rel_pos=-200:200)
+  profile[,w:=1/nrow(profile)]
+  profile <- list("CTCF"=profile)
+
+  expect_warning(contextTfFeatures(maeTest, tfName="CTCF",
+                                   profiles=profile,
+                                   insertionProfile=profile),
+                 regexp="*Provided duplicated argument*")
+})

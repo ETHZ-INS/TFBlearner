@@ -115,6 +115,16 @@ contextTfFeatures <- function(mae,
     names(labels) <- contexts
   }
 
+  addArgs <- list(...)
+  if("profiles" %in% names(addArgs)){
+    if(is.null(insertionProfile)){
+      insertionProfile <- addArgs[["profiles"]]}
+    else{
+      warning("Provided duplicated argument, profiles (via ...) and insertionProfile.
+               Using insertionProfile.")
+    }
+  }
+
   # loop over contexts to get the features
   message("Get insert features")
   labels <- labels[contexts] # ensure ordering
