@@ -120,7 +120,7 @@ getInsertionProfiles <- function(atacData,
      length(setdiff(motifData$motif_id, names(profiles)))>0){
       warning("Not all motif-ranges have an insertion-profile provided.
       If wished to use a pre-computed profile provide one for all the motifs specified in the motifRanges arg.
-      Switching to computing profiles for all (calcProfile=FALSE).")
+      Switching to computing profiles for all (calcProfile=TRUE).")
     calcProfile <- TRUE
   }
 
