@@ -57,6 +57,9 @@ predictTfBinding <- function(models,
     # get feature order, to ensure the same order of features
     modText <- model$save_model_to_string()
     featOrder <- unlist(tstrsplit(modText, split="\n", keep=8))
+    if(!any(grepl("feature_names", featOrder))){
+      stop("Feature names could not be retrieved from the provided model.")
+    }
     featOrder <- unlist(tstrsplit(gsub("feature_names=","", featOrder), split=" "))
 
     if(!is.null(chunk) & is.numeric(chunk)){
