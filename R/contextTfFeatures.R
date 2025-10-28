@@ -99,6 +99,7 @@ contextTfFeatures <- function(mae,
   motifPath <- subset(colData(maeSub[[MOTIFEXP]]), get(MOTIFNAMECOL)==tf)$origin
   baseDir <- metadata(colData(maeSub[[MOTIFEXP]]))[[BASEDIRCOL]]
   motifRanges <- readRDS(file.path(baseDir, motifPath))
+  motifRanges$motif_id <- tfName
 
   if(addLabels){
     colDataChIP <- as.data.table(colData(mae[[CHIPEXP]]))
@@ -114,6 +115,37 @@ contextTfFeatures <- function(mae,
     names(labels) <- contexts
   }
 
+  addArgs <- list(...)
+  if("profiles" %in% names(addArgs)){
+    if(is.null(insertionProfile)){
+      insertionProfile <- addArgs[["profiles"]]}
+    else{
+      warning("Provided duplicated argument, profiles (via ...) and insertionProfile.
+               Using insertionProfile.")
+    }
+  }
+
+  # pre-compute insertion-profile on training data
+  if(is.null(insertionProfile) & "Weighted_Inserts" %in% features){
+    message("No insertion-profile provided, pre-computing on training data")
+
+    trainCols <- unique(subset(sampleMap(mae), get(ISTRAINCOL))$colname)
+    labContexts <- getContexts(mae, tfName=tfName, which="Both")
+    trainContexts <- intersect(trainCols, labContexts)
+
+    atacTrainFragFilePaths <- unlist(subset(colData(mae[[ATACEXP]]),
+                                            get(annoCol) %in% trainContexts)$origin)
+    baseDir <- metadata(colData(mae[[ATACEXP]]))[[BASEDIRCOL]]
+    atacTrainFragPaths <- file.path(baseDir, atacTrainFragFilePaths)
+
+    ins <- getInsertionProfiles(atacTrainFragPaths, motifRanges)
+    insertionProfile <- list(ins$insertProfiles)
+    names(insertionProfile) <- tfName
+  }
+  else if(!("Weighted_Inserts" %in% features)){
+    insertionProfile <- NULL
+  }
+
   # loop over contexts to get the features
   message("Get insert features")
   labels <- labels[contexts] # ensure ordering
@@ -123,20 +155,13 @@ contextTfFeatures <- function(mae,
                            threads, BPPARAM, ...){
     data.table::setDTthreads(threads)
 
-    calcProfile <- FALSE
-    if("Weighted_Inserts" %in% features & is.null(profile)){
-      calcProfile <- TRUE
-    }
-    else if("Weighted_Inserts" %in% features & !is.null(profile)){
-      message("Using pre-computed insertion-profiles")
-    }
-
     atacFrag <- atacFrag[names(atacFrag)==context]
 
     addArgs <- list(...)
     addArgs <- addArgs[names(addArgs) %in% c("margin", "shift",
                                              "subSample","symmetric",
                                              "stranded")]
+    calcProfile <- FALSE
     args <- c(list(atacData=atacFrag, motifRanges=motifRanges,
                    profiles=profile, calcProfile=calcProfile, BPPARAM=BPPARAM),
               addArgs)

@@ -11,7 +11,7 @@
   return(mat)
 }
 
-.marginMax <- function(mat, margin=c("row", "col")){
+.marginMax <- function(mat, margin=c("row", "col"), naRm=TRUE){
 
   margin <- match.arg(margin, choices=c("col", "row"))
   if(margin=="row"){fun <- MatrixGenerics::rowMaxs}
@@ -20,11 +20,11 @@
   if(!is(mat, "CsparseMatrix") & !is(mat, "TsparseMatrix")){
     mat <- as.matrix(mat)
   }
-  marginMax <- fun(mat)
+  marginMax <- fun(mat, na.rm=naRm)
   return(marginMax)
 }
 
-.marginSum <- function(mat, margin=c("row", "col")){
+.marginSum <- function(mat, margin=c("row", "col"), naRm=TRUE){
 
   margin <- match.arg(margin, choices=c("col", "row"))
   if(margin=="row"){fun <- MatrixGenerics::rowSums}
@@ -33,11 +33,11 @@
   if(!is(mat, "CsparseMatrix") & !is(mat, "TsparseMatrix")){
     mat <- as.matrix(mat)
   }
-  marginMax <- fun(mat)
+  marginMax <- fun(mat, na.rm=naRm)
   return(marginMax)
 }
 
-.marginQuant <- function(mat, probs, margin=c("row", "col")){
+.marginQuant <- function(mat, probs, margin=c("row", "col"), naRm=TRUE){
 
   margin <- match.arg(margin, choices=c("col", "row"))
   if(margin=="row"){fun <- MatrixGenerics::rowQuantiles}
@@ -45,7 +45,7 @@
   if(!is(mat, "CsparseMatrix") & !is(mat, "TsparseMatrix")){
     mat <- as.matrix(mat)
   }
-  marginQuant <- t(fun(mat, probs=probs))
+  marginQuant <- t(fun(mat, probs=probs, na.rm=naRm))
 
   return(marginQuant)
 }
