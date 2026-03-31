@@ -26,9 +26,8 @@ rebaseMaeH5paths <- function(mae, newBase=vector("character")){
   for(e in delayedExp){
     for(a in assayNames(experiments(mae)[[e]])){
       if(inherits(assay(experiments(mae)[[e]], a), "DelayedArray")){
-        b <- basename(assay(experiments(mae)[[e]], a)@seed@seed@filepath)
-        newPath <- file.path(newBase[[e]], b)
-        assay(experiments(mae)[[e]], a)@seed@seed@filepath <- newPath
+        assay(experiments(mae)[[e]], a)@seed <- 
+          .updateH5fp(assay(experiments(mae)[[e]], a)@seed, newBase[[e]])
       }
     }
   }
@@ -56,11 +55,23 @@ getMaeH5paths <- function(x){
     return(lapply(experiments(x), getMaeH5paths))
   if(!inherits(x, "SummarizedExperiment"))
     stop("`x` should inherit either SummarizeExperiment or MultiAssayExperiment.")
-  p <- lapply(assays(x), \(y){
-    if(!inherits(y, "DelayedArray")) return(NULL)
-    y@seed@seed@filepath
-  })
+  p <- lapply(assays(x), .getH5fp)
   unique(unlist(p[!sapply(p, is.null)]))
+}
+
+.getH5fp <- function(x){
+  if("seed" %in% slotNames(x)) return(.getH5fp(x@seed))
+  if("filepath" %in% slotNames(x)) return(x@filepath)
+  NULL
+}
+
+.updateH5fp <- function(x, basepath){
+  if("seed" %in% slotNames(x)){
+    x@seed <- .updateH5fp(x@seed, basepath)
+  }else if("filepath" %in% slotNames(x)){
+    x@filepath <- file.path(basepath, basename(x@filepath))
+  }
+  x
 }
 
 #' loadMae - load a MultiAssayExperiment object
@@ -120,4 +131,3 @@ saveMae <- function(mae, filepath, copyH5=FALSE){
   mae <- rebaseMaeH5paths(mae, dirname(filepath))
   base::saveRDS(mae, filepath)
 }
-
